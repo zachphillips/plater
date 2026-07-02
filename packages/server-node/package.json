@@ -6,12 +6,14 @@
   "exports": {
     "./config": "./config.js",
     "./content": "./content.js",
-    "./save": "./save.js"
+    "./save": "./save.js",
+    "./agent-note": "./agent-note.js"
   },
   "files": [
     "config.js",
     "content.js",
-    "save.js"
+    "save.js",
+    "agent-note.js"
   ],
   "license": "UNLICENSED"
 }

@@ -1,0 +1,21 @@
+{
+  "_comment": "Server-side allowlist on Trapjaw. Copy to sites.json. The client names a site; the repo/path/defaults are resolved HERE so a caller can never target an arbitrary repo. 'path' is the local checkout on Trapjaw.",
+  "sherwood": {
+    "repo": "zachphillips/sherwood",
+    "path": "/home/zach/zms-agent/repos/sherwood",
+    "defaultEngine": "claude",
+    "defaultOutput": "pr"
+  },
+  "greatrebellion": {
+    "repo": "zachphillips/thegreatrebellion",
+    "path": "/home/zach/zms-agent/repos/thegreatrebellion",
+    "defaultEngine": "claude",
+    "defaultOutput": "pr"
+  },
+  "zachphillips": {
+    "repo": "zachphillips/zachphillips",
+    "path": "/home/zach/zms-agent/repos/zachphillips",
+    "defaultEngine": "codex",
+    "defaultOutput": "pr"
+  }
+}

@@ -125,9 +125,10 @@ async function runner() {
     const engine = ENGINES[job.route.engine] ? job.route.engine : (site.defaultEngine || 'claude');
     const output = job.route.output || site.defaultOutput || 'pr';
 
-    // fresh branch from origin/main
+    // fresh branch from the site's base branch (default main)
+    const base = site.branch || 'main';
     await run('git', ['-C', repoPath, 'fetch', 'origin', '--quiet']);
-    await run('git', ['-C', repoPath, 'checkout', '-B', branch, 'origin/main', '--quiet']);
+    await run('git', ['-C', repoPath, 'checkout', '-B', branch, `origin/${base}`, '--quiet']);
 
     // run the agent in the repo
     const [cmd, args] = ENGINES[engine](buildPrompt(job, site));
@@ -147,7 +148,7 @@ async function runner() {
     await run('git', ['-C', repoPath, '-c', 'user.name=Zach Phillips', '-c', 'user.email=zach@thekitchen.co', 'commit', '-q', '-m', msg]);
 
     if (output === 'push') {
-      const pr = await run('git', ['-C', repoPath, 'push', 'origin', 'HEAD:main', '--quiet']);
+      const pr = await run('git', ['-C', repoPath, 'push', 'origin', `HEAD:${base}`, '--quiet']);
       update({ status: pr.ok ? 'pushed' : 'push-failed', detail: pr.stderr.slice(-300) });
     } else {
       await run('git', ['-C', repoPath, 'push', '-u', 'origin', branch, '--force-with-lease', '--quiet']);

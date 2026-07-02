@@ -1,0 +1,14 @@
+{
+  "name": "zms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ZMS — a reusable in-browser CMS + click-to-note agent-routing module for the Kitchen fleet. Extracted from the Sherwood reference CMS.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "doctor": "node cli/zms.js doctor"
+  },
+  "license": "UNLICENSED"
+}

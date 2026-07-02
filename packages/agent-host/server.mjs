@@ -29,11 +29,15 @@ const MAX_CONCURRENT = Number(process.env.ZMS_AGENT_CONCURRENCY || 2);
 
 // Engine command builders. Each returns [cmd, args]. Tuned per engine; the
 // agent edits files in cwd, the runner handles git/PR deterministically after.
+// Engine command builders. bubblewrap sandboxing needs user-namespaces which
+// aren't enabled on Trapjaw, so codex runs with --dangerously-bypass sandbox
+// (the box is trusted, single-tenant). claude uses acceptEdits.
 const ENGINES = {
   claude: (prompt) => ['claude', ['-p', prompt, '--permission-mode', 'acceptEdits']],
-  codex: (prompt) => ['codex', ['exec', '--full-auto', prompt]],
-  // Local model via codex's oss provider (qwen-coder on the 3080). Draft-quality.
-  local: (prompt) => ['codex', ['exec', '--full-auto', '--oss', '-m', process.env.ZMS_LOCAL_MODEL || 'qwen2.5-coder:7b', prompt]],
+  codex: (prompt) => ['codex', ['exec', '--dangerously-bypass-approvals-and-sandbox', prompt]],
+  // Local model via codex's ollama provider (qwen-coder on the 3080). Draft-only;
+  // small models are unreliable at agentic file edits — prefer claude/codex.
+  local: (prompt) => ['codex', ['exec', '--oss', '--local-provider=ollama', '-m', process.env.ZMS_LOCAL_MODEL || 'qwen2.5-coder:7b', '--dangerously-bypass-approvals-and-sandbox', prompt]],
 };
 
 if (!TOKEN) { console.error('FATAL: ZMS_AGENT_TOKEN is not set'); process.exit(1); }
@@ -78,6 +82,9 @@ function run(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const child = execFile(cmd, args, { timeout: JOB_TIMEOUT_MS, maxBuffer: 20_000_000, ...opts },
       (err, stdout, stderr) => resolve({ ok: !err, code: err?.code, stdout: String(stdout || ''), stderr: String(stderr || '') }));
+    // Close stdin so headless agents (claude -p / codex exec) get EOF immediately
+    // instead of waiting ~3s for piped input that never comes.
+    try { if (child.stdin) child.stdin.end(); } catch {}
     if (opts.onChild) opts.onChild(child);
   });
 }

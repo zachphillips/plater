@@ -1,0 +1,17 @@
+{
+  "meta": { "title": "ZMS Demo — extracted core" },
+  "hero": {
+    "headline": "This page is rendered and edited by @zms/core.",
+    "subhead": "Same engine as Sherwood — now a package. Press the button or add ?edit to the URL."
+  },
+  "features": [
+    "Inline contenteditable copy editing",
+    "Google SSO or shared edit-token auth",
+    "Durable save via a GitHub commit"
+  ],
+  "tools": [
+    { "name": "@zms/core", "desc": "framework-free client editor" },
+    { "name": "@zms/server-node", "desc": "drop-in Vercel handlers" },
+    { "name": "@zms/capture", "desc": "click → note → agent (next)" }
+  ]
+}

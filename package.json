@@ -7,6 +7,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "bin": {
+    "zms": "cli/zms.js"
+  },
   "scripts": {
     "doctor": "node cli/zms.js doctor"
   },

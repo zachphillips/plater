@@ -8,7 +8,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); // ZMS.org/
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); // ZMS/ repo root
 const CONTENT = path.join(ROOT, 'examples/static-site/content/site.json');
 const PORT = Number(process.env.PORT || 4188);
 

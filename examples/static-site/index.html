@@ -60,7 +60,16 @@
 
   <script type="module">
     import { initZMS } from '/packages/core/src/editor.js';
-    initZMS({ brand: 'ZMS Demo' });
+    import { initCapture } from '/packages/capture/src/capture.js';
+    const zms = initZMS({ brand: 'ZMS Demo' });
+    const cap = initCapture({ apiBase: '/api', getToken: zms.getToken, brand: 'ZMS Demo' });
+    // demo hook: ?note auto-opens the note popover on the headline (for screenshots)
+    if (new URLSearchParams(location.search).has('note')) {
+      window.addEventListener('load', () => setTimeout(() => {
+        document.querySelector('#cms-bar').hidden = false;
+        cap.openFor(document.querySelector('h1'));
+      }, 400));
+    }
   </script>
 </body>
 </html>

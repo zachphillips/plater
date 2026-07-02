@@ -286,6 +286,10 @@ export function initZMS(options = {}) {
     setEditable,
     save,
     refresh: render,
+    // Exposed so @zms/capture can authenticate note-routing with the same
+    // credential the editor uses (Google ID token or shared edit token).
+    getToken: () => ID_TOKEN,
+    getConfig: () => CONFIG,
   };
 }
 

@@ -33,6 +33,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
       return res.end(await fs.readFile(CONTENT, 'utf8').catch(() => '{}'));
     }
+    if (p === '/api/agent-note' && req.method === 'POST') {
+      const body = JSON.parse(await readBody(req) || '{}');
+      res.writeHead(202, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ id: 'demo-' + Math.round(body.note ? body.note.length : 0), status: 'queued' }));
+    }
     if (p === '/api/save' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
       if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected {content}"}'); }

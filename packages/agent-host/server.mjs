@@ -39,6 +39,11 @@ const ENGINES = {
 if (!TOKEN) { console.error('FATAL: ZMS_AGENT_TOKEN is not set'); process.exit(1); }
 fs.mkdirSync(WORKDIR, { recursive: true });
 
+// Never let a git subprocess block on an interactive credential/host prompt —
+// it must fail fast so a job errors instead of hanging until the job timeout.
+process.env.GIT_TERMINAL_PROMPT = '0';
+process.env.GIT_SSH_COMMAND = 'ssh -oBatchMode=yes';
+
 let SITES = {};
 function loadSites() {
   try { SITES = JSON.parse(fs.readFileSync(SITES_FILE, 'utf8')); }

@@ -1,0 +1,32 @@
+# ibsky D4: deps/docs PRs self-merge after CI succeeds. Everything else waits
+# for Zach. Runs on CI completion; merges only labeled, still-open, mergeable PRs.
+name: automerge
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  automerge:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge eligible PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          prs=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" -q '.[].number')
+          for pr in $prs; do
+            labels=$(gh pr view "$pr" -R "$REPO" --json labels,state -q '[.state] + (.labels | map(.name)) | join(",")')
+            case "$labels" in
+              OPEN*deps*|OPEN*docs*)
+                echo "auto-merging PR #$pr ($labels)"
+                gh pr merge "$pr" -R "$REPO" --squash --delete-branch || echo "merge failed for #$pr (needs human)"
+                ;;
+              *) echo "PR #$pr not eligible ($labels)";;
+            esac
+          done

@@ -1,0 +1,10 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  ci:
+    uses: zachphillips/ibsky/.github/workflows/base.yml@main
+    with:
+      working-directory: "."

@@ -74,7 +74,7 @@ async function commitToGitHub(content, who) {
     content: Buffer.from(stableJson(content)).toString('base64'),
     branch: GITHUB_BRANCH,
     ...(sha ? { sha } : {}),
-    committer: { name: 'ZMS CMS', email: ADMIN_EMAIL },
+    committer: { name: 'Heard CMS', email: ADMIN_EMAIL },
     author: { name: 'Zach Phillips', email: ADMIN_EMAIL },
   };
 

@@ -1,4 +1,4 @@
-// Minimal dev server for the ZMS static-site example.
+// Minimal dev server for the Plater static-site example.
 // Serves the repo root (so the browser can import /packages/core/src/editor.js)
 // and mounts config/content/save against the example's site.json. Dev-only:
 // /api/config advertises devNoauth so the editor UI appears without auth, and
@@ -8,12 +8,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); // ZMS/ repo root
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); // plater/ repo root
 const CONTENT = path.join(ROOT, 'examples/static-site/content/site.json');
 const PORT = Number(process.env.PORT || 4188);
 
 // Point the review module at the example site (its env is read at import time).
-process.env.ZMS_WEB_ROOT = process.env.ZMS_WEB_ROOT || path.join(ROOT, 'examples/static-site');
+process.env.PLATER_WEB_ROOT = process.env.PLATER_WEB_ROOT || process.env.ZMS_WEB_ROOT || path.join(ROOT, 'examples/static-site');
 process.env.GITHUB_EDIT_PATH = process.env.GITHUB_EDIT_PATH || CONTENT;
 process.env.PLATER_REVIEW_PATH = process.env.PLATER_REVIEW_PATH || path.join(ROOT, 'examples/static-site/.plater-review.json');
 process.env.PLATER_REVIEW_WEBHOOK = process.env.PLATER_REVIEW_WEBHOOK || `http://127.0.0.1:${PORT}/dev-webhook`;
@@ -96,4 +96,4 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => console.log(`ZMS demo on http://127.0.0.1:${PORT} (root=${ROOT})`));
+server.listen(PORT, '127.0.0.1', () => console.log(`Plater demo on http://127.0.0.1:${PORT} (root=${ROOT})`));

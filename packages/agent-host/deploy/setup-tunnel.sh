@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stand up the Cloudflare Tunnel for the ZMS agent host on Trapjaw.
+# Stand up the Cloudflare Tunnel for the Plater agent host on Trapjaw.
 # PREREQUISITE: run `~/bin/cloudflared tunnel login` first and authorize the
 # thekitchen.co zone (creates ~/.cloudflared/cert.pem). This script is safe to
 # re-run (idempotent).

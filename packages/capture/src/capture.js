@@ -1,4 +1,4 @@
-// @zms/capture — click an element on the live page, leave a note, choose where
+// @plater/capture — click an element on the live page, leave a note, choose where
 // it goes (engine × output), and route it to the agent host via the site's
 // /api/agent-note relay. A refined, unobtrusive editing overlay: it sits on top
 // of the host site, imposes no fonts, and stays out of the way until invoked.
@@ -101,7 +101,7 @@ export function initCapture(opts = {}) {
     engines = [{ id: 'claude', label: 'Claude' }, { id: 'codex', label: 'Codex' }, { id: 'local', label: 'Local' }],
     outputs = [{ id: 'pr', label: 'Open PR' }, { id: 'push', label: 'Publish' }],
     defaults = { engine: 'claude', output: 'pr' },
-    brand = 'ZMS',
+    brand = 'Plater',
     barSelector = '#cms-bar',
   } = opts;
 

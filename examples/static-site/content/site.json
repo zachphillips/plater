@@ -1,9 +1,9 @@
 {
   "meta": {
-    "title": "ZMS Demo — extracted core"
+    "title": "Plater Demo — extracted core"
   },
   "hero": {
-    "headline": "This page is rendered and edited by @zms/core.",
+    "headline": "This page is rendered and edited by @plater/core.",
     "subhead": "Same engine as Sherwood — now a package. Press the button or add ?edit to the URL."
   },
   "features": [
@@ -13,15 +13,15 @@
   ],
   "tools": [
     {
-      "name": "@zms/core",
+      "name": "@plater/core",
       "desc": "framework-free client editor"
     },
     {
-      "name": "@zms/server-node",
+      "name": "@plater/server-node",
       "desc": "drop-in Vercel handlers"
     },
     {
-      "name": "@zms/capture",
+      "name": "@plater/capture",
       "desc": "click → note → agent (next)"
     }
   ],

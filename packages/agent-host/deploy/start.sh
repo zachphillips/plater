@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start (or self-heal) the ZMS agent host in a tmux session on Trapjaw.
+# Start (or self-heal) the Plater agent host in a tmux session on Trapjaw.
 # Sources host.env INSIDE the tmux command so it works even when a pre-existing
 # tmux server holds a stale environment (the gotcha: `tmux new-session` inherits
 # the running server's env, not the caller's). Wired to cron (@reboot + */5).

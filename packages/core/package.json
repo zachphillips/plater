@@ -1,5 +1,5 @@
 {
-  "name": "@zms/core",
+  "name": "@plater/core",
   "version": "0.1.0",
   "description": "Framework-free in-browser CMS editor: renders site.json via data-bind attributes, inline contenteditable editing, Google-SSO-or-edit-token auth, durable save. Extracted from the Sherwood reference implementation.",
   "type": "module",

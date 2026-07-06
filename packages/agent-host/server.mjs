@@ -1,4 +1,4 @@
-// ZMS agent host — runs on Trapjaw. Receives a captured note (element context +
+// Plater agent host — runs on Trapjaw. Receives a captured note (element context +
 // the owner's instruction + a chosen engine/output), then runs a coding agent
 // against the target site's repo checkout and opens a PR (or pushes).
 //
@@ -153,7 +153,7 @@ async function runner() {
     } else {
       await run('git', ['-C', repoPath, 'push', '-u', 'origin', branch, '--force-with-lease', '--quiet']);
       const pr = await run('gh', ['pr', 'create', '--repo', site.repo, '--head', branch, '--title', msg, '--body',
-        `Requested via ZMS note.\n\n> ${job.note || ''}\n\nElement: \`${job.capture?.selector || ''}\`\nPage: ${job.capture?.url || ''}`], { cwd: repoPath });
+        `Requested via Plater note.\n\n> ${job.note || ''}\n\nElement: \`${job.capture?.selector || ''}\`\nPage: ${job.capture?.url || ''}`], { cwd: repoPath });
       const url = (pr.stdout.match(/https?:\/\/\S+/) || [])[0] || null;
       update({ status: pr.ok ? 'pr-open' : 'pr-failed', prUrl: url, detail: pr.ok ? undefined : pr.stderr.slice(-300) });
     }

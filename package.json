@@ -13,6 +13,7 @@
   },
   "scripts": {
     "doctor": "node cli/plater.js doctor",
+    "lint": "find cli examples packages test -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "test": "node --test"
   },
   "license": "UNLICENSED"

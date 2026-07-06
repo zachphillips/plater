@@ -7,13 +7,15 @@
     "./config": "./config.js",
     "./content": "./content.js",
     "./save": "./save.js",
-    "./agent-note": "./agent-note.js"
+    "./agent-note": "./agent-note.js",
+    "./review": "./review.js"
   },
   "files": [
     "config.js",
     "content.js",
     "save.js",
-    "agent-note.js"
+    "agent-note.js",
+    "review.js"
   ],
   "license": "UNLICENSED"
 }

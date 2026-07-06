@@ -40,6 +40,15 @@ export { default } from '@zms/server-node/config';
 export { default } from '@zms/server-node/content';
 // api/save.js
 export { default } from '@zms/server-node/save';
+// api/review.js  (edit-mode sitemap + per-page review state)
+export { default } from '@zms/server-node/review';
+```
+
+For external consumers (e.g. the ibsky rail), alias the review status endpoint
+in `vercel.json`:
+
+```json
+{ "rewrites": [{ "source": "/plater/review-status", "destination": "/api/review" }] }
 ```
 
 And in the page:
@@ -68,7 +77,26 @@ CMS_SITE_NAME        short name used in commit messages
 CMS_DEPLOY_HOOK      optional; only if not git-connected
 ZMS_AGENT_ENDPOINT   Trapjaw agent host URL (for @zms/agent-bridge)
 ZMS_AGENT_TOKEN      bearer secret for the agent host
+ZMS_WEB_ROOT         static web root for page enumeration (default: web/, public/, .)
+PLATER_REVIEW_PATH   review-state file path (default .plater-review.json)
+PLATER_REVIEW_WEBHOOK  reviewWebhook: POSTed when the last unreviewed page is marked reviewed
 ```
+
+## Review state (multi-page sites)
+
+In `?edit` mode on a multi-page site, the editor shows a collapsible left
+sitemap listing every page with a persistent "reviewed" checkbox. State lives
+in `.plater-review.json` at the repo root, committed like any other Plater
+save:
+
+```json
+{ "/about.html": { "reviewed_at": "<iso>", "by": "<email>", "content_hash": "<sha256>" } }
+```
+
+The hash covers the page's HTML plus the content values it binds, so a later
+push or edit automatically flips the page back to unreviewed. `GET /api/review`
+(alias `/plater/review-status`) reports per-page state + counts +
+`fully_reviewed` for external queues.
 
 Status: **0.1.0 — foundation.** Core + server extracted from Sherwood. Capture,
 router-ui, blog, agent-bridge, and the Trapjaw host are in progress.

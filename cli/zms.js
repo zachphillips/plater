@@ -32,6 +32,9 @@ const ENV = [
   ['CMS_SITE_NAME', 'short name used in commit messages'],
   ['ZMS_AGENT_ENDPOINT', 'agent host URL (enables note→agent routing)'],
   ['ZMS_AGENT_TOKEN', 'bearer secret shared with the agent host'],
+  ['ZMS_WEB_ROOT', 'static web root for sitemap page enumeration (optional)'],
+  ['PLATER_REVIEW_PATH', 'review-state file (default .plater-review.json)'],
+  ['PLATER_REVIEW_WEBHOOK', 'reviewWebhook — POSTed when the site becomes fully reviewed'],
 ];
 
 function findWebRoot(dir) {
@@ -63,6 +66,7 @@ function doctor(dir) {
     ['api/content.js', exists(path.join(apiAbs, 'content.js'))],
     ['api/save.js', exists(path.join(apiAbs, 'save.js'))],
     ['api/agent-note.js', exists(path.join(apiAbs, 'agent-note.js')), 'note→agent optional'],
+    ['api/review.js', exists(path.join(apiAbs, 'review.js')), 'sitemap review optional'],
   ];
   let hard = 0;
   for (const [label, pass, opt] of checks) {
@@ -85,7 +89,7 @@ function init(dir) {
   fs.copyFileSync(path.join(PKG, 'core/src/editor.js'), path.join(webAbs, 'zms-core.js'));
   fs.copyFileSync(path.join(PKG, 'capture/src/capture.js'), path.join(webAbs, 'zms-capture.js'));
   // scaffold api handlers as re-exports of the vendored server package
-  for (const [name, sub] of [['config', 'config'], ['content', 'content'], ['save', 'save'], ['agent-note', 'agent-note']]) {
+  for (const [name, sub] of [['config', 'config'], ['content', 'content'], ['save', 'save'], ['agent-note', 'agent-note'], ['review', 'review']]) {
     const dst = path.join(apiAbs, `${name}.js`);
     if (!exists(dst)) fs.copyFileSync(path.join(PKG, 'server-node', `${sub}.js`), dst);
   }
@@ -105,6 +109,7 @@ const SYNC_MAP = [
   ['server-node/content.js', () => path.join('api', 'content.js')],
   ['server-node/save.js', () => path.join('api', 'save.js')],
   ['server-node/agent-note.js', () => path.join('api', 'agent-note.js')],
+  ['server-node/review.js', () => path.join('api', 'review.js')],
 ];
 
 function sync(dir) {

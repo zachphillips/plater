@@ -12,6 +12,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); /
 const CONTENT = path.join(ROOT, 'examples/static-site/content/site.json');
 const PORT = Number(process.env.PORT || 4188);
 
+// Point the review module at the example site (its env is read at import time).
+process.env.ZMS_WEB_ROOT = process.env.ZMS_WEB_ROOT || path.join(ROOT, 'examples/static-site');
+process.env.GITHUB_EDIT_PATH = process.env.GITHUB_EDIT_PATH || CONTENT;
+process.env.PLATER_REVIEW_PATH = process.env.PLATER_REVIEW_PATH || path.join(ROOT, 'examples/static-site/.plater-review.json');
+process.env.PLATER_REVIEW_WEBHOOK = process.env.PLATER_REVIEW_WEBHOOK || `http://127.0.0.1:${PORT}/dev-webhook`;
+const { computeStatus, setReviewed } = await import('../packages/server-node/review.js');
+const WEBHOOK_HITS = []; // dev-only: inspect at GET /dev-webhook
+
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
 
 async function readBody(req) {
@@ -38,6 +46,30 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(202, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ id: 'demo-' + Math.round(body.note ? body.note.length : 0), status: 'queued' }));
     }
+    if (p === '/api/review' || p === '/plater/review-status') {
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
+        return res.end(JSON.stringify(await computeStatus()));
+      }
+      if (req.method === 'POST' && p === '/api/review') {
+        const body = JSON.parse(await readBody(req) || '{}');
+        if (typeof body.path !== 'string') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"expected {path, reviewed}"}'); }
+        const out = await setReviewed(body.path, body.reviewed !== false, 'dev');
+        if (!out.ok) { res.writeHead(out.status || 500, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: out.error })); }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true, commit: out.commit, ...out.status }));
+      }
+      res.writeHead(405); return res.end('{"error":"method not allowed"}');
+    }
+    if (p === '/dev-webhook') {
+      if (req.method === 'POST') {
+        WEBHOOK_HITS.push(JSON.parse(await readBody(req) || '{}'));
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end('{"ok":true}');
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify(WEBHOOK_HITS));
+    }
     if (p === '/api/save' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
       if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected {content}"}'); }
@@ -48,10 +80,12 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ ok: true, saved: true, git: { committed: true, commit: 'dev-local' } }));
     }
 
-    // static
-    let filePath = path.join(ROOT, p === '/' ? '/examples/static-site/index.html' : p);
+    // static: example-site pages first (so /about.html etc. resolve like a real
+    // multi-page site), then repo root (so /packages/... module imports work)
+    let filePath = path.join(ROOT, 'examples/static-site', p);
     if (p === '/' || p === '') filePath = path.join(ROOT, 'examples/static-site/index.html');
-    const stat = await fs.stat(filePath).catch(() => null);
+    let stat = await fs.stat(filePath).catch(() => null);
+    if (!stat) { filePath = path.join(ROOT, p); stat = await fs.stat(filePath).catch(() => null); }
     if (stat && stat.isDirectory()) filePath = path.join(filePath, 'index.html');
     const data = await fs.readFile(filePath);
     res.writeHead(200, { 'content-type': TYPES[path.extname(filePath)] || 'application/octet-stream' });

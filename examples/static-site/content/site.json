@@ -1,5 +1,7 @@
 {
-  "meta": { "title": "ZMS Demo — extracted core" },
+  "meta": {
+    "title": "ZMS Demo — extracted core"
+  },
   "hero": {
     "headline": "This page is rendered and edited by @zms/core.",
     "subhead": "Same engine as Sherwood — now a package. Press the button or add ?edit to the URL."
@@ -10,8 +12,31 @@
     "Durable save via a GitHub commit"
   ],
   "tools": [
-    { "name": "@zms/core", "desc": "framework-free client editor" },
-    { "name": "@zms/server-node", "desc": "drop-in Vercel handlers" },
-    { "name": "@zms/capture", "desc": "click → note → agent (next)" }
-  ]
+    {
+      "name": "@zms/core",
+      "desc": "framework-free client editor"
+    },
+    {
+      "name": "@zms/server-node",
+      "desc": "drop-in Vercel handlers"
+    },
+    {
+      "name": "@zms/capture",
+      "desc": "click → note → agent (next)"
+    }
+  ],
+  "about": {
+    "headline": "About this demo",
+    "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+  },
+  "work": {
+    "headline": "Work",
+    "subhead": "A nested page — grouped under work/ in the sitemap.",
+    "projects": [
+      "Sherwood",
+      "The Great Rebellion",
+      "elizabethand.co",
+      "The Pantry"
+    ]
+  }
 }

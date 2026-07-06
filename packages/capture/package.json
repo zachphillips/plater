@@ -1,7 +1,7 @@
 {
-  "name": "@zms/capture",
+  "name": "@plater/capture",
   "version": "0.1.0",
-  "description": "Click an element on the live page, leave a note, choose engine + output, and route it to the ZMS agent host via /api/agent-note. Refined, framework-free editing overlay.",
+  "description": "Click an element on the live page, leave a note, choose engine + output, and route it to the Plater agent host via /api/agent-note. Refined, framework-free editing overlay.",
   "type": "module",
   "main": "src/capture.js",
   "exports": {

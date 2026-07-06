@@ -1,4 +1,4 @@
-# ZMS — agent briefing
+# Plater — agent briefing
 
 Part of the ~/Dev fleet, managed by ibsky (~/Dev/ibsky — see PLAN.md there).
 Fleet conventions: work lands via PR with green CI; no AI attribution in

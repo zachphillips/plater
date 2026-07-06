@@ -1,4 +1,4 @@
-// @zms/core — framework-free in-place CMS editor.
+// @plater/core — framework-free in-place CMS editor.
 //
 // Renders content/site.json into the page and provides a Google-SSO-or-edit-token
 // gated editor that commits edits back to git via /api/save. Extracted and
@@ -21,7 +21,7 @@ const setPath = (obj, path, val) => {
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /* ---------------- sitemap / review rail styles ---------------- */
-// Injected on demand (like @zms/capture) so consumer sites need no CSS changes.
+// Injected on demand (like @plater/capture) so consumer sites need no CSS changes.
 // Palette matches the Plater edit-bar aesthetic: #1c1c1c bar, #333 hairlines,
 // #c9a96e accent, #8a8277 muted.
 const SMAP = 'plater-smap';
@@ -76,7 +76,7 @@ const normalizePagePath = (p) => {
 };
 
 /**
- * initZMS — boot the in-place editor on the current page.
+ * initPlater — boot the in-place editor on the current page.
  *
  * @param {object} options
  * @param {string} [options.brand='Site']         Label used in the toolbar + token prompt.
@@ -526,11 +526,12 @@ export function initZMS(options = {}) {
     setEditable,
     save,
     refresh: render,
-    // Exposed so @zms/capture can authenticate note-routing with the same
+    // Exposed so @plater/capture can authenticate note-routing with the same
     // credential the editor uses (Google ID token or shared edit token).
     getToken: () => ID_TOKEN,
     getConfig: () => CONFIG,
   };
 }
 
+export const initPlater = initZMS;
 export default initZMS;

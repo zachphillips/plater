@@ -35,7 +35,7 @@ const GITHUB_EDIT_PATH = process.env.GITHUB_EDIT_PATH || 'web/content/site.json'
 const SITE_NAME = process.env.CMS_SITE_NAME || 'site';
 const REVIEW_PATH = process.env.PLATER_REVIEW_PATH || '.plater-review.json';
 const REVIEW_WEBHOOK = process.env.PLATER_REVIEW_WEBHOOK || '';
-const WEB_ROOT = process.env.ZMS_WEB_ROOT || '';
+const WEB_ROOT = process.env.PLATER_WEB_ROOT || process.env.ZMS_WEB_ROOT || '';
 
 /* ---------------- auth (same contract as save.js) ---------------- */
 

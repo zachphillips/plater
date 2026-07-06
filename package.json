@@ -1,17 +1,18 @@
 {
-  "name": "zms",
+  "name": "plater",
   "version": "0.1.0",
   "private": true,
-  "description": "ZMS — a reusable in-browser CMS + click-to-note agent-routing module for the Kitchen fleet. Extracted from the Sherwood reference CMS.",
+  "description": "Plater — a reusable in-browser CMS + click-to-note agent-routing module for the Kitchen fleet. Extracted from the Sherwood reference CMS.",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "bin": {
+    "plater": "cli/plater.js",
     "zms": "cli/zms.js"
   },
   "scripts": {
-    "doctor": "node cli/zms.js doctor"
+    "doctor": "node cli/plater.js doctor"
   },
   "license": "UNLICENSED"
 }

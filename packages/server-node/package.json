@@ -1,7 +1,7 @@
 {
-  "name": "@zms/server-node",
+  "name": "@plater/server-node",
   "version": "0.1.0",
-  "description": "Drop-in Vercel/Node serverless handlers for ZMS: config, content, save (GitHub-commit durable save with Google-or-token auth).",
+  "description": "Drop-in Vercel/Node serverless handlers for Plater: config, content, save (GitHub-commit durable save with Google-or-token auth).",
   "type": "module",
   "exports": {
     "./config": "./config.js",

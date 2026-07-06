@@ -2,7 +2,7 @@
 //
 // The browser (an authenticated CMS admin) posts a captured note here, to the
 // SITE'S OWN origin, using the same auth it uses to save (edit token or Google
-// ID token). This handler verifies that, then forwards the note to the ZMS
+// ID token). This handler verifies that, then forwards the note to the Plater
 // agent host (Trapjaw, behind a Cloudflare Tunnel) using a server-side bearer
 // secret the browser never sees. The site is forced to CMS_SITE_NAME so a
 // caller can't target another site's repo.

@@ -1,4 +1,4 @@
-# @zms/agent-host
+# @plater/agent-host
 
 The persistent service that turns a captured note into an agent turn. Runs on
 **Trapjaw** (always-on, RTX 3080, `claude` + `codex` + `ollama` already

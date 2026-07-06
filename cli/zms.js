@@ -89,27 +89,27 @@ function init(dir) {
   fs.copyFileSync(path.join(PKG, 'core/src/editor.js'), path.join(webAbs, 'zms-core.js'));
   fs.copyFileSync(path.join(PKG, 'capture/src/capture.js'), path.join(webAbs, 'zms-capture.js'));
   // scaffold api handlers as re-exports of the vendored server package
-  for (const [name, sub] of [['config', 'config'], ['content', 'content'], ['save', 'save'], ['agent-note', 'agent-note'], ['review', 'review']]) {
+  for (const name of HANDLERS) {
     const dst = path.join(apiAbs, `${name}.js`);
-    if (!exists(dst)) fs.copyFileSync(path.join(PKG, 'server-node', `${sub}.js`), dst);
+    if (!exists(dst)) fs.copyFileSync(path.join(PKG, 'server-node', `${name}.js`), dst);
   }
   console.log(ok(`vendored zms-core.js + zms-capture.js into ${web}/`));
-  console.log(ok('scaffolded api/config.js, content.js, save.js, agent-note.js'));
+  console.log(ok(`scaffolded ${HANDLERS.map((h) => `api/${h}.js`).join(', ')}`));
   console.log(`\n${C.b}Next:${C.x}`);
   console.log(`  1. Add the CMS bar markup + data-bind attributes (see examples/static-site/index.html)`);
   console.log(`  2. In your page: import { initZMS } from './${web === '.' ? '' : ''}zms-core.js'; initZMS({ brand: '…' })`);
   console.log(`  3. Set env in Vercel, then run: zms doctor ${dir}`);
 }
 
+// Server handlers scaffolded by `init` and kept in lockstep by `sync`.
+// Single source of truth — add new handlers here only.
+const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review'];
+
 // Files kept in lockstep between this repo and consuming sites.
 const SYNC_MAP = [
   ['core/src/editor.js', (web) => path.join(web, 'zms-core.js')],
   ['capture/src/capture.js', (web) => path.join(web, 'zms-capture.js')],
-  ['server-node/config.js', () => path.join('api', 'config.js')],
-  ['server-node/content.js', () => path.join('api', 'content.js')],
-  ['server-node/save.js', () => path.join('api', 'save.js')],
-  ['server-node/agent-note.js', () => path.join('api', 'agent-note.js')],
-  ['server-node/review.js', () => path.join('api', 'review.js')],
+  ...HANDLERS.map((h) => [`server-node/${h}.js`, () => path.join('api', `${h}.js`)]),
 ];
 
 function sync(dir) {

@@ -48,7 +48,7 @@ For external consumers (e.g. the ibsky rail), alias the review status endpoint
 in `vercel.json`:
 
 ```json
-{ "source": "/plater/review-status", "destination": "/api/review" }
+{ "rewrites": [{ "source": "/plater/review-status", "destination": "/api/review" }] }
 ```
 
 And in the page:

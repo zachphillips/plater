@@ -125,17 +125,30 @@ export function markdownToHtml(markdown) {
   return out.join('\n') + '\n';
 }
 
+function safeHref(href) {
+  const trimmed = String(href).trim();
+  const scheme = trimmed.match(/^([a-z][a-z0-9+.-]*):/i);
+  // Allow relative/fragment links (no scheme) and an allow-list of safe schemes;
+  // neutralize everything else (e.g. javascript:, data:, vbscript:).
+  if (scheme && !['http', 'https', 'mailto'].includes(scheme[1].toLowerCase())) return '#';
+  return trimmed;
+}
+
 function inlineMarkdown(text) {
   return escapeHtml(text)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => `<a href="${safeHref(href)}">${label}</a>`);
 }
 
 function normalizeRoute(route) {
-  let out = '/' + String(route || '/').trim().replace(/^\/+/, '');
+  let out = String(route || '/').trim().replace(/^\/+/, '');
   out = out.replace(/\/index\.html$/i, '/').replace(/\.html$/i, '/');
+  // Drop empty, `.`, and `..` segments so content-controlled permalinks/redirects
+  // cannot escape outDir via path traversal.
+  const segments = out.split('/').filter((s) => s && s !== '.' && s !== '..');
+  out = '/' + segments.join('/');
   if (!out.endsWith('/')) out += '/';
   return out.replace(/\/+/g, '/');
 }
@@ -211,6 +224,11 @@ export async function publishSite(options = {}) {
 
   await fs.mkdir(outDir, { recursive: true });
 
+  // Track every output route claimed by a page or redirect so colliding sources
+  // (e.g. about.md vs about.html, or a permalink/alias matching another page) are
+  // surfaced instead of silently overwriting each other.
+  const claimedRoutes = new Map();
+
   for (const file of files) {
     const raw = await fs.readFile(file, 'utf8');
     const ext = path.extname(file).toLowerCase();
@@ -229,6 +247,9 @@ export async function publishSite(options = {}) {
       content,
     };
     pages.push(page);
+    const priorPage = claimedRoutes.get(route);
+    if (priorPage) console.warn(`plater: route collision at ${route} — "${page.source}" overwrites "${priorPage}"`);
+    claimedRoutes.set(route, page.source);
     await fs.mkdir(path.dirname(outputFile(outDir, route)), { recursive: true });
     await fs.writeFile(outputFile(outDir, route), applyLayout(page, layout));
 
@@ -236,6 +257,12 @@ export async function publishSite(options = {}) {
     aliases.delete(route);
     for (const alias of aliases) {
       const from = normalizeRoute(alias);
+      const priorClaim = claimedRoutes.get(from);
+      if (priorClaim) {
+        console.warn(`plater: redirect ${from} from "${page.source}" skipped — route already claimed by "${priorClaim}"`);
+        continue;
+      }
+      claimedRoutes.set(from, `${page.source} (redirect)`);
       redirects.push({ from, to: route });
       await fs.mkdir(path.dirname(outputFile(outDir, from)), { recursive: true });
       await fs.writeFile(outputFile(outDir, from), redirectHtml(route));

@@ -400,8 +400,21 @@ export function initZMS(options = {}) {
   function positionSitemap() {
     if (!smapEl) return;
     const bar = $('#cms-bar');
-    const top = bar && !bar.hidden ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
-    smapEl.style.top = top + 'px';
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!bar || bar.hidden) { smapEl.style.top = '0px'; smapEl.style.bottom = '0px'; return; }
+    const r = bar.getBoundingClientRect();
+    // The edit bar can be pinned to the top (full-width) or floated at the
+    // bottom (a centered pill, as on The Great Rebellion). A bottom bar sits in
+    // the lower half of the viewport — anchoring the rail's TOP to bar.bottom
+    // there would crush it into a sliver, so fill from the top down to just
+    // above the bar instead.
+    if (r.top > vh / 2) {
+      smapEl.style.top = '0px';
+      smapEl.style.bottom = Math.max(0, Math.round(vh - r.top + 8)) + 'px';
+    } else {
+      smapEl.style.top = Math.max(0, Math.round(r.bottom)) + 'px';
+      smapEl.style.bottom = '0px';
+    }
   }
 
   function setSitemapOpen(open) {

@@ -31,6 +31,6 @@ test('zms doctor reports a fully wired site as healthy', () => {
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /ZMS doctor/);
+  assert.match(result.stdout, /(ZMS|Plater) doctor/);
   assert.match(result.stdout, /wiring looks complete/);
 });

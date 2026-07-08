@@ -103,6 +103,10 @@ export function initZMS(options = {}) {
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let EDITING = false;
 
+  function setLoggedIn(on) {
+    document.body.classList.toggle('plater-logged-in', Boolean(on));
+  }
+
   /* ---------------- render ---------------- */
 
   function render() {
@@ -242,6 +246,7 @@ export function initZMS(options = {}) {
   function useEditToken(tok) {
     ID_TOKEN = tok;
     try { localStorage.setItem(tokenKey, tok); } catch {}
+    setLoggedIn(true);
     if ($('#cms-signin')) $('#cms-signin').hidden = true;
     if ($('#cms-edit')) $('#cms-edit').hidden = false;
     if ($('#cms-status')) $('#cms-status').textContent = 'edit token set — Edit page to begin';
@@ -280,6 +285,7 @@ export function initZMS(options = {}) {
       client_id: CONFIG.googleClientId,
       callback: (resp) => {
         ID_TOKEN = resp.credential;
+        setLoggedIn(true);
         if ($('#cms-signin')) $('#cms-signin').hidden = true;
         if ($('#cms-edit')) $('#cms-edit').hidden = false;
         if ($('#cms-status')) $('#cms-status').textContent = 'signed in';
@@ -501,6 +507,7 @@ export function initZMS(options = {}) {
     render();
 
     try { ID_TOKEN = ID_TOKEN || localStorage.getItem(tokenKey); } catch {}
+    setLoggedIn(Boolean(ID_TOKEN));
 
     // edit mode is opt-in: ?edit  OR  Cmd/Ctrl+E  OR  the toolbar button
     const wantEdit = new URLSearchParams(location.search).has('edit');
@@ -509,7 +516,7 @@ export function initZMS(options = {}) {
       initSitemap().then(positionSitemap).catch(() => {});
       if (CONFIG.googleClientId) { if ($('#cms-signin')) $('#cms-signin').hidden = false; initSignIn(); }
       else if (CONFIG.tokenAuth) { promptForToken(); }
-      else if (CONFIG.devNoauth) { if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = 'dev mode — no auth (localhost)'; }
+      else if (CONFIG.devNoauth) { setLoggedIn(true); if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = 'dev mode — no auth (localhost)'; }
       else { if ($('#cms-status')) $('#cms-status').textContent = 'editing not configured (set GOOGLE_CLIENT_ID or CMS_EDIT_TOKEN)'; }
     };
     if (wantEdit) enableEditUI();

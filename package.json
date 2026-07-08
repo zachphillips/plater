@@ -12,7 +12,8 @@
     "zms": "cli/zms.js"
   },
   "scripts": {
-    "doctor": "node cli/plater.js doctor"
+    "doctor": "node cli/plater.js doctor",
+    "test": "node --test"
   },
   "license": "UNLICENSED"
 }

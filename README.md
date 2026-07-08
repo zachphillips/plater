@@ -106,3 +106,52 @@ push or edit automatically flips the page back to unreviewed. `GET /api/review`
 
 Status: **0.1.0 — foundation.** Core + server extracted from Sherwood. Capture,
 router-ui, blog, agent-bridge, and the Trapjaw host are in progress.
+
+## Static publishing
+
+`plater publish` builds a dependency-free static site from `content/pages/` into
+`web/`. The content model follows the common static-generator baseline:
+
+- folders become route groups, so `content/pages/projects/` maps to `/projects/`
+- `index.md` or `index.html` owns the folder route
+- other Markdown/HTML files become clean slugs, so `projects/sherwood.md` maps to
+  `/projects/sherwood/`
+- flat legacy sites such as `content/pages/about.md` still publish to `/about/`
+
+Markdown pages use YAML front matter:
+
+```md
+---
+title: About
+permalink: /about-zach/
+redirects:
+  - /about/
+---
+# About
+```
+
+HTML pages use the equivalent metadata script, removed from the rendered output:
+
+```html
+<script type="application/json" data-plater-meta>
+{ "title": "Beta", "permalink": "/work/beta/", "redirects": ["/projects/beta/"] }
+</script>
+<h1>Beta</h1>
+```
+
+`permalink` changes the canonical output route. The publisher automatically
+writes redirect pages for the file's default route and every `redirects` or
+`redirect_from` alias. That lets a `projects/` folder serve `/projects/` from its
+index while child Markdown/HTML files become project slugs.
+
+Plater-only conditional content is preserved with `data-plater-if="logged-in"`.
+Markdown can emit it with:
+
+```md
+[plater-if logged-in]
+Private notes for signed-in editors.
+[/plater-if]
+```
+
+Generated pages include a tiny runtime that hides those blocks until Plater sees
+an authenticated editor session and marks the page `plater-logged-in`.

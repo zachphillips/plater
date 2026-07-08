@@ -8,14 +8,16 @@
     "./content": "./content.js",
     "./save": "./save.js",
     "./agent-note": "./agent-note.js",
-    "./review": "./review.js"
+    "./review": "./review.js",
+    "./publish": "./publish.js"
   },
   "files": [
     "config.js",
     "content.js",
     "save.js",
     "agent-note.js",
-    "review.js"
+    "review.js",
+    "publish.js"
   ],
   "license": "UNLICENSED"
 }

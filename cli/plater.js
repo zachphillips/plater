@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // plater — wire and verify Plater on a site.
-//   plater doctor [dir]   inspect a site's Plater wiring + print an env checklist
-//   plater init   [dir]   vendor the client modules + scaffold the api handlers
-//   plater sync   [dir]   re-sync vendored files from this repo (overwrites, adds
+//   plater doctor  [dir]  inspect a site's Plater wiring + print an env checklist
+//   plater init    [dir]  vendor the client modules + scaffold the api handlers
+//   plater sync    [dir]  re-sync vendored files from this repo (overwrites, adds
 //                         provenance banners, writes .plater-sync.json manifest).
 //                      Sites NEVER hand-edit synced files — edit here, re-sync.
 //                      The ibsky Gardener compares manifest SHAs to detect drift.
+//   plater publish [dir]  build content/pages Markdown/HTML into clean static routes.
 //
 // Dependency-free. Assumes a static/Node site laid out like the Sherwood
 // reference: a web root (default web/) served statically + serverless api/.
@@ -36,6 +37,13 @@ const ENV = [
   ['PLATER_REVIEW_PATH', 'review-state file (default .plater-review.json)'],
   ['PLATER_REVIEW_WEBHOOK', 'reviewWebhook — POSTed when the site becomes fully reviewed'],
 ];
+
+async function publish(dir) {
+  const { publishSite } = await import('../packages/server-node/publish.js');
+  const manifest = await publishSite({ cwd: dir });
+  console.log(ok(`published ${manifest.pages.length} page(s) to ${manifest.out_dir}/`));
+  if (manifest.redirects.length) console.log(ok(`wrote ${manifest.redirects.length} redirect(s)`));
+}
 
 function findWebRoot(dir) {
   for (const w of ['web', 'public', '.']) {
@@ -168,4 +176,5 @@ const [, , cmd, dir = '.'] = process.argv;
 if (cmd === 'doctor') doctor(dir);
 else if (cmd === 'init') init(dir);
 else if (cmd === 'sync') sync(dir);
-else { console.log('usage: plater <doctor|init|sync> [dir]'); process.exit(1); }
+else if (cmd === 'publish') publish(dir).catch((e) => { console.error(no(e.message)); process.exit(1); });
+else { console.log('usage: plater <doctor|init|sync|publish> [dir]'); process.exit(1); }

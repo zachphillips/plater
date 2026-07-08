@@ -127,7 +127,11 @@ export function markdownToHtml(markdown) {
 
 function safeHref(href) {
   const trimmed = String(href).trim();
-  const scheme = trimmed.match(/^([a-z][a-z0-9+.-]*):/i);
+  // Browsers strip ASCII control chars/whitespace when parsing URLs, so
+  // schemes split by them (e.g. a newline inside "javascript:") still
+  // execute. Canonicalize the probe the same way before checking the scheme.
+  const probe = trimmed.replace(/[\u0000-\u0020]+/g, '');
+  const scheme = probe.match(/^([a-z][a-z0-9+.-]*):/i);
   // Allow relative/fragment links (no scheme) and an allow-list of safe schemes;
   // neutralize everything else (e.g. javascript:, data:, vbscript:).
   if (scheme && !['http', 'https', 'mailto'].includes(scheme[1].toLowerCase())) return '#';

@@ -79,6 +79,33 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: true, saved: true, git: { committed: true, commit: 'dev-local' } }));
     }
+    // /api/propose-post — publishing-pipeline handoff (packages/server-node/
+    // propose-post.js). Dev mount: same edit view + endpoints, but drafts
+    // read/write the local example folder instead of committing to GitHub.
+    if (p === '/api/propose-post') {
+      const { safeDraftPath, editView } = await import('../packages/server-node/propose-post.js');
+      if (req.method === 'GET') {
+        const rel = safeDraftPath(url.searchParams.get('path'));
+        if (!rel) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"expected ?path=drafts/<name>.md"}'); }
+        const abs = path.join(ROOT, 'examples/static-site', rel);
+        if (url.searchParams.get('format') === 'json') {
+          const content = await fs.readFile(abs, 'utf8').catch(() => null);
+          res.writeHead(content == null ? 404 : 200, { 'content-type': 'application/json' });
+          return res.end(JSON.stringify(content == null ? { error: 'draft not found: ' + rel } : { path: rel, content, sha: 'dev-local' }));
+        }
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        return res.end(editView(rel));
+      }
+      if (req.method === 'POST') {
+        const body = JSON.parse(await readBody(req) || '{}');
+        const rel = safeDraftPath(body.path);
+        if (!rel || typeof body.content !== 'string') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"expected {path: drafts/<name>.md, content}"}'); }
+        await fs.writeFile(path.join(ROOT, 'examples/static-site', rel), body.content);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true, saved: true, path: rel, git: { committed: true, commit: 'dev-local' } }));
+      }
+      res.writeHead(405); return res.end('{"error":"method not allowed"}');
+    }
 
     // static: example-site pages first (so /about.html etc. resolve like a real
     // multi-page site), then repo root (so /packages/... module imports work)

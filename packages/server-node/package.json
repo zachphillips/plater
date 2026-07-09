@@ -9,7 +9,8 @@
     "./save": "./save.js",
     "./agent-note": "./agent-note.js",
     "./review": "./review.js",
-    "./publish": "./publish.js"
+    "./publish": "./publish.js",
+    "./propose-post": "./propose-post.js"
   },
   "files": [
     "config.js",
@@ -17,7 +18,8 @@
     "save.js",
     "agent-note.js",
     "review.js",
-    "publish.js"
+    "publish.js",
+    "propose-post.js"
   ],
   "license": "UNLICENSED"
 }

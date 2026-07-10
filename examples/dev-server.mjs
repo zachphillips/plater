@@ -100,7 +100,9 @@ const server = http.createServer(async (req, res) => {
         const body = JSON.parse(await readBody(req) || '{}');
         const rel = safeDraftPath(body.path);
         if (!rel || typeof body.content !== 'string') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"expected {path: drafts/<name>.md, content}"}'); }
-        await fs.writeFile(path.join(ROOT, 'examples/static-site', rel), body.content);
+        const dest = path.join(ROOT, 'examples/static-site', rel);
+        await fs.mkdir(path.dirname(dest), { recursive: true }); // ensure drafts/ exists so a new draft saves instead of ENOENT
+        await fs.writeFile(dest, body.content);
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ ok: true, saved: true, path: rel, git: { committed: true, commit: 'dev-local' } }));
       }

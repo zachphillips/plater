@@ -269,6 +269,9 @@ export default async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: 'invalid JSON body' });
   }
+  // `JSON.parse('null')` (and 'true'/'42') parses fine but leaves a non-object
+  // payload, so guard before dereferencing to avoid a TypeError -> 500.
+  if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'expected { path, content }' });
   const path = safeDraftPath(payload.path);
   if (!path) return res.status(400).json({ error: `path must be a .md file under ${DRAFTS_PREFIX}` });
   if (typeof payload.content !== 'string') return res.status(400).json({ error: 'expected { path, content }' });

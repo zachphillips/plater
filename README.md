@@ -40,6 +40,10 @@ export { default } from '@plater/server-node/content';
 export { default } from '@plater/server-node/save';
 // api/review.js  (edit-mode sitemap + per-page review state)
 export { default } from '@plater/server-node/review';
+// api/propose-post.js  (publishing-pipeline handoff: load a markdown draft by
+// path, polish it in a minimal edit view, save back through the git-commit
+// save path — agents draft, Zach edits, Zach publishes; no posting UI here)
+export { default } from '@plater/server-node/propose-post';
 ```
 
 For external consumers (e.g. the ibsky rail), alias the review status endpoint

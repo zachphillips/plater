@@ -157,6 +157,22 @@ The catch-all MUST be last; Vercel serves real files first, so `route.js` only
 sees misses. Give `api/feed.js`+`api/route.js` `includeFiles: web/content/**`
 and `api/sitemap.js`+`api/manifest.js` `includeFiles: web/**`.
 
+## Local → staging → prod (the environment ladder)
+
+Three legs, one contract — the SAME handlers run everywhere, only the backing
+store changes, so what you see locally is what deploys:
+
+| Leg | Command | Editing | Saves go to | Agent notes |
+|---|---|---|---|---|
+| **local** | `plater dev <siteDir>` | `http://127.0.0.1:4188/?edit` — `devNoauth`, no token | the site's `site.json` **on disk** (commit when happy; `GITHUB_TOKEN` is force-unset) | disabled — echoed, never fired |
+| **staging** | `git push origin <branch>` | the Vercel **preview URL** with `?edit` | commits to that branch via the normal save path | `output: pr` (the default) — every note lands as a reviewable PR |
+| **prod** | merge to `main` | the live domain with `?edit` | commits to `main`, auto-deploys | `output: pr` reviewed, or `output: push` for trusted quick edits |
+
+`plater dev` also serves `/feed.xml`, `/feed.json`, `/sitemap.xml`,
+`/llms.txt`, `/api/manifest`, and the content-editable 404 — the full
+web-standards surface — so feed curation and redirect edits are previewable
+before a single commit exists.
+
 ## Static publishing
 
 `plater publish` builds a dependency-free static site from `content/pages/` into

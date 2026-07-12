@@ -179,4 +179,5 @@ else if (cmd === 'init') init(dir);
 else if (cmd === 'sync') sync(dir);
 else if (cmd === 'publish') publish(dir).catch((e) => { console.error(no(e.message)); process.exit(1); });
 else if (cmd === 'dev') import('./dev.mjs'); // serves dir from process.argv[2] itself
-else { console.log('usage: plater <doctor|init|sync|publish|dev> [dir]'); process.exit(1); }
+else if (cmd === 'deploy-amber') import('./deploy-amber.mjs'); // ships dir to Amber forever-hosting
+else { console.log('usage: plater <doctor|init|sync|publish|dev|deploy-amber> [dir]'); process.exit(1); }

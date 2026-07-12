@@ -17,8 +17,7 @@ any element, leave a note, and route it as a turn to a persistent coding agent
 | Package | What it is |
 |---|---|
 | `@plater/core` | Framework-free client editor: renders `site.json` via `data-bind`/`data-list`/`data-cards`/`data-links`, inline `contenteditable` editing, Google One Tap **or** shared edit-token auth, save to `/api/save`. |
-| `@plater/server-node` | Drop-in Vercel/Node handlers: `config.js`, `content.js`, `save.js` (commits merged content JSON to GitHub via the Contents API; auth = Google ID token or constant-time edit token). |
-| `@plater/blog` | Collection content type: posts, permalink slugs, categories/tags, dates/drafts, RSS/sitemap. (zachphillips.blog) |
+| `@plater/server-node` | Drop-in Vercel/Node handlers: `config.js`, `content.js`, `save.js` (commits merged content JSON to GitHub via the Contents API; auth = Google ID token or constant-time edit token), plus the web-standards handlers: `feed.js`, `sitemap.js`, `route.js` (redirects + 404), `manifest.js` (agent manifest + llms.txt). |
 | `@plater/capture` | Click → note → annotate overlay. Captures `{selector, outerHTML, nearby text, content-path, url, screenshot, note}`. Borrows the Impeccable capture UX. |
 | `@plater/router-ui` | The per-note **chooser**: engine (Claude / Codex / local) × output (PR / push). |
 | `@plater/agent-bridge` | Posts captured notes (authenticated) to the Trapjaw agent endpoint. |
@@ -76,6 +75,7 @@ GITHUB_REPOSITORY    org/repo the CMS commits to
 GITHUB_BRANCH        commit branch (default main)
 GITHUB_EDIT_PATH     content path (default web/content/site.json)
 CMS_SITE_NAME        short name used in commit messages
+CMS_SITE_URL         absolute site origin — feeds + sitemap need it (falls back to site.json meta.url)
 CMS_DEPLOY_HOOK      optional; only if not git-connected
 ZMS_AGENT_ENDPOINT   Trapjaw agent host URL (for @plater/agent-bridge)
 ZMS_AGENT_TOKEN      bearer secret for the agent host
@@ -109,7 +109,53 @@ push or edit automatically flips the page back to unreviewed. `GET /api/review`
 `fully_reviewed` for external queues.
 
 Status: **0.1.0 — foundation.** Core + server extracted from Sherwood. Capture,
-router-ui, blog, agent-bridge, and the Trapjaw host are in progress.
+router-ui, agent-bridge, and the Trapjaw host are in progress.
+
+## Web standards, agent-first (the philosophy, made mechanical)
+
+Plater provides the plumbing every CMS owes the web — and **nothing that forces
+a way of thinking**. No channels, no tags, no categories, no taxonomies, ever.
+A "post" is just a page somebody put in the feed. Agents keep one-off pages
+great; nothing has to match anything else.
+
+- **`/feed.xml` + `/feed.json`** (`feed.js`) — the feed is **hand-curated
+  content**, not a query. It serializes `site.json`'s `feed.items` array:
+  `{ id, url, title, description, date }`. Edit it exactly the way you edit a
+  page — same `/api/save`, same git commit, by hand or by agent. Reorder by
+  reordering the array. Items may point at ANY url, including other sites.
+  Dates are stored once as RFC 3339; the handler emits valid RFC 822 for RSS
+  so nobody ever hand-writes the web's most-fumbled date format. Item `id`s
+  are forever — readers dedupe on them.
+- **`/sitemap.xml`** (`sitemap.js`) — from the same page enumeration the
+  review checklist uses, so it can't disagree with the site. `lastmod` only
+  when backed by a fresh review record (never a fabricated `now()`); no
+  `changefreq`/`priority` (ignored by Google). Opt a page out via
+  `site.json` `sitemap.exclude` or `<meta name="plater:sitemap" content="false">`.
+- **Redirects-as-content + editable 404** (`route.js`) — `site.json`
+  `redirects: [{ from, to, permanent }]`, live the moment the save deploys.
+  The permalink law: renaming a URL means adding a redirect in the same
+  change. 404 copy lives in `site.json` `notFound` and returns a real 404.
+- **`/api/manifest` + `/llms.txt`** (`manifest.js`) — the site,
+  machine-readable: every page, its bound content keys, review freshness, the
+  feed, and a self-describing **write path** (how to save, how to send an
+  agent note, the house laws). An agent that discovers a Plater site learns to
+  edit it from this one GET. `?format=llms` renders the llms.txt convention.
+
+Wire-up (vercel.json rewrites, after `plater sync`):
+
+```json
+{ "rewrites": [
+  { "source": "/feed.xml",    "destination": "/api/feed?format=rss" },
+  { "source": "/feed.json",   "destination": "/api/feed?format=json" },
+  { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+  { "source": "/llms.txt",    "destination": "/api/manifest?format=llms" },
+  { "source": "/(.*)",        "destination": "/api/route" }
+] }
+```
+
+The catch-all MUST be last; Vercel serves real files first, so `route.js` only
+sees misses. Give `api/feed.js`+`api/route.js` `includeFiles: web/content/**`
+and `api/sitemap.js`+`api/manifest.js` `includeFiles: web/**`.
 
 ## Static publishing
 

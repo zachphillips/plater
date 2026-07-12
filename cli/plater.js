@@ -31,6 +31,7 @@ const ENV = [
   ['GITHUB_BRANCH', 'commit branch (default main)'],
   ['GITHUB_EDIT_PATH', 'content path (default web/content/site.json)'],
   ['CMS_SITE_NAME', 'short name used in commit messages'],
+  ['CMS_SITE_URL', 'absolute site origin (feeds + sitemap need it; falls back to site.json meta.url)'],
   ['ZMS_AGENT_ENDPOINT', 'agent host URL (enables note→agent routing)'],
   ['ZMS_AGENT_TOKEN', 'bearer secret shared with the agent host'],
   ['PLATER_WEB_ROOT', 'static web root for sitemap page enumeration (optional; ZMS_WEB_ROOT still accepted)'],
@@ -113,7 +114,7 @@ function init(dir) {
 
 // Server handlers scaffolded by `init` and kept in lockstep by `sync`.
 // Single source of truth — add new handlers here only.
-const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review'];
+const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest'];
 
 // Files kept in lockstep between this repo and consuming sites.
 const SYNC_MAP = [

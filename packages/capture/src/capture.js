@@ -26,6 +26,10 @@ function injectStyles() {
   .${NS}-dot{width:7px;height:7px;border-radius:50%;background:#c9a96e;box-shadow:0 0 8px #c9a96e}
   .${NS}-pop header b{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c9a96e}
   .${NS}-x{margin-left:auto;background:none;border:0;color:#7a736a;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px}
+  .${NS}-mode{margin-left:auto;background:#1b1813;border:1px solid #3a352b;color:#c9a96e;font:600 11px/1 ui-monospace,Menlo,monospace;
+    padding:4px 8px;border-radius:5px;cursor:pointer;letter-spacing:.04em}
+  .${NS}-mode[aria-pressed="true"]{background:#c9a96e;color:#151208;border-color:#c9a96e}
+  .${NS}-mode+.${NS}-x{margin-left:0}
   .${NS}-x:hover{color:#e8e3d9}
   .${NS}-body{padding:12px 13px;display:flex;flex-direction:column;gap:11px}
   .${NS}-target{display:flex;gap:7px;align-items:center;font:600 11px/1.4 ui-monospace,Menlo,monospace;color:#8a8277}
@@ -168,13 +172,17 @@ export function initCapture(opts = {}) {
   function openFor(el) {
     closePop();
     current = captureFor(el);
+    let mode = 'note'; // 'note' → code change; 'design' → image alternatives first
     pop = document.createElement('div');
     pop.className = `${NS}-pop`;
     pop.innerHTML =
-      `<header><span class="${NS}-dot"></span><b>Note to agent</b><button class="${NS}-x" title="Close">✕</button></header>` +
+      `<header><span class="${NS}-dot"></span><b>Note to agent</b>` +
+        `<button class="${NS}-mode" type="button" title="Design mode: generate visual alternatives to choose from BEFORE any code is written" aria-pressed="false">✦ Design</button>` +
+        `<button class="${NS}-x" title="Close">✕</button></header>` +
       `<div class="${NS}-body">` +
         `<div class="${NS}-target">on <span class="${NS}-chip">${current.contentPath ? current.contentPath : current.selector || current.tag}</span></div>` +
         `<textarea class="${NS}-ta" placeholder="Describe the change… e.g. “make this headline bigger and warmer”"></textarea>` +
+        `<div class="${NS}-alts" style="display:none"></div>` +
         seg('engine', engines) +
         seg('output', outputs) +
       `</div>` +
@@ -201,19 +209,104 @@ export function initCapture(opts = {}) {
     });
     const status = pop.querySelector(`.${NS}-status`);
     const send = pop.querySelector(`.${NS}-send`);
+    const altsEl = pop.querySelector(`.${NS}-alts`);
+    const modeBtn = pop.querySelector(`.${NS}-mode`);
+    modeBtn.onclick = () => {
+      mode = mode === 'note' ? 'design' : 'note';
+      modeBtn.setAttribute('aria-pressed', mode === 'design');
+      send.textContent = mode === 'design' ? 'Generate 3 looks →' : 'Send →';
+      ta.placeholder = mode === 'design'
+        ? 'Describe the direction… e.g. “warmer, more editorial, less tech”'
+        : 'Describe the change… e.g. “make this headline bigger and warmer”';
+      status.textContent = mode === 'design'
+        ? 'design mode — images first, code only after you pick one'
+        : `${current.contentPath ? 'bound content' : 'element'} selected`;
+    };
+
+    const api = async (payload) => {
+      const token = getToken && getToken();
+      const headers = { 'content-type': 'application/json' };
+      if (token) headers.authorization = 'Bearer ' + token;
+      const res = await fetch(`${apiBase}/agent-note`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || out.error) throw new Error(out.error || 'HTTP ' + res.status);
+      return out;
+    };
+
+    const imgSrc = async (jobId, n) => {
+      // fetch through the same-origin relay so the agent-host bearer stays server-side
+      const token = getToken && getToken();
+      const headers = { 'content-type': 'application/json' };
+      if (token) headers.authorization = 'Bearer ' + token;
+      const r = await fetch(`${apiBase}/agent-note`, { method: 'POST', headers, body: JSON.stringify({ action: 'image', job: jobId, n }) });
+      if (!r.ok) throw new Error('image fetch failed');
+      return URL.createObjectURL(await r.blob());
+    };
+
+    async function pollDesign(jobId, note) {
+      for (let i = 0; i < 150; i++) { // up to ~12.5 min
+        await new Promise((r) => setTimeout(r, 5000));
+        const st = await api({ action: 'status', job: jobId });
+        if (st.status === 'error') throw new Error(st.detail || 'design job failed');
+        if (st.status === 'alternatives-ready') return st.alternatives || [];
+        status.textContent = `designing… (${st.status})`;
+      }
+      throw new Error('design job timed out');
+    }
+
+    async function showAlternatives(jobId, note) {
+      const alternatives = await pollDesign(jobId, note);
+      altsEl.style.display = 'flex';
+      Object.assign(altsEl.style, { flexDirection: 'column', gap: '8px' });
+      altsEl.innerHTML = `<span class="${NS}-lab">Pick a direction — or refine the note and generate more</span>`;
+      for (const ref of alternatives) {
+        const n = Number((ref.match(/alt-(\d+)\.png$/) || [])[1]);
+        const card = document.createElement('div');
+        Object.assign(card.style, { border: '1px solid #2f2b25', borderRadius: '7px', overflow: 'hidden', cursor: 'pointer' });
+        const img = document.createElement('img');
+        Object.assign(img.style, { width: '100%', display: 'block' });
+        img.alt = `design alternative ${n}`;
+        img.src = await imgSrc(jobId, n);
+        const bar = document.createElement('div');
+        Object.assign(bar.style, { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 9px', background: '#191712' });
+        bar.innerHTML = `<span style="font:600 11px ui-monospace,monospace;color:#8a8277">concept ${n}</span>`;
+        const use = document.createElement('button');
+        use.textContent = 'Build this ✓';
+        Object.assign(use.style, { background: '#c9a96e', border: '0', color: '#151208', font: '700 12px inherit', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' });
+        use.onclick = async (e) => {
+          e.stopPropagation();
+          use.disabled = true; status.textContent = 'sending the chosen design to the build agent…';
+          try {
+            const out = await api({ action: 'accept', designJob: jobId, alternative: n, note, route });
+            status.textContent = `building from concept ${n} · job ${out.id} → PR when done`;
+            send.textContent = 'Accepted ✓';
+          } catch (err) { status.textContent = 'accept failed: ' + err.message; use.disabled = false; }
+        };
+        bar.appendChild(use);
+        card.appendChild(img); card.appendChild(bar);
+        altsEl.appendChild(card);
+      }
+      // wider popover while comparing designs
+      pop.style.width = '460px';
+      status.textContent = `${alternatives.length} directions ready — click one to build it, or refine the note and generate more`;
+    }
+
     send.onclick = async () => {
       const note = ta.value.trim();
       if (!note) { ta.focus(); return; }
-      send.disabled = true; status.textContent = 'sending…';
+      send.disabled = true;
       try {
-        const token = getToken && getToken();
-        const headers = { 'content-type': 'application/json' };
-        if (token) headers.authorization = 'Bearer ' + token;
-        const res = await fetch(`${apiBase}/agent-note`, { method: 'POST', headers, body: JSON.stringify({ note, capture: current, route }) });
-        const out = await res.json().catch(() => ({}));
-        if (!res.ok) { status.textContent = 'failed: ' + (out.error || res.status); send.disabled = false; return; }
-        status.innerHTML = out.prUrl ? `sent → <a href="${out.prUrl}" target="_blank">PR</a>` : `queued · ${out.id || 'ok'} (${route.engine} · ${route.output})`;
-        send.textContent = 'Sent ✓';
+        if (mode === 'design') {
+          status.textContent = 'screenshotting the live page…';
+          const out = await api({ action: 'design', note, capture: current });
+          await showAlternatives(out.id, note);
+          send.disabled = false; send.textContent = 'Generate more →';
+        } else {
+          status.textContent = 'sending…';
+          const out = await api({ note, capture: current, route });
+          status.innerHTML = out.prUrl ? `sent → <a href="${out.prUrl}" target="_blank">PR</a>` : `queued · ${out.id || 'ok'} (${route.engine} · ${route.output})`;
+          send.textContent = 'Sent ✓';
+        }
       } catch (e) { status.textContent = 'error: ' + e.message; send.disabled = false; }
     };
     return pop;

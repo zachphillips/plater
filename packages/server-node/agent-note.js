@@ -47,13 +47,44 @@ export default async function handler(req, res) {
   if (!AGENT_ENDPOINT || !AGENT_TOKEN) return res.status(501).json({ error: 'agent routing not configured (set ZMS_AGENT_ENDPOINT + ZMS_AGENT_TOKEN)' });
 
   const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
-  if (!body.note || typeof body.note !== 'string') return res.status(400).json({ error: 'note text required' });
 
-  // site is forced server-side; the client cannot choose which repo to target.
-  const payload = { site: SITE, note: body.note.slice(0, 4000), capture: body.capture || {}, route: body.route || {} };
+  // Design-loop passthroughs (relayed with the same forced-site + server-side
+  // bearer contract as notes):
+  //   { action: "design", note, capture }            → images, not code
+  //   { action: "status", job: "<id>" }              → poll a job
+  //   { action: "image", job: "<id>", n: 1 }         → one alternative PNG
+  //   { action: "accept", designJob, alternative, note?, route? } → build it
+  const action = body.action || 'note';
+  const base = AGENT_ENDPOINT.replace(/\/$/, '');
 
   try {
-    const r = await fetch(AGENT_ENDPOINT.replace(/\/$/, '') + '/note', {
+    if (action === 'status') {
+      if (!/^[a-f0-9]+$/.test(String(body.job || ''))) return res.status(400).json({ error: 'bad job id' });
+      const r = await fetch(`${base}/jobs/${body.job}`, { headers: { authorization: 'Bearer ' + AGENT_TOKEN } });
+      return res.status(r.status).json(await r.json().catch(() => ({})));
+    }
+    if (action === 'image') {
+      if (!/^[a-f0-9]+$/.test(String(body.job || '')) || !Number.isInteger(body.n)) return res.status(400).json({ error: 'bad image ref' });
+      const r = await fetch(`${base}/design/${body.job}/alt-${body.n}.png`, { headers: { authorization: 'Bearer ' + AGENT_TOKEN } });
+      if (!r.ok) return res.status(r.status).json({ error: 'image not available' });
+      res.setHeader('content-type', 'image/png');
+      res.setHeader('cache-control', 'private, max-age=3600');
+      return res.status(200).send(Buffer.from(await r.arrayBuffer()));
+    }
+    if (action === 'accept') {
+      const payload = { designJob: String(body.designJob || ''), alternative: Number(body.alternative), note: body.note, route: body.route || {} };
+      const r = await fetch(`${base}/accept`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + AGENT_TOKEN },
+        body: JSON.stringify(payload),
+      });
+      return res.status(r.status).json(await r.json().catch(() => ({})));
+    }
+
+    if (!body.note || typeof body.note !== 'string') return res.status(400).json({ error: 'note text required' });
+    // site is forced server-side; the client cannot choose which repo to target.
+    const payload = { site: SITE, note: body.note.slice(0, 4000), capture: body.capture || {}, route: body.route || {} };
+    const r = await fetch(`${base}/${action === 'design' ? 'design' : 'note'}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + AGENT_TOKEN },
       body: JSON.stringify(payload),

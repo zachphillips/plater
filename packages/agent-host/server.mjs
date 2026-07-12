@@ -100,6 +100,16 @@ function buildPrompt(job, site) {
     `NOTE FROM OWNER:`,
     job.note || '(no note text)',
     ``,
+    // design mode, accept leg: the owner chose one of the generated concept
+    // images — the depicted design IS the spec, the note is secondary.
+    ...(job.designSpec ? [
+      `CHOSEN DESIGN (this is the spec — match the depicted design):`,
+      `The owner reviewed generated design alternatives and accepted the image at`,
+      `${job.designSpec} (local file in this machine's design-jobs dir). Read/view that image and`,
+      `implement the element so it matches the depicted design as closely as the site's`,
+      `existing CSS system allows. The note above describes the intent behind it.`,
+      ``,
+    ] : []),
     `ELEMENT CONTEXT:`,
     `- Page URL: ${c.url || '(unknown)'}`,
     `- CSS selector: ${c.selector || '(none)'}`,
@@ -112,6 +122,78 @@ function buildPrompt(job, site) {
   ].join('\n');
 }
 
+/* ---------------- design alternatives (GPT-Image via codex on this box) -----
+   The image-first design loop: a design note generates N alternative concept
+   IMAGES of the selected element (screenshot + note → codex image generation),
+   the owner picks one in the overlay (or asks for more), and only THEN does a
+   coding agent implement it — with the chosen image as the spec. Images are
+   served back through /design/:jobId/:n.png (bearer-gated like every route).
+
+   Screenshot is taken HERE, server-side, with Playwright against the PUBLIC
+   page URL — the browser overlay never needs screen-capture permissions and
+   the README's long-promised `screenshot` capture field is finally real. */
+const DESIGN_DIR = path.join(WORKDIR, 'design-jobs');
+fs.mkdirSync(DESIGN_DIR, { recursive: true });
+const DESIGN_COUNT = Number(process.env.ZMS_DESIGN_COUNT || 3);
+
+async function screenshotElement(jobDir, pageUrl, selector) {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 45_000 });
+    const shot = path.join(jobDir, 'context.png');
+    // full-viewport shot (the design needs surrounding context), plus the
+    // element's bounding box recorded so prompts can point at the region
+    await page.screenshot({ path: shot });
+    let box = null;
+    if (selector) {
+      try { box = await page.locator(selector).first().boundingBox({ timeout: 5_000 }); } catch {}
+    }
+    return { shot, box };
+  } finally {
+    await browser.close();
+  }
+}
+
+function designPrompt(job, n, box) {
+  const c = job.capture || {};
+  return [
+    `You are exploring VISUAL DESIGN ALTERNATIVES for one element of a live website.`,
+    `The file context.png in the current directory is a screenshot of the page ${c.url || ''}.`,
+    box ? `The element being redesigned is at approximately x=${Math.round(box.x)}, y=${Math.round(box.y)}, ${Math.round(box.width)}x${Math.round(box.height)}px in that screenshot.` : '',
+    c.selector ? `Its CSS selector is ${c.selector}.` : '',
+    ``,
+    `OWNER'S DESIGN NOTE: ${job.note}`,
+    ``,
+    `Generate ONE image: concept ${n} of ${DESIGN_COUNT} — a distinct redesign of that element`,
+    `honoring the note, rendered IN PLACE in the page (show the element in its surrounding`,
+    `context so the owner can judge fit). Keep the site's overall identity unless the note`,
+    `says otherwise. Concept ${n} should take a genuinely different direction than the others.`,
+    `No browser chrome, no lorem ipsum walls. One single image, never a grid or composite.`,
+    `Save it to exactly alt-${n}.png in the current directory.`,
+  ].filter(Boolean).join('\n');
+}
+
+async function runDesignJob(job, update) {
+  const jobDir = path.join(DESIGN_DIR, job.id);
+  fs.mkdirSync(jobDir, { recursive: true });
+  update({ status: 'screenshotting' });
+  const c = job.capture || {};
+  if (!c.url) { update({ status: 'error', detail: 'design job needs capture.url' }); return; }
+  const { box } = await screenshotElement(jobDir, c.url, c.selector);
+  update({ status: 'generating', detail: `${DESIGN_COUNT} alternatives via codex image-gen` });
+  // sequential: each concept sees which numbers exist, and the box is small
+  const made = [];
+  for (let n = 1; n <= DESIGN_COUNT; n++) {
+    const res = await run('codex', ['exec', '--dangerously-bypass-approvals-and-sandbox', designPrompt(job, n, box)], { cwd: jobDir });
+    if (fs.existsSync(path.join(jobDir, `alt-${n}.png`))) made.push(n);
+    else journal({ id: job.id, status: 'alt-failed', n, tail: (res.stderr || res.stdout).slice(-300) });
+  }
+  if (!made.length) { update({ status: 'error', detail: 'no alternatives generated' }); return; }
+  update({ status: 'alternatives-ready', alternatives: made.map((n) => `/design/${job.id}/alt-${n}.png`) });
+}
+
 async function runner() {
   if (running >= MAX_CONCURRENT || !queue.length) return;
   const job = queue.shift();
@@ -120,6 +202,7 @@ async function runner() {
   const update = (patch) => { Object.assign(job, patch); journal({ ...job, capture: undefined, _child: undefined, t: new Date().toISOString() }); };
   try {
     update({ status: 'running' });
+    if (job.kind === 'design') { await runDesignJob(job, update); return; }
     const repoPath = site.path;
     const branch = `zms/note-${job.id}`;
     const engine = ENGINES[job.route.engine] ? job.route.engine : (site.defaultEngine || 'claude');
@@ -183,7 +266,58 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname.startsWith('/jobs/')) {
     const id = url.pathname.split('/')[2];
     const j = jobs.get(id);
-    return j ? sendJson(res, 200, { id, status: j.status, prUrl: j.prUrl, detail: j.detail }) : sendJson(res, 404, { error: 'no such job' });
+    return j ? sendJson(res, 200, { id, status: j.status, prUrl: j.prUrl, detail: j.detail, alternatives: j.alternatives }) : sendJson(res, 404, { error: 'no such job' });
+  }
+
+  // design alternative image: GET /design/:jobId/alt-N.png (bearer-gated above)
+  if (req.method === 'GET' && url.pathname.startsWith('/design/')) {
+    const [, , jobId, file] = url.pathname.split('/');
+    if (!/^[a-f0-9]+$/.test(jobId || '') || !/^alt-\d+\.png$/.test(file || '')) return sendJson(res, 400, { error: 'bad path' });
+    const p = path.join(DESIGN_DIR, jobId, file);
+    if (!fs.existsSync(p)) return sendJson(res, 404, { error: 'no such image' });
+    res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'private, max-age=3600' });
+    fs.createReadStream(p).pipe(res);
+    return;
+  }
+
+  // POST /design — generate N design-alternative images for a captured element.
+  // Same body as /note; produces images, not code. The owner then either asks
+  // for more (another /design with a refined note) or accepts one via /accept.
+  if (req.method === 'POST' && url.pathname === '/design') {
+    if (!rateOk()) return sendJson(res, 429, { error: 'rate limited' });
+    let body;
+    try { body = JSON.parse(await readBody(req) || '{}'); } catch (e) { return sendJson(res, 400, { error: 'bad json: ' + e.message }); }
+    if (!body.site || !SITES[body.site]) return sendJson(res, 400, { error: `unknown site (allowed: ${Object.keys(SITES).join(', ')})` });
+    if (!body.note || typeof body.note !== 'string') return sendJson(res, 400, { error: 'design note text required' });
+    if (!body.capture?.url) return sendJson(res, 400, { error: 'capture.url required (the live page to screenshot)' });
+    const id = crypto.randomBytes(6).toString('hex');
+    const job = { id, kind: 'design', ts: new Date().toISOString(), site: body.site, note: body.note.slice(0, 4000),
+      capture: body.capture, status: 'queued' };
+    jobs.set(id, job); journal({ id, ts: job.ts, kind: 'design', site: job.site, note: job.note, status: 'queued' });
+    queue.push(job); setImmediate(runner);
+    return sendJson(res, 202, { id, status: 'queued' });
+  }
+
+  // POST /accept — the owner picked alternative N of a design job: run the
+  // normal code path with the chosen image as the spec ("match this depicted
+  // design"). Body: { designJob: "<id>", alternative: N, note?, route? }
+  if (req.method === 'POST' && url.pathname === '/accept') {
+    if (!rateOk()) return sendJson(res, 429, { error: 'rate limited' });
+    let body;
+    try { body = JSON.parse(await readBody(req) || '{}'); } catch (e) { return sendJson(res, 400, { error: 'bad json: ' + e.message }); }
+    const src = jobs.get(String(body.designJob || ''));
+    if (!src || src.kind !== 'design') return sendJson(res, 404, { error: 'no such design job' });
+    const alt = Number(body.alternative);
+    const img = path.join(DESIGN_DIR, src.id, `alt-${alt}.png`);
+    if (!Number.isInteger(alt) || !fs.existsSync(img)) return sendJson(res, 400, { error: 'no such alternative' });
+    const id = crypto.randomBytes(6).toString('hex');
+    const job = { id, ts: new Date().toISOString(), site: src.site,
+      note: (body.note || src.note).slice(0, 4000), capture: src.capture,
+      designSpec: img,
+      route: { engine: body.route?.engine, output: body.route?.output }, status: 'queued' };
+    jobs.set(id, job); journal({ id, ts: job.ts, site: job.site, note: job.note, designSpec: img, route: job.route, status: 'queued' });
+    queue.push(job); setImmediate(runner);
+    return sendJson(res, 202, { id, status: 'queued', from: src.id, alternative: alt });
   }
 
   if (req.method === 'POST' && url.pathname === '/note') {

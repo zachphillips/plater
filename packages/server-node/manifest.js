@@ -112,7 +112,7 @@ export async function buildManifest() {
       save_endpoint: '/api/save',
       save_method: 'POST',
       save_auth: 'Authorization: Bearer <google id token | site edit token>',
-      save_body: '{ "fields": { "<content.path.key>": <new value> } } — merged into the content JSON and committed to git',
+      save_body: '{ "content": { "<topLevelKey>": <full new value> } } — each posted top-level key REPLACES that key (shallow merge), then the whole file commits to git. To edit feed/redirects, post the complete updated array under its key.',
       note_endpoint: '/api/agent-note',
       note_body: '{ "note": "<instruction>", "capture": {…}, "route": { "engine": "claude|codex", "output": "pr|push" } } — runs a coding agent against this site\'s repo',
       review_endpoint: '/api/review',

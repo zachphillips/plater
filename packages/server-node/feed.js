@@ -33,7 +33,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const CONTENT_PATH = process.env.GITHUB_EDIT_PATH || 'web/content/site.json';
-const SITE_URL = (process.env.CMS_SITE_URL || '').replace(/\/$/, '');
+const SITE_URL = (process.env.CMS_SITE_URL || '').trim().replace(/\/+$/, '');
 
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -57,7 +57,7 @@ function rfc822(rfc3339) {
 }
 
 function siteBase(content) {
-  return (SITE_URL || content?.meta?.url || '').replace(/\/$/, '');
+  return String(SITE_URL || content?.meta?.url || '').trim().replace(/\/+$/, '');
 }
 
 // Normalize + validate curated items so hand edits can't break readers.

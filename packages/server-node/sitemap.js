@@ -17,7 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const CONTENT_PATH = process.env.GITHUB_EDIT_PATH || 'web/content/site.json';
-const SITE_URL = (process.env.CMS_SITE_URL || '').replace(/\/$/, '');
+const SITE_URL = (process.env.CMS_SITE_URL || '').trim().replace(/\/+$/, '');
 const WEB_ROOT = process.env.PLATER_WEB_ROOT || process.env.ZMS_WEB_ROOT || '';
 const REVIEW_PATH = process.env.PLATER_REVIEW_PATH || '.plater-review.json';
 
@@ -60,7 +60,7 @@ async function readJson(p, fallback) {
 export async function sitemapXml() {
   const content = await readJson(CONTENT_PATH, {});
   const review = await readJson(REVIEW_PATH, {});
-  const base = (SITE_URL || content?.meta?.url || '').replace(/\/$/, '');
+  const base = String(SITE_URL || content?.meta?.url || '').trim().replace(/\/+$/, '');
   const exclude = new Set(
     (Array.isArray(content?.sitemap?.exclude) ? content.sitemap.exclude : []).map(String),
   );

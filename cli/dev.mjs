@@ -51,6 +51,7 @@ const feed = await import(path.join(PKG, 'server-node/feed.js'));
 const sitemap = await import(path.join(PKG, 'server-node/sitemap.js'));
 const route = await import(path.join(PKG, 'server-node/route.js'));
 const manifest = await import(path.join(PKG, 'server-node/manifest.js'));
+const versions = await import(path.join(PKG, 'server-node/versions.js'));
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2' };
 
@@ -111,6 +112,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/sitemap.xml') { const [rq, rs] = shim(req, res, url); return sitemap.default(rq, rs); }
     if (p === '/llms.txt') { const [rq, rs] = shim(req, res, new URL('/api/manifest?format=llms', 'http://x')); return manifest.default(rq, rs); }
     if (p === '/api/manifest' || p === '/.well-known/plater.json') { const [rq, rs] = shim(req, res, url); return manifest.default(rq, rs); }
+    if (p === '/api/versions' && req.method === 'GET') { const [rq, rs] = shim(req, res, url); return versions.default(rq, rs); }
 
     // static files from the web root, plater packages for module imports
     let file = p.startsWith('/packages/') ? path.join(PKG, '..', p) : path.join(webRoot, p === '/' ? 'index.html' : p);

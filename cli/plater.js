@@ -114,7 +114,7 @@ function init(dir) {
 
 // Server handlers scaffolded by `init` and kept in lockstep by `sync`.
 // Single source of truth — add new handlers here only.
-const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest', 'propose-post'];
+const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest', 'propose-post', 'versions'];
 
 // Files kept in lockstep between this repo and consuming sites.
 const SYNC_MAP = [

@@ -60,6 +60,9 @@ function injectSitemapStyles() {
   .${SMAP}-done:hover{opacity:1}
   .${SMAP}-stale{flex:none;font:600 9px/1.6 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:#d0a24a;
     text-transform:uppercase}
+  .${SMAP}-drafts{flex:none;font:700 10px/1.6 ui-monospace,Menlo,monospace;color:#c9a96e;cursor:pointer;
+    border:1px solid #3a352b;border-radius:4px;padding:0 5px}
+  .${SMAP}-drafts:hover{background:#c9a96e;color:#151208}
   .${SMAP}-foot{padding:10px 14px 14px;font:400 11px/1.5 inherit;color:#6d665c;border-top:1px solid #232323;margin-top:8px}
   .${SMAP}-toggle{background:#1b1813 !important;border:1px solid #3a352b !important;color:#c9a96e !important}
   .${SMAP}-toggle[aria-pressed="true"]{background:#c9a96e !important;color:#151208 !important;border-color:#c9a96e !important}
@@ -304,6 +307,58 @@ export function initZMS(options = {}) {
   let smapToggle = null;
   let smapStatus = null; // last fetched review status payload
   let smapAvailable = false;
+  let versionTracks = null; // { track: [slugs] } from /api/versions (null = endpoint absent)
+
+  const slugForPage = (p) => {
+    const out = String(p || '/').replace(/^\/+|\/+$/g, '').replace(/\.html$/i, '').replace(/\//g, '__');
+    return out || 'index';
+  };
+
+  async function fetchVersionTracks() {
+    try {
+      const r = await fetch(`${apiBase}/versions`, { cache: 'no-store' });
+      if (!r.ok) return null;
+      const data = await r.json();
+      return data && data.tracks ? data.tracks : null;
+    } catch { return null; }
+  }
+
+  // Full-screen reader: every track's draft of one page, side by side.
+  // Read-and-choose UX — applying a winner goes through the normal edit
+  // paths (inline edit / agent note), never a blind overwrite.
+  async function openVersions(pagePath) {
+    const slug = slugForPage(pagePath);
+    const tracks = Object.keys(versionTracks || {}).filter((t) => (versionTracks[t] || []).includes(slug));
+    if (!tracks.length) return;
+    const drafts = [];
+    for (const t of tracks) {
+      try {
+        const r = await fetch(`${apiBase}/versions?track=${encodeURIComponent(t)}&page=${encodeURIComponent(pagePath)}`, { cache: 'no-store' });
+        if (r.ok) drafts.push(await r.json());
+      } catch {}
+    }
+    if (!drafts.length) return;
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const old = document.getElementById('plater-versions');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'plater-versions';
+    wrap.innerHTML = `<style>
+#plater-versions{position:fixed;inset:0;z-index:2147483646;background:rgba(12,11,9,.96);color:#e8e3d9;overflow:auto;font:15px/1.6 ui-sans-serif,system-ui,sans-serif}
+#plater-versions .pv-bar{position:sticky;top:0;display:flex;gap:12px;align-items:baseline;padding:14px 20px;background:#191712;border-bottom:1px solid #2f2b25}
+#plater-versions .pv-bar b{color:#c9a96e;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+#plater-versions .pv-close{margin-left:auto;background:none;border:1px solid #3a352b;color:#e8e3d9;padding:5px 12px;border-radius:6px;cursor:pointer}
+#plater-versions .pv-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1px;background:#2f2b25}
+#plater-versions .pv-col{background:#141310;padding:22px 26px;min-width:0}
+#plater-versions .pv-col h2.pv-t{font:700 12px/1 ui-monospace,Menlo,monospace;color:#c9a96e;letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px}
+#plater-versions .pv-col .pv-m{font:11px/1.5 ui-monospace,Menlo,monospace;color:#7a736a;margin:0 0 18px}
+#plater-versions .pv-body{white-space:pre-wrap;word-wrap:break-word;font:15px/1.65 ui-serif,Georgia,serif;color:#ddd6c9}
+</style>
+<div class="pv-bar"><b>Drafts · ${esc(pagePath)}</b><span style="color:#7a736a;font-size:12px">read, compare — apply the winner with inline edit or a note to the agent</span><button class="pv-close">✕ close</button></div>
+<div class="pv-cols">${drafts.map((d) => `<div class="pv-col"><h2 class="pv-t">${esc(d.track)}</h2><p class="pv-m">${esc(d.source || '')}${d.generated_at ? ' · ' + esc(d.generated_at) : ''}</p><div class="pv-body">${esc(d.body || '')}</div></div>`).join('')}</div>`;
+    document.body.appendChild(wrap);
+    wrap.querySelector('.pv-close').onclick = () => wrap.remove();
+  }
 
   const currentPagePath = () => normalizePagePath(location.pathname);
 
@@ -374,6 +429,8 @@ export function initZMS(options = {}) {
         }
         html += `<span class="t">${esc(label)}<span class="p">${esc(norm)}</span></span>`;
         if (p.stale) html += `<span class="${SMAP}-stale" title="Changed since last review">edited</span>`;
+        const nTracks = versionTracks ? Object.keys(versionTracks).filter((t) => (versionTracks[t] || []).includes(slugForPage(norm))).length : 0;
+        if (nTracks) html += `<span class="${SMAP}-drafts" data-versions="${esc(norm)}" title="${nTracks} alternate draft${nTracks > 1 ? 's' : ''} — click to read side by side">${nTracks}✎</span>`;
         html += `</a>`;
       }
       html += `</div>`;
@@ -399,6 +456,12 @@ export function initZMS(options = {}) {
         markReviewed(tick.dataset.unreview, false).catch((err) => {
           if ($('#cms-status')) $('#cms-status').textContent = err.message;
         });
+      });
+    });
+    smapEl.querySelectorAll(`[data-versions]`).forEach((badge) => {
+      badge.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        openVersions(badge.dataset.versions);
       });
     });
   }
@@ -435,7 +498,7 @@ export function initZMS(options = {}) {
 
   async function initSitemap() {
     if (smapEl) return; // once
-    smapStatus = await fetchReviewStatus();
+    [smapStatus, versionTracks] = await Promise.all([fetchReviewStatus(), fetchVersionTracks()]);
     // Sitemap is a multi-page affordance; skip silently on single-page sites
     // or when the server doesn't expose the review endpoint.
     if (!smapStatus || smapStatus.pages.length < 2) return;

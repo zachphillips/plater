@@ -157,6 +157,19 @@ The catch-all MUST be last; Vercel serves real files first, so `route.js` only
 sees misses. Give `api/feed.js`+`api/route.js` `includeFiles: web/content/**`
 and `api/sitemap.js`+`api/manifest.js` `includeFiles: web/**`.
 
+## Versions (intentional drafts, not commit history)
+
+Git remembers every save; that's forensics. Versions are the editorial layer:
+NAMED tracks of whole alternate drafts per page, at
+`web/content/versions/<track>/<page-slug>.md` (`/` → `index`,
+`/tools/phone/` → `tools__phone`). A track is created by writing a file —
+`gpt56`, `opus`, `v2-launch`, anything. `GET /api/versions` lists tracks;
+`?track=t&page=/x/` returns a draft; authed POST writes one via the same
+GitHub-commit path as save. In `?edit` mode, pages with drafts show an `N✎`
+badge in the sitemap rail — click for a side-by-side reader of every track.
+Drafts are read-and-choose documents: applying a winner happens through the
+normal edit paths (inline edit or an agent note), never a blind overwrite.
+
 ## Local → staging → prod (the environment ladder)
 
 Three legs, one contract — the SAME handlers run everywhere, only the backing

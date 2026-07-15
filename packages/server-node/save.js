@@ -117,11 +117,33 @@ export default async function handler(req, res) {
   if (len > MAX_BODY) return res.status(413).json({ error: 'payload too large' });
 
   const payload = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
+  const TRACK_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
+
+  // { promote: "opus" } — MAKE THIS DRAFT LIVE, one click, no agent. The
+  // client sends the draft content it is currently rendering (already the
+  // overlay merged over live), and it becomes the live content. The track's
+  // overlay file stays put — you can keep iterating it — and the previous
+  // live copy is one `git revert` away like every save.
+  if (typeof payload.promote === 'string') {
+    if (!TRACK_RE.test(payload.promote)) return res.status(400).json({ error: 'bad track name' });
+    if (!payload.content || typeof payload.content !== 'object') return res.status(400).json({ error: 'promote needs the rendered draft content' });
+    const content = { ...(await readBaseContent()), ...payload.content };
+    delete content._track_note;
+    content.updatedAt = new Date().toISOString();
+    content.updatedBy = verifiedEmail;
+    content.promotedFrom = payload.promote;
+    const gh = await commitToGitHub(content, verifiedEmail, null);
+    if (!gh.ok) return res.status(gh.status || 500).json({ error: gh.error });
+    const hook = process.env.CMS_DEPLOY_HOOK;
+    if (hook) { try { await fetch(hook, { method: 'POST' }); } catch {} }
+    return res.status(200).json({ ok: true, promoted: payload.promote, git: { committed: true, commit: gh.sha } });
+  }
+
   if (!payload || typeof payload.content !== 'object') return res.status(400).json({ error: 'expected { content: {...} }' });
   // { track: "opus" } routes the save to that track's overlay file — the live
   // page is untouched. The posted content IS the full overlay (the editor sent
   // us everything it rendered), so no merge with the live base here.
-  const track = typeof payload.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(payload.track) ? payload.track : null;
+  const track = typeof payload.track === 'string' && TRACK_RE.test(payload.track) ? payload.track : null;
 
   const content = track
     ? { ...payload.content }

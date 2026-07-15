@@ -107,6 +107,14 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/save' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
       if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
+      if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
+        const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+        const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
+        delete next._track_note;
+        await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
+      }
       if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
         const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
         await fs.mkdir(path.dirname(overlayPath), { recursive: true });

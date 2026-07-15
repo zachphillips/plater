@@ -205,10 +205,18 @@ export function initZMS(options = {}) {
       else el.removeAttribute('contenteditable');
     });
     if ($('#cms-edit')) $('#cms-edit').hidden = on;
-    if ($('#cms-save')) $('#cms-save').hidden = !on;
-    if ($('#cms-cancel')) $('#cms-cancel').hidden = !on;
-    if ($('#cms-status')) $('#cms-status').textContent = on ? 'editing — your changes are local until you Save' : 'signed in';
+    // draft mode autosaves — hide the manual Save/Cancel pair to keep it simple
+    if ($('#cms-save')) $('#cms-save').hidden = !on || Boolean(DRAFT_TRACK);
+    if ($('#cms-cancel')) $('#cms-cancel').hidden = !on || Boolean(DRAFT_TRACK);
+    if ($('#cms-status')) $('#cms-status').textContent = on
+      ? (DRAFT_TRACK ? `editing the “${DRAFT_TRACK}” draft — every change autosaves` : 'editing — your changes are local until you Save')
+      : 'signed in';
   }
+
+  // every edit in draft mode schedules an autosave (input covers typing;
+  // focusout catches the last field when you click away)
+  document.addEventListener('input', (e) => { if (EDITING && DRAFT_TRACK && e.target.closest?.('[data-path]')) scheduleDraftAutosave(); }, true);
+  document.addEventListener('focusout', (e) => { if (EDITING && DRAFT_TRACK && e.target.closest?.('[data-path]')) scheduleDraftAutosave(); }, true);
 
   async function save() {
     collectEdits();
@@ -581,12 +589,70 @@ export function initZMS(options = {}) {
 #plater-draftbar a{color:#efe9ff;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 10px}
 #plater-draftbar a.on{background:#efe9ff;color:#3E2A75}
 #plater-draftbar .sp{margin-left:auto;font-weight:400;opacity:.75}
+#plater-draftbar .golive{background:#38d996;border:0;color:#0c2c1d;font:700 13px/1 inherit;padding:6px 14px;border-radius:6px;cursor:pointer}
+#plater-draftbar .golive:hover{background:#5ff0b0}
+#plater-draftbar .golive:disabled{opacity:.5;cursor:default}
+#plater-draftbar .autosave{font-weight:400;opacity:.85}
 </style>
-<span>DRAFT MODE${DRAFT_TRACK ? ` · viewing “${esc(DRAFT_TRACK)}”` : ''}</span>
+<span>DRAFTS${DRAFT_TRACK ? ` · “${esc(DRAFT_TRACK)}”` : ''}</span>
 <a href="${esc(swap(null))}" class="${DRAFT_TRACK ? '' : 'on'}">live</a>
 ${tracks.map((t) => `<a href="${esc(swap(t))}" class="${t === DRAFT_TRACK ? 'on' : ''}">${esc(t)}</a>`).join('')}
-<span class="sp">${DRAFT_TRACK ? 'edits save to this draft only — the live page is untouched' : 'pick a track to flip the whole page onto that draft'}</span>`;
+${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosaves to this draft</span>
+<button class="golive" id="plater-golive" type="button" title="Replace the live page's copy with this draft — one commit, instantly revertable">⬆ Make this live</button>` : `<span class="sp">click a track to see the whole page in that draft — edits autosave, going live is one click</span>`}`;
     document.body.appendChild(bar);
+
+    const golive = document.getElementById('plater-golive');
+    if (golive) golive.onclick = async () => {
+      if (!ID_TOKEN && !CONFIG.devNoauth) { promptForToken(); if (!ID_TOKEN) return; }
+      if (!window.confirm(`Make the “${DRAFT_TRACK}” draft the LIVE copy of this page?\n\nOne commit. The old copy stays in git history; the draft stays editable.`)) return;
+      golive.disabled = true; golive.textContent = 'going live…';
+      try {
+        collectEdits();
+        const headers = { 'content-type': 'application/json' };
+        if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ promote: DRAFT_TRACK, content: CONTENT }) });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
+        golive.textContent = 'LIVE ✓';
+        setTimeout(() => { location.href = swap(null); }, 900);
+      } catch (e) {
+        golive.disabled = false; golive.textContent = '⬆ Make this live';
+        const s = $('#cms-status'); if (s) s.textContent = 'go-live failed: ' + e.message;
+      }
+    };
+  }
+
+  /* Draft autosave: in draft mode every edit persists on its own — no Save
+     button to remember. Debounced 2s after the last keystroke; the banner
+     shows saving…/saved so the state is never a mystery. Rapid consecutive
+     saves collapse (git-side each save is one small commit to the overlay). */
+  let autosaveTimer = null;
+  let autosaveInflight = false;
+  function scheduleDraftAutosave() {
+    if (!DRAFT_TRACK) return;
+    const chip = document.getElementById('plater-autosave');
+    if (chip) chip.textContent = 'editing…';
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(async () => {
+      if (autosaveInflight) { scheduleDraftAutosave(); return; }
+      autosaveInflight = true;
+      try {
+        collectEdits();
+        if (JSON.stringify(CONTENT) === SAVED) { if (chip) chip.textContent = 'saved ✓'; return; }
+        if (chip) chip.textContent = 'saving…';
+        const headers = { 'content-type': 'application/json' };
+        if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, track: DRAFT_TRACK }) });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
+        SAVED = JSON.stringify(CONTENT);
+        if (chip) chip.textContent = 'saved ✓ (draft only)';
+      } catch (e) {
+        if (chip) chip.textContent = 'autosave failed — will retry on next edit';
+      } finally {
+        autosaveInflight = false;
+      }
+    }, 2000);
   }
 
   async function boot() {
@@ -635,7 +701,10 @@ ${tracks.map((t) => `<a href="${esc(swap(t))}" class="${t === DRAFT_TRACK ? 'on'
       else if (CONFIG.devNoauth) { setLoggedIn(true); if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = 'dev mode — no auth (localhost)'; }
       else { if ($('#cms-status')) $('#cms-status').textContent = 'editing not configured (set GOOGLE_CLIENT_ID or CMS_EDIT_TOKEN)'; }
     };
-    if (wantEdit) enableEditUI();
+    if (wantEdit || DRAFT_TRACK) enableEditUI();
+    // in draft mode go straight into editing once a credential exists —
+    // viewing a draft IS editing it (that's the point of flipping to one)
+    if (DRAFT_TRACK && (ID_TOKEN || CONFIG.devNoauth)) setEditable(true);
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') { e.preventDefault(); enableEditUI(); }
     });

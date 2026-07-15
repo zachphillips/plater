@@ -216,7 +216,7 @@ export function initZMS(options = {}) {
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
     try {
-      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT }) });
+      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json();
       if (!r.ok || out.error) {
         if (r.status === 401 && CONFIG.tokenAuth && !CONFIG.googleClientId) {
@@ -554,20 +554,73 @@ export function initZMS(options = {}) {
 
   /* ---------------- boot ---------------- */
 
+  // ?draft=<track> flips the WHOLE PAGE onto that track's content overlay,
+  // fully rendered in place. Editing + saving in draft mode writes the track's
+  // overlay file (a git commit like any other) — the live copy is untouched
+  // until you promote a draft by saving without ?draft. A banner names the
+  // active track; the track switcher swaps ?draft in the URL.
+  const DRAFT_TRACK = (() => {
+    const t = new URLSearchParams(location.search).get('draft');
+    return t && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(t) ? t : null;
+  })();
+
+  function draftBanner(tracks) {
+    if (document.getElementById('plater-draftbar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'plater-draftbar';
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const swap = (t) => {
+      const u = new URL(location.href);
+      if (t) u.searchParams.set('draft', t); else u.searchParams.delete('draft');
+      u.searchParams.set('edit', '1');
+      return u.pathname + u.search;
+    };
+    bar.innerHTML = `<style>
+#plater-draftbar{position:fixed;left:0;right:0;bottom:0;z-index:2147483645;display:flex;gap:10px;align-items:center;
+  padding:9px 16px;background:#3E2A75;color:#efe9ff;font:600 13px/1 ui-monospace,Menlo,monospace}
+#plater-draftbar a{color:#efe9ff;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:5px;padding:4px 10px}
+#plater-draftbar a.on{background:#efe9ff;color:#3E2A75}
+#plater-draftbar .sp{margin-left:auto;font-weight:400;opacity:.75}
+</style>
+<span>DRAFT MODE${DRAFT_TRACK ? ` · viewing “${esc(DRAFT_TRACK)}”` : ''}</span>
+<a href="${esc(swap(null))}" class="${DRAFT_TRACK ? '' : 'on'}">live</a>
+${tracks.map((t) => `<a href="${esc(swap(t))}" class="${t === DRAFT_TRACK ? 'on' : ''}">${esc(t)}</a>`).join('')}
+<span class="sp">${DRAFT_TRACK ? 'edits save to this draft only — the live page is untouched' : 'pick a track to flip the whole page onto that draft'}</span>`;
+    document.body.appendChild(bar);
+  }
+
   async function boot() {
     try {
-      const [cfg, content] = await Promise.all([
+      const contentUrl = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
+      const [cfg, contentRes] = await Promise.all([
         fetch(`${apiBase}/config`).then((r) => r.json()).catch(() => CONFIG),
-        fetch(`${apiBase}/content`).then((r) => r.json()),
+        fetch(contentUrl),
       ]);
       CONFIG = { ...CONFIG, ...cfg };
-      CONTENT = content;
+      if (DRAFT_TRACK && contentRes.status === 404) {
+        // no overlay for this track yet — fall back to live and say so
+        CONTENT = await fetch(`${apiBase}/content`).then((r) => r.json());
+        setTimeout(() => { const s = $('#cms-status'); if (s) s.textContent = `track "${DRAFT_TRACK}" has no live overlay yet (document draft only — see the ✎ reader)`; }, 400);
+      } else {
+        CONTENT = await contentRes.json();
+      }
     } catch (e) {
       console.error('[zms] content load failed', e);
       return;
     }
     SAVED = JSON.stringify(CONTENT);
     render();
+
+    // draft banner: shows in draft mode always, and on the live page whenever
+    // overlay-capable tracks exist (so flipping is one click from ?edit)
+    fetchVersionTracks().then(async (tracks) => {
+      if (!tracks) { if (DRAFT_TRACK) draftBanner([]); return; }
+      const overlayTracks = [];
+      for (const t of Object.keys(tracks)) {
+        try { if ((await fetch(`${apiBase}/content?track=${encodeURIComponent(t)}`, { method: 'GET' })).ok) overlayTracks.push(t); } catch {}
+      }
+      if (DRAFT_TRACK || (overlayTracks.length && new URLSearchParams(location.search).has('edit'))) draftBanner(overlayTracks);
+    }).catch(() => { if (DRAFT_TRACK) draftBanner([]); });
 
     try { ID_TOKEN = ID_TOKEN || localStorage.getItem(tokenKey); } catch {}
     setLoggedIn(Boolean(ID_TOKEN));

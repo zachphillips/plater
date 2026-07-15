@@ -48,12 +48,16 @@ async function readBaseContent() {
   }
 }
 
-async function commitToGitHub(content, who) {
+async function commitToGitHub(content, who, track) {
   const token = process.env.GITHUB_TOKEN || process.env.CMS_GITHUB_TOKEN;
   if (!token) return { ok: false, status: 501, error: 'missing GITHUB_TOKEN' };
   if (!GITHUB_REPOSITORY) return { ok: false, status: 501, error: 'missing GITHUB_REPOSITORY' };
 
-  const api = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/${GITHUB_EDIT_PATH}`;
+  // A track save writes the track's OVERLAY file, never the live content.
+  const editPath = track
+    ? `${GITHUB_EDIT_PATH.split('/').slice(0, -1).join('/')}/versions/${track}/site.json`
+    : GITHUB_EDIT_PATH;
+  const api = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/${editPath}`;
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github+json',
@@ -70,7 +74,9 @@ async function commitToGitHub(content, who) {
   }
 
   const body = {
-    message: `content(${SITE_NAME}): edit via CMS by ${who}`,
+    message: track
+      ? `draft(${SITE_NAME}): ${track} track edit via CMS by ${who}`
+      : `content(${SITE_NAME}): edit via CMS by ${who}`,
     content: Buffer.from(stableJson(content)).toString('base64'),
     branch: GITHUB_BRANCH,
     ...(sha ? { sha } : {}),
@@ -112,12 +118,18 @@ export default async function handler(req, res) {
 
   const payload = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
   if (!payload || typeof payload.content !== 'object') return res.status(400).json({ error: 'expected { content: {...} }' });
+  // { track: "opus" } routes the save to that track's overlay file — the live
+  // page is untouched. The posted content IS the full overlay (the editor sent
+  // us everything it rendered), so no merge with the live base here.
+  const track = typeof payload.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(payload.track) ? payload.track : null;
 
-  const content = { ...(await readBaseContent()), ...payload.content };
+  const content = track
+    ? { ...payload.content }
+    : { ...(await readBaseContent()), ...payload.content };
   content.updatedAt = new Date().toISOString();
   content.updatedBy = verifiedEmail;
 
-  const gh = await commitToGitHub(content, verifiedEmail);
+  const gh = await commitToGitHub(content, verifiedEmail, track);
   if (!gh.ok) return res.status(gh.status || 500).json({ error: gh.error });
 
   const hook = process.env.CMS_DEPLOY_HOOK;

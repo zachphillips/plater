@@ -83,12 +83,37 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
     }
     if (p === '/api/content') {
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
-      return res.end(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+      // ?track=<name> serves the draft overlay (same contract as production
+      // content.js): deep-merge versions/<track>/site.json over the live file.
+      const track = url.searchParams.get('track');
+      const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+      if (!track) {
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
+        return res.end(JSON.stringify(base));
+      }
+      if (!/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(track)) { res.writeHead(400); return res.end('{"error":"bad track"}'); }
+      const overlayPath = path.join(path.dirname(contentPath), 'versions', track, 'site.json');
+      try {
+        const overlay = JSON.parse(await fs.readFile(overlayPath, 'utf8'));
+        const merge = (b, o) => (Array.isArray(o) || typeof o !== 'object' || o === null) ? o
+          : Object.fromEntries([...Object.entries(typeof b === 'object' && b && !Array.isArray(b) ? b : {}), ...Object.entries(o).map(([k, v]) => [k, merge((b || {})[k], v)])]);
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
+        return res.end(JSON.stringify(merge(base, overlay)));
+      } catch {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: `track "${track}" has no site.json overlay` }));
+      }
     }
     if (p === '/api/save' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
       if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
+      if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
+        const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
+        await fs.mkdir(path.dirname(overlayPath), { recursive: true });
+        await fs.writeFile(overlayPath, JSON.stringify({ ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' }, null, 2) + '\n');
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: true, saved: true, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
+      }
       const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
       const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
       await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');

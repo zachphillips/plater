@@ -8,3 +8,8 @@ jobs:
     uses: zachphillips/ibsky/.github/workflows/base.yml@main
     with:
       working-directory: "."
+  fable-review:
+    if: github.event_name == 'pull_request'
+    uses: zachphillips/ibsky/.github/workflows/fable-review.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

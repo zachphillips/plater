@@ -63,6 +63,15 @@ function findWebRoot(dir) {
 const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } };
 const exists = (p) => fs.existsSync(p);
 
+// Vercel counts one Serverless Function per file in api/ and the Hobby plan
+// stops a deployment above this many. Sites at the cap park extra handlers in
+// OFFLOADED_DIR (see handlerDest) behind a single dispatcher in api/.
+const HOBBY_FUNCTION_CAP = 12;
+
+// A handler is wired whether it sits in api/ or has been offloaded.
+const hasHandler = (dir, apiAbs, name) =>
+  exists(path.join(apiAbs, `${name}.js`)) || exists(path.join(dir, OFFLOADED_DIR, `${name}.js`));
+
 function doctor(dir) {
   const web = findWebRoot(dir);
   const webAbs = path.join(dir, web);
@@ -83,8 +92,10 @@ function doctor(dir) {
     ['api/config.js', exists(path.join(apiAbs, 'config.js'))],
     ['api/content.js', exists(path.join(apiAbs, 'content.js'))],
     ['api/save.js', exists(path.join(apiAbs, 'save.js'))],
-    ['api/history.js', exists(path.join(apiAbs, 'history.js')), 'history + one-click restore optional'],
-    ['api/upload.js', exists(path.join(apiAbs, 'upload.js')), 'drag-and-drop image uploads optional'],
+    // Offloaded handlers still count as wired: a site at the Vercel Hobby
+    // function cap keeps these in lib/plater/ behind one dispatcher.
+    ['handler: history.js', hasHandler(dir, apiAbs, 'history'), 'history + one-click restore optional'],
+    ['handler: upload.js', hasHandler(dir, apiAbs, 'upload'), 'drag-and-drop image uploads optional'],
     ['api/agent-note.js', exists(path.join(apiAbs, 'agent-note.js')), 'note→agent optional'],
     ['api/review.js', exists(path.join(apiAbs, 'review.js')), 'sitemap review optional'],
     ['vercel.json', exists(path.join(dir, 'vercel.json')), 'feeds/sitemap/404 routing — Vercel hosts only'],
@@ -93,6 +104,24 @@ function doctor(dir) {
   for (const [label, pass, opt] of checks) {
     console.log(pass ? ok(label) : (opt ? warn(`${label} ${C.d}(${opt})${C.x}`) : no(label)));
     if (!pass && !opt) hard++;
+  }
+
+  // The Vercel Hobby function cap, checked BEFORE a deploy rather than after.
+  // Going over it fails at patchBuild with exceeded_serverless_functions_per_
+  // deployment — a failure mode that hides itself, because production keeps
+  // serving the last good deploy while every new commit silently stops
+  // shipping. Only a file in api/ is a function; lib/plater/ handlers are not.
+  if (exists(path.join(dir, 'vercel.json'))) {
+    const fns = exists(apiAbs) ? fs.readdirSync(apiAbs).filter((f) => /\.(js|mjs|ts)$/.test(f)) : [];
+    if (fns.length > HOBBY_FUNCTION_CAP) {
+      console.log(no(`api/ has ${fns.length} functions — Vercel Hobby allows ${HOBBY_FUNCTION_CAP}; deploys will fail at patchBuild`));
+      console.log(`  ${C.d}Move the extras to ${OFFLOADED_DIR}/ behind one dispatcher in api/, and rewrite to it in vercel.json.${C.x}`);
+      hard++;
+    } else if (fns.length === HOBBY_FUNCTION_CAP) {
+      console.log(warn(`api/ is at the Vercel Hobby cap (${fns.length}/${HOBBY_FUNCTION_CAP}) ${C.d}— the next handler must be offloaded to ${OFFLOADED_DIR}/${C.x}`));
+    } else {
+      console.log(ok(`api/ functions ${fns.length}/${HOBBY_FUNCTION_CAP} ${C.d}(Vercel Hobby cap)${C.x}`));
+    }
   }
   console.log(`\n${C.b}Env checklist${C.x} ${C.d}(set in Vercel; leave editing off by omitting auth)${C.x}`);
   for (const [k, desc] of ENV) console.log(`  ${C.d}${k.padEnd(22)}${C.x} ${desc}`);
@@ -172,11 +201,28 @@ function init(dir) {
 // Single source of truth — add new handlers here only.
 const HANDLERS = ['config', 'content', 'save', 'history', 'upload', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest', 'propose-post', 'versions'];
 
+// Where a site keeps handlers it has moved OUT of api/. Vercel's Hobby plan
+// caps a deployment at 12 Serverless Functions and counts one per file in api/,
+// so a site at the cap fronts the extras with a single dispatcher and parks
+// their bodies here. The bodies are still ours and still synced — only the
+// directory differs.
+const OFFLOADED_DIR = path.join('lib', 'plater');
+
+// A handler's home in THIS site: api/ normally, lib/plater/ if the site has
+// already moved it there. Sync follows the site's layout instead of imposing
+// one, so re-syncing a capped site can never silently re-create the extra
+// function file and break its deploys again.
+function handlerDest(dir, name) {
+  const offloaded = path.join(OFFLOADED_DIR, `${name}.js`);
+  if (exists(path.join(dir, offloaded))) return offloaded;
+  return path.join('api', `${name}.js`);
+}
+
 // Files kept in lockstep between this repo and consuming sites.
 const SYNC_MAP = [
   ['core/src/editor.js', (web) => path.join(web, 'plater-core.js')],
   ['capture/src/capture.js', (web) => path.join(web, 'plater-capture.js')],
-  ...HANDLERS.map((h) => [`server-node/${h}.js`, () => path.join('api', `${h}.js`)]),
+  ...HANDLERS.map((h) => [`server-node/${h}.js`, (web, dir) => handlerDest(dir, h)]),
 ];
 const COMPAT_SYNC_MAP = [
   [(web) => path.join(web, 'zms-core.js'), (web) => `export { default, initPlater, initZMS } from './${path.basename(path.join(web, 'plater-core.js'))}';\n`],
@@ -204,7 +250,7 @@ function sync(dir) {
   } catch {}
   const synced = [];
   for (const [src, dstFn] of SYNC_MAP) {
-    const dstRel = dstFn(web);
+    const dstRel = dstFn(web, dir);
     const dstAbs = path.join(dir, dstRel);
     fs.mkdirSync(path.dirname(dstAbs), { recursive: true });
     const body = read(path.join(PKG, src));

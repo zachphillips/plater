@@ -229,12 +229,52 @@ function sync(dir) {
   console.log(`${C.d}Run plater doctor to verify wiring; commit the synced files with the site.${C.x}`);
 }
 
+// The fleet answer to "how do updates reach every site without npm": each
+// consuming site carries .plater-sync.json naming the commit it was synced
+// from. `fleet` walks a root for those manifests, shows drift against this
+// repo's HEAD, and with --sync re-runs sync() on every drifted site. The
+// commit-and-push stays per-site and human-reviewed — this only refreshes
+// working trees.
+function fleet(root, doSync) {
+  const rootAbs = path.resolve(root || path.join(process.env.HOME, 'Dev'));
+  let head = 'unknown';
+  try { head = execSync('git rev-parse --short HEAD', { cwd: path.resolve(HERE, '..') }).toString().trim(); } catch {}
+  const skip = /node_modules|\.git\/|worktrees|orphan-landings|\/v1\//;
+  const found = [];
+  (function walk(d, depth) {
+    if (depth > 4 || skip.test(d)) return;
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = path.join(d, e.name);
+      if (e.isFile() && (e.name === MANIFEST || e.name === OLD_MANIFEST)) found.push(path.dirname(p));
+      else if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules') walk(p, depth + 1);
+    }
+  })(rootAbs, 0);
+  if (!found.length) { console.log(no(`no ${MANIFEST} manifests under ${rootAbs}`)); process.exit(1); }
+  console.log(`${C.b}Plater fleet${C.x} ${C.d}${found.length} site(s) under ${rootAbs} · plater HEAD @${head}${C.x}\n`);
+  let drifted = 0;
+  for (const siteDir of found.sort()) {
+    const { data } = readSyncManifest(siteDir);
+    const at = data && data.commit ? data.commit : '???';
+    const current = at === head;
+    if (!current) drifted++;
+    console.log(current ? ok(`${siteDir} ${C.d}@${at}${C.x}`) : warn(`${siteDir} ${C.d}@${at} → ${head}${C.x}`));
+    if (!current && doSync) {
+      try { sync(siteDir); } catch (e) { console.log(no(`  sync failed: ${e.message}`)); }
+    }
+  }
+  if (!doSync) console.log(`\n${drifted ? warn(`${drifted} site(s) behind — run: platercms fleet ${root || ''} --sync`) : ok('fleet is current')}`);
+  else console.log(`\n${ok('fleet synced')} — review each site's diff, then commit and deploy per site.`);
+}
+
 const [, , cmd, dir = '.'] = process.argv;
 if (cmd === 'doctor') doctor(dir);
 else if (cmd === 'init') init(dir);
 else if (cmd === 'sync') sync(dir);
+else if (cmd === 'fleet') fleet(process.argv[3] === '--sync' ? undefined : dir, process.argv.includes('--sync'));
 else if (cmd === 'publish') publish(dir).catch((e) => { console.error(no(e.message)); process.exit(1); });
 else if (cmd === 'dev') import('./dev.mjs'); // serves dir from process.argv[2] itself
 else if (cmd === 'serve') import('./serve.mjs'); // same, with auth on
 else if (cmd === 'deploy-amber') import('./deploy-amber.mjs'); // ships dir to Amber forever-hosting (undocumented; fleet-internal)
-else { console.log('usage: platercms <init|dev|serve|doctor|sync|publish> [dir]'); process.exit(1); }
+else { console.log('usage: platercms <init|dev|serve|doctor|sync|fleet|publish> [dir]'); process.exit(1); }

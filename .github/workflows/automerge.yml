@@ -1,5 +1,6 @@
-# ibsky D4: deps/docs PRs self-merge after CI succeeds. Everything else waits
-# for Zach. Runs on CI completion; merges only labeled, still-open, mergeable PRs.
+# PRs labeled `deps` or `docs` self-merge once CI passes; everything else waits
+# for a human. Only a maintainer can apply those labels, so an outside PR can't
+# merge itself. Runs on CI completion; merges only labeled, still-open PRs.
 name: automerge
 on:
   workflow_run:

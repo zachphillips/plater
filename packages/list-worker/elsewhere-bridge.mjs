@@ -7,7 +7,7 @@
 // POST /api/newsletter/subscribers. Sovereignty preserved: the canonical list
 // lives in the owner's vault; the worker is just the public capture point.
 //
-//   PLATER_LIST_URL=https://plater-list.….workers.dev \
+//   PLATER_LIST_URL=https://plater-list.<you>.workers.dev \
 //   PLATER_LIST_ADMIN_TOKEN=… \
 //   ELSEWHERE_URL=http://127.0.0.1:8787 \
 //   node elsewhere-bridge.mjs <site> [--tags plater] [--loop 300]
@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const LIST_URL = (process.env.PLATER_LIST_URL || 'https://plater-list.kitchenbrigade.workers.dev').replace(/\/$/, '');
+const LIST_URL = (process.env.PLATER_LIST_URL || '').replace(/\/$/, '');
 const ADMIN_TOKEN = process.env.PLATER_LIST_ADMIN_TOKEN || '';
 const ELSEWHERE = (process.env.ELSEWHERE_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
 
@@ -27,8 +27,8 @@ const args = process.argv.slice(2);
 const site = args.find((a) => !a.startsWith('--'));
 const tags = args.includes('--tags') ? args[args.indexOf('--tags') + 1] : 'plater';
 const loopSec = args.includes('--loop') ? Number(args[args.indexOf('--loop') + 1]) : 0;
-if (!site || !ADMIN_TOKEN) {
-  console.error('usage: PLATER_LIST_ADMIN_TOKEN=… node elsewhere-bridge.mjs <site> [--tags t] [--loop seconds]');
+if (!site || !ADMIN_TOKEN || !LIST_URL) {
+  console.error('usage: PLATER_LIST_URL=https://…workers.dev PLATER_LIST_ADMIN_TOKEN=… node elsewhere-bridge.mjs <site> [--tags t] [--loop seconds]');
   process.exit(1);
 }
 

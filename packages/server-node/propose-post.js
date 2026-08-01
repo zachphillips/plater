@@ -1,13 +1,13 @@
 // /api/propose-post — the publishing-pipeline handoff into Plater.
 //
-// A draft arriving from the ibsky publishing pipeline (publish-queue.jsonl,
-// source.file pointing at a markdown draft) can open HERE in a minimal edit
-// surface for Zach's polish pass before he stages it. Deliberately small and
+// A draft arriving from an upstream publishing pipeline (a queue file whose
+// source points at a markdown draft) can open HERE in a minimal edit surface
+// for the owner's polish pass before they stage it. Deliberately small and
 // real: load a draft file by path, edit it, save it back through Plater's
 // existing git-commit save path (GitHub Contents API, same auth as /api/save).
-// No social-posting UI, no scheduling, no publish button — THE RULING
-// (2026-07-09): agents draft, Zach edits, Zach publishes. This surface only
-// edits words.
+// No social-posting UI, no scheduling, no publish button — the house rule is
+// agents draft, the human edits, the human publishes. This surface only edits
+// words.
 //
 //   GET  /api/propose-post?path=drafts/foo.md            → the edit view (HTML)
 //   GET  /api/propose-post?path=drafts/foo.md&format=json → { path, content, sha }
@@ -16,12 +16,16 @@
 //
 // Config (env):
 //   PLATER_DRAFTS_PREFIX  repo path prefix drafts must live under
-//                         (default 'drafts/'; the pipeline convention is
-//                         'publish-drafts/' in ibsky-fed repos)
+//                         (default 'drafts/'; pipelines often use
+//                         'publish-drafts/')
 //   + the same GITHUB_REPOSITORY / GITHUB_BRANCH / auth env as save.js.
 import crypto from 'node:crypto';
 
-const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || 'zach@thekitchen.co').toLowerCase();
+const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || '').toLowerCase();
+// Commits need a valid git identity even when the shared edit token (which
+// carries no email) is the credential used.
+const COMMIT_EMAIL = ADMIN_EMAIL || 'plater@users.noreply.github.com';
+const SIGN_IN = ADMIN_EMAIL ? `sign in as ${ADMIN_EMAIL}` : 'sign in with the authorized account';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const EDIT_TOKEN = process.env.CMS_EDIT_TOKEN || '';
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY || '';
@@ -56,6 +60,9 @@ function safeEqual(a, b) {
 }
 
 async function verifyGoogle(idToken) {
+  // Fail CLOSED: with no CMS_ADMIN_EMAIL configured there is no one to
+  // authorize, so an empty allowlist must never match an empty token email.
+  if (!ADMIN_EMAIL) return { ok: false, reason: 'CMS_ADMIN_EMAIL is not set' };
   let r;
   try {
     r = await fetchWithTimeout('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
@@ -73,7 +80,7 @@ async function verifyGoogle(idToken) {
 
 async function verifyAuth(req) {
   const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  if (!auth) return { ok: false, status: 401, reason: `sign in as ${ADMIN_EMAIL} to save` };
+  if (!auth) return { ok: false, status: 401, reason: `${SIGN_IN} to save` };
   if (EDIT_TOKEN && safeEqual(auth, EDIT_TOKEN)) return { ok: true, email: ADMIN_EMAIL };
   const verified = await verifyGoogle(auth);
   if (!verified.ok) return { ok: false, status: 401, reason: 'auth failed: ' + verified.reason };
@@ -157,8 +164,8 @@ async function commitDraft(path, content, who, expectedSha) {
         content: Buffer.from(String(content)).toString('base64'),
         branch: GITHUB_BRANCH,
         ...(sha ? { sha } : {}),
-        committer: { name: 'Heard CMS', email: ADMIN_EMAIL },
-        author: { name: 'Zach Phillips', email: ADMIN_EMAIL },
+        committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
+        author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
       }),
     });
   } catch {

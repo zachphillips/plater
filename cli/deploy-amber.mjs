@@ -1,11 +1,9 @@
 // plater deploy-amber [siteDir] — ship a Plater site to Amber (forever hosting).
 //
-// The Plater↔Amber seam is one ZIP and one domain (per the Elsewhere↔Amber
-// integration design): zip the site's web root → create-site (first run) →
-// presigned PUT → process → publish. Amber is the common deploy sink for the
-// whole rebellion stack; this is the third implementation of the same flow
-// (after elsewhere-deploy/src/amber.rs and amber/cli/amber.ts) kept
-// intentionally tiny and dependency-free.
+// The Plater↔Amber seam is one ZIP and one domain: zip the site's web root →
+// create-site (first run) → presigned PUT → process → publish. Optional — most
+// Plater sites deploy via Vercel/Cloudflare Pages instead. Kept intentionally
+// tiny and dependency-free.
 //
 // Env:
 //   AMBER_API_URL   Amber API base (e.g. https://api.amber.video)

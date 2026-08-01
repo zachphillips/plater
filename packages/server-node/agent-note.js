@@ -3,12 +3,16 @@
 // The browser (an authenticated CMS admin) posts a captured note here, to the
 // SITE'S OWN origin, using the same auth it uses to save (edit token or Google
 // ID token). This handler verifies that, then forwards the note to the Plater
-// agent host (Trapjaw, behind a Cloudflare Tunnel) using a server-side bearer
+// agent host (behind a Cloudflare Tunnel) using a server-side bearer
 // secret the browser never sees. The site is forced to CMS_SITE_NAME so a
 // caller can't target another site's repo.
 import crypto from 'node:crypto';
 
-const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || 'zach@thekitchen.co').toLowerCase();
+const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || '').toLowerCase();
+// Commits need a valid git identity even when the shared edit token (which
+// carries no email) is the credential used.
+const COMMIT_EMAIL = ADMIN_EMAIL || 'plater@users.noreply.github.com';
+const SIGN_IN = ADMIN_EMAIL ? `sign in as ${ADMIN_EMAIL}` : 'sign in with the authorized account';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const EDIT_TOKEN = process.env.CMS_EDIT_TOKEN || '';
 const AGENT_ENDPOINT = process.env.ZMS_AGENT_ENDPOINT || '';
@@ -22,6 +26,9 @@ function safeEqual(a, b) {
 
 async function verifyGoogle(idToken) {
   try {
+    // Fail CLOSED: with no CMS_ADMIN_EMAIL configured there is no one to
+    // authorize, so an empty allowlist must never match an empty token email.
+    if (!ADMIN_EMAIL) return false;
     const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
     if (!r.ok) return false;
     const t = await r.json();
@@ -37,7 +44,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  if (!auth) return res.status(401).json({ error: `sign in as ${ADMIN_EMAIL} to send a note` });
+  if (!auth) return res.status(401).json({ error: `${SIGN_IN} to send a note` });
 
   let ok = false;
   if (EDIT_TOKEN && safeEqual(auth, EDIT_TOKEN)) ok = true;

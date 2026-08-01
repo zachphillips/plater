@@ -1,20 +1,14 @@
 {
-  "_comment": "Server-side allowlist on Trapjaw. Copy to sites.json. The client names a site; the repo/path/defaults are resolved HERE so a caller can never target an arbitrary repo. 'path' is the local checkout on Trapjaw.",
-  "sherwood": {
-    "repo": "zachphillips/sherwood",
-    "path": "/home/zach/zms-agent/repos/sherwood",
+  "_comment": "Server-side allowlist. Copy to sites.json. The client names a site; the repo/path/defaults are resolved HERE so a caller can never target an arbitrary repo. 'path' is the local checkout on the agent-host box.",
+  "my-site": {
+    "repo": "you/my-site",
+    "path": "/home/you/plater-agent/repos/my-site",
     "defaultEngine": "claude",
     "defaultOutput": "pr"
   },
-  "greatrebellion": {
-    "repo": "zachphillips/thegreatrebellion",
-    "path": "/home/zach/zms-agent/repos/thegreatrebellion",
-    "defaultEngine": "claude",
-    "defaultOutput": "pr"
-  },
-  "zachphillips": {
-    "repo": "zachphillips/zachphillips",
-    "path": "/home/zach/zms-agent/repos/zachphillips",
+  "another-site": {
+    "repo": "you/another-site",
+    "path": "/home/you/plater-agent/repos/another-site",
     "defaultEngine": "codex",
     "defaultOutput": "pr"
   }

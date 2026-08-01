@@ -1,6 +1,6 @@
-// plater-list — the fleet's email-capture backend. One Cloudflare Worker + D1,
-// shared by every site; rows are namespaced by site key. Replaces the mailto:
-// stopgaps ("Keep me posted" on sherwood/TGR, the Kitchen inquiry form).
+// plater-list — an email-capture backend. One Cloudflare Worker + D1, shared by
+// every site you run; rows are namespaced by site key. Replaces the mailto:
+// stopgap that every small site starts with.
 //
 // Philosophy-fit: this is plumbing, not a marketing suite. It captures, it
 // exports, it deletes. No campaigns, no segments, no tracking pixels.
@@ -15,9 +15,9 @@
 //   GET  /list?site=…        Bearer LIST_ADMIN_TOKEN  → { rows: […] }
 //   GET  /export?site=…&since=<iso>  Bearer LIST_ADMIN_TOKEN
 //     → { rows, cursor } — incremental drain for PULL consumers that can't
-//       receive webhooks (the Elsewhere vault binds 127.0.0.1 by design, so
-//       a bridge script on the owner's machine polls this and inserts
-//       locally; see elsewhere-bridge.mjs)
+//       receive webhooks (e.g. a local-only vault that binds 127.0.0.1 by
+//       design, so a bridge script on the owner's machine polls this and
+//       inserts locally; see elsewhere-bridge.mjs)
 //   POST /unsubscribe        { site, email }          → 200 (also Bearer-free:
 //     unsubscribing must never require credentials)
 //   GET  /health             → { ok, sites }
@@ -25,7 +25,7 @@
 // SINKS (env, JSON): per-site "send captures to MY provider" — any provider
 // that accepts an HTTP POST (Buttondown, Mailchimp, ConvertKit, a personal
 // webhook…). The worker stays plumbing: it forwards, it never syncs back.
-//   SINKS = {"greatrebellion": {
+//   SINKS = {"my-site": {
 //     "url": "https://api.buttondown.email/v1/subscribers",
 //     "headers": {"Authorization": "Token …"},
 //     "body": {"email_address": "{{email}}", "notes": "{{note}}", "tags": ["{{site}}"]}
@@ -52,7 +52,7 @@ const MIGRATION = `CREATE TABLE IF NOT EXISTS subscribers (
 )`;
 
 function parseSites(env) {
-  // SITES = "sherwood=https://sherwood.thekitchen.co,greatrebellion=https://greatrebellion.net"
+  // SITES = "my-site=https://my-site.com,another=https://another.example"
   const map = {};
   for (const pair of String(env.SITES || '').split(',')) {
     const [k, v] = pair.split('=').map((s) => s && s.trim());

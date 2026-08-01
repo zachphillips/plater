@@ -1,10 +1,8 @@
 // @plater/core — framework-free in-place CMS editor.
 //
 // Renders content/site.json into the page and provides a Google-SSO-or-edit-token
-// gated editor that commits edits back to git via /api/save. Extracted and
-// modularized from the Sherwood reference implementation (which was reused
-// verbatim across The Great Rebellion and Sherwood). Behavior is unchanged;
-// site-specific bits (brand, token key, card templates, api base) are options.
+// gated editor that commits edits back to git via /api/save. Site-specific bits
+// (brand, token key, card templates, api base) are options.
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -218,7 +216,9 @@ export function initZMS(options = {}) {
   document.addEventListener('input', (e) => { if (EDITING && DRAFT_TRACK && e.target.closest?.('[data-path]')) scheduleDraftAutosave(); }, true);
   document.addEventListener('focusout', (e) => { if (EDITING && DRAFT_TRACK && e.target.closest?.('[data-path]')) scheduleDraftAutosave(); }, true);
 
-  async function save() {
+  // `retried` is passed only by the 401 recovery path below. It is never read
+  // from the click listener's Event argument — see the `=== true` guard.
+  async function save(retried) {
     collectEdits();
     if ($('#cms-status')) $('#cms-status').textContent = 'saving…';
     const headers = { 'content-type': 'application/json' };
@@ -228,8 +228,16 @@ export function initZMS(options = {}) {
       const out = await r.json();
       if (!r.ok || out.error) {
         if (r.status === 401 && CONFIG.tokenAuth && !CONFIG.googleClientId) {
+          // A cached token that the server rejects is indistinguishable from
+          // no token to the editor, so it silently poisons every later save.
+          // Drop it and ask again immediately, then retry once — otherwise
+          // the only fix is clearing localStorage by hand.
           ID_TOKEN = null;
           try { localStorage.removeItem(tokenKey); } catch {}
+          if (retried !== true) {
+            promptForToken();
+            if (ID_TOKEN) return save(true);
+          }
         }
         if ($('#cms-status')) $('#cms-status').textContent = 'save failed: ' + (out.error || r.status);
         return;

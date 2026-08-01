@@ -5,11 +5,11 @@
 //   plater sync    [dir]  re-sync vendored files from this repo (overwrites, adds
 //                         provenance banners, writes .plater-sync.json manifest).
 //                      Sites NEVER hand-edit synced files — edit here, re-sync.
-//                      The ibsky Gardener compares manifest SHAs to detect drift.
+//                      The manifest SHAs let a fleet tool detect drift.
 //   plater publish [dir]  build content/pages Markdown/HTML into clean static routes.
 //
-// Dependency-free. Assumes a static/Node site laid out like the Sherwood
-// reference: a web root (default web/) served statically + serverless api/.
+// Dependency-free. Assumes a static/Node site laid out the usual way: a web
+// root (default web/) served statically + serverless api/ handlers.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
@@ -23,7 +23,7 @@ const no = (s) => `${C.r}✗${C.x} ${s}`;
 const warn = (s) => `${C.y}!${C.x} ${s}`;
 
 const ENV = [
-  ['CMS_ADMIN_EMAIL', 'admin allowlist (e.g. zach@thekitchen.co)'],
+  ['CMS_ADMIN_EMAIL', 'admin allowlist (e.g. you@example.com)'],
   ['CMS_EDIT_TOKEN', 'shared edit token (iPad-first fallback; never exposed)'],
   ['GOOGLE_CLIENT_ID', 'Google SSO (optional; gates editability if set)'],
   ['GITHUB_TOKEN', 'fine-grained PAT, contents:write'],

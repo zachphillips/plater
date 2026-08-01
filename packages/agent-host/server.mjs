@@ -1,4 +1,4 @@
-// Plater agent host — runs on Trapjaw. Receives a captured note (element context +
+// Plater agent host. Receives a captured note (element context +
 // the owner's instruction + a chosen engine/output), then runs a coding agent
 // against the target site's repo checkout and opens a PR (or pushes).
 //
@@ -9,7 +9,7 @@
 //   - PR-by-default: a note produces a pull request a human reviews, not a
 //     live deploy, unless the site is explicitly configured output:"push".
 //   - Rate limited + concurrency-capped + append-only audit journal.
-//   - Intended to sit behind a Cloudflare Tunnel (agent.thekitchen.co).
+//   - Intended to sit behind a Cloudflare Tunnel (agent.<your-domain>).
 import http from 'node:http';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -26,16 +26,21 @@ const JOURNAL = path.join(WORKDIR, 'jobs.jsonl');
 const MAX_BODY = 3_000_000;
 const JOB_TIMEOUT_MS = Number(process.env.ZMS_AGENT_TIMEOUT_MS || 8 * 60_000);
 const MAX_CONCURRENT = Number(process.env.ZMS_AGENT_CONCURRENCY || 2);
+// Git identity for agent-authored commits. Set these to the site owner's own
+// name/email so PRs are attributed correctly.
+const GIT_NAME = process.env.PLATER_GIT_NAME || 'Plater Agent';
+const GIT_EMAIL = process.env.PLATER_GIT_EMAIL || 'plater@users.noreply.github.com';
 
 // Engine command builders. Each returns [cmd, args]. Tuned per engine; the
 // agent edits files in cwd, the runner handles git/PR deterministically after.
-// Engine command builders. bubblewrap sandboxing needs user-namespaces which
-// aren't enabled on Trapjaw, so codex runs with --dangerously-bypass sandbox
-// (the box is trusted, single-tenant). claude uses acceptEdits.
+// NOTE ON SANDBOXING: codex runs with --dangerously-bypass-approvals-and-sandbox
+// because bubblewrap needs user-namespaces, which many hosts disable. This
+// assumes a TRUSTED, SINGLE-TENANT box you own. Do not run this host on shared
+// hardware, and keep the bearer token secret. claude uses acceptEdits.
 const ENGINES = {
   claude: (prompt) => ['claude', ['-p', prompt, '--permission-mode', 'acceptEdits']],
   codex: (prompt) => ['codex', ['exec', '--dangerously-bypass-approvals-and-sandbox', prompt]],
-  // Local model via codex's ollama provider (qwen-coder on the 3080). Draft-only;
+  // Local model via codex's ollama provider. Draft-only;
   // small models are unreliable at agentic file edits — prefer claude/codex.
   local: (prompt) => ['codex', ['exec', '--oss', '--local-provider=ollama', '-m', process.env.ZMS_LOCAL_MODEL || 'qwen2.5-coder:7b', '--dangerously-bypass-approvals-and-sandbox', prompt]],
 };
@@ -228,7 +233,7 @@ async function runner() {
 
     await run('git', ['-C', repoPath, 'add', '-A']);
     const msg = `content(${job.site}): ${(job.note || 'edit via note').slice(0, 72)}`;
-    await run('git', ['-C', repoPath, '-c', 'user.name=Zach Phillips', '-c', 'user.email=zach@thekitchen.co', 'commit', '-q', '-m', msg]);
+    await run('git', ['-C', repoPath, '-c', `user.name=${GIT_NAME}`, '-c', `user.email=${GIT_EMAIL}`, 'commit', '-q', '-m', msg]);
 
     if (output === 'push') {
       const pr = await run('git', ['-C', repoPath, 'push', 'origin', `HEAD:${base}`, '--quiet']);

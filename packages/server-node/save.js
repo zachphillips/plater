@@ -1,12 +1,16 @@
 // POST /api/save — verifies admin auth (Google ID token OR shared edit token),
 // merges the posted content, and commits it to GitHub via the Contents API.
 // Read-only by default: no token/credentials → no write. Extracted verbatim
-// from the Sherwood reference implementation (env-parameterized already).
+// from the reference implementation Plater was extracted from.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || 'zach@thekitchen.co').toLowerCase();
+const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || '').toLowerCase();
+// Commits need a valid git identity even when the shared edit token (which
+// carries no email) is the credential used.
+const COMMIT_EMAIL = ADMIN_EMAIL || 'plater@users.noreply.github.com';
+const SIGN_IN = ADMIN_EMAIL ? `sign in as ${ADMIN_EMAIL}` : 'sign in with the authorized account';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 // Optional shared-secret fallback so an admin can edit before Google SSO is wired
 // (e.g. from an iPad). A high-entropy bearer token, compared in constant time.
@@ -18,6 +22,9 @@ const SITE_NAME = process.env.CMS_SITE_NAME || 'site';
 const MAX_BODY = 2_000_000;
 
 async function verifyGoogle(idToken) {
+  // Fail CLOSED: with no CMS_ADMIN_EMAIL configured there is no one to
+  // authorize, so an empty allowlist must never match an empty token email.
+  if (!ADMIN_EMAIL) return { ok: false, reason: 'CMS_ADMIN_EMAIL is not set' };
   const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
   if (!r.ok) return { ok: false, reason: 'tokeninfo ' + r.status };
   const t = await r.json();
@@ -80,8 +87,8 @@ async function commitToGitHub(content, who, track) {
     content: Buffer.from(stableJson(content)).toString('base64'),
     branch: GITHUB_BRANCH,
     ...(sha ? { sha } : {}),
-    committer: { name: 'Heard CMS', email: ADMIN_EMAIL },
-    author: { name: 'Zach Phillips', email: ADMIN_EMAIL },
+    committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
+    author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
   };
 
   const put = await fetch(api, {
@@ -98,7 +105,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  if (!auth) return res.status(401).json({ error: `sign in as ${ADMIN_EMAIL} to save` });
+  if (!auth) return res.status(401).json({ error: `${SIGN_IN} to save` });
 
   // Accept either the shared edit token (when configured) or a Google ID token.
   let verifiedEmail;

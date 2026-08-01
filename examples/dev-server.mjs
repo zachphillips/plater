@@ -35,7 +35,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p === '/api/config') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
-      return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'zach@thekitchen.co', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
+      return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
     }
     if (p === '/api/content') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });

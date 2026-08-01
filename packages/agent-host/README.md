@@ -1,15 +1,15 @@
 # @plater/agent-host
 
 The persistent service that turns a captured note into an agent turn. Runs on
-**Trapjaw** (always-on, RTX 3080, `claude` + `codex` + `ollama` already
-authenticated). Sits behind a **Cloudflare Tunnel** (`agent.thekitchen.co`).
+any always-on box you control, with `claude` / `codex` / `ollama` already
+authenticated as **you**. Sits behind a **Cloudflare Tunnel** (`agent.<your-domain>`).
 
 ## Flow
 
 ```
 iPad (authed CMS admin)
   → site's own /api/agent-note   (same-origin; verifies edit-token/Google)
-      → agent.thekitchen.co/note (Cloudflare Tunnel → Trapjaw; server-side bearer)
+      → agent.<your-domain>/note (Cloudflare Tunnel → your box; server-side bearer)
           → runner: fresh branch → run engine in repo checkout → commit → PR
 ```
 
@@ -29,11 +29,11 @@ not a live deploy.
 
 ## Engines / output
 
-- `engine`: `claude` (default; structural/design), `codex`, `local` (Ollama qwen-coder on the 3080; draft quality).
+- `engine`: `claude` (default; structural/design), `codex`, `local` (Ollama via codex; draft quality only).
 - `output`: `pr` (default — opens a PR) or `push` (commits to main; auto-deploys if git-connected).
 - Chosen per-note in the UI (the chooser), falling back to the site's defaults in `sites.json`.
 
-## Run on Trapjaw
+## Run it
 
 ```bash
 export ZMS_AGENT_TOKEN=$(openssl rand -hex 32)   # the shared secret (also set on the sites)
@@ -44,7 +44,8 @@ node server.mjs        # or via the systemd unit + `cloudflared` tunnel
 
 Env: `ZMS_AGENT_PORT` (8787), `ZMS_AGENT_TOKEN` (required), `ZMS_AGENT_WORKDIR`,
 `ZMS_AGENT_SITES`, `ZMS_AGENT_CONCURRENCY` (2), `ZMS_AGENT_TIMEOUT_MS`,
-`ZMS_AGENT_RATE` (20/min), `ZMS_LOCAL_MODEL` (qwen2.5-coder:7b).
+`ZMS_AGENT_RATE` (20/min), `ZMS_LOCAL_MODEL` (qwen2.5-coder:7b),
+`PLATER_GIT_NAME` / `PLATER_GIT_EMAIL` (identity for agent-authored commits).
 
 ## Security checklist
 
@@ -54,4 +55,4 @@ Env: `ZMS_AGENT_PORT` (8787), `ZMS_AGENT_TOKEN` (required), `ZMS_AGENT_WORKDIR`,
 - [x] Rate limit + concurrency cap + per-job timeout
 - [x] Append-only audit journal (`jobs.jsonl`)
 - [ ] Cloudflare Tunnel + (optional) Cloudflare Access in front — set up at deploy
-- [ ] Fine-grained GitHub token scoped to the fleet repos only
+- [ ] Fine-grained GitHub token scoped to your repos only

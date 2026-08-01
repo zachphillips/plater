@@ -3,9 +3,10 @@
 ## Why
 
 ## Verification
-<!-- What was actually run/looked at. "CI green" alone is not verification for
-     behavior changes — show the observed behavior. -->
+<!-- What was actually run or looked at. "CI green" alone is not verification for
+     a behavior change — show the observed behavior. -->
 
-## Loop metadata
-- Loop: <!-- L1/L2/L4/hands-on -->
-- Review rounds so far: 0
+## Checklist
+- [ ] `npm test` and `npm run lint` pass
+- [ ] No new runtime or dev dependencies
+- [ ] Any renamed URL ships its redirect in the same change

@@ -1,7 +1,7 @@
 #!/bin/bash
 # plater host init — stand up an ISOLATED Plater agent-host for one owner
 # (you, or a client). One instance per owner, on the owner's box, with the
-# owner's own LLM keys: a client's notes must NEVER run agents on Kitchen
+# owner's own LLM keys: a client's notes must NEVER run agents on your
 # hardware, and their token spend must be their own.
 #
 #   ./init-host.sh <owner-slug> [--port 8788] [--workdir ~/plater-host-<owner>]
@@ -44,7 +44,7 @@ if [ ! -f "$WORKDIR/host.env" ]; then
   TOKEN=$(openssl rand -hex 32)
   cat > "$WORKDIR/host.env" <<ENV
 # plater agent-host · owner: $OWNER · created $(date -u +%Y-%m-%dT%H:%M:%SZ)
-# THE OWNER'S OWN CREDENTIALS GO HERE — never Kitchen keys on a client host.
+# THE OWNER'S OWN CREDENTIALS GO HERE — never your keys on a client host.
 ZMS_AGENT_TOKEN=$TOKEN
 ZMS_AGENT_PORT=$PORT
 ZMS_AGENT_WORKDIR=$WORKDIR
@@ -72,7 +72,7 @@ chmod +x "$WORKDIR/start.sh"
 
 echo "✓ isolated host for '$OWNER' at $WORKDIR (port $PORT)"
 echo
-echo "Next steps (as the OWNER, not as the Kitchen):"
+echo "Next steps (as the OWNER):"
 echo "  1. Engine auth:   claude login   (or codex login, or put an API key in host.env)"
 echo "  2. Repos:         git clone the owner's site repos into $WORKDIR/repos/"
 echo "                    and list them in $WORKDIR/sites.json"

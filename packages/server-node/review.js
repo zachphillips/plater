@@ -1,8 +1,8 @@
 // /api/review — Plater per-page review state for multi-page sites.
 //
 // GET  → review status for every editable page (read-only, no auth: page paths,
-//        titles, reviewed booleans + counts). For external consumers (e.g. the
-//        ibsky rail's review track) also expose it at GET /plater/review-status
+//        titles, reviewed booleans + counts). For external consumers (e.g. a
+//        dashboard tracking review progress) also expose it at /plater/review-status
 //        via a rewrite:  { "source": "/plater/review-status", "destination": "/api/review" }.
 // POST → mark a page reviewed/unreviewed (auth: Google ID token OR shared edit
 //        token, same as /api/save). Body: { path: "/about.html", reviewed: true }.
@@ -26,7 +26,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || 'zach@thekitchen.co').toLowerCase();
+const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || '').toLowerCase();
+// Commits need a valid git identity even when the shared edit token (which
+// carries no email) is the credential used.
+const COMMIT_EMAIL = ADMIN_EMAIL || 'plater@users.noreply.github.com';
+const SIGN_IN = ADMIN_EMAIL ? `sign in as ${ADMIN_EMAIL}` : 'sign in with the authorized account';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const EDIT_TOKEN = process.env.CMS_EDIT_TOKEN || '';
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY || '';
@@ -46,6 +50,9 @@ function safeEqual(a, b) {
 }
 
 async function verifyGoogle(idToken) {
+  // Fail CLOSED: with no CMS_ADMIN_EMAIL configured there is no one to
+  // authorize, so an empty allowlist must never match an empty token email.
+  if (!ADMIN_EMAIL) return { ok: false, reason: 'CMS_ADMIN_EMAIL is not set' };
   const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
   if (!r.ok) return { ok: false, reason: 'tokeninfo ' + r.status };
   const t = await r.json();
@@ -188,8 +195,8 @@ async function writeReviewState(state, sha, who, pagePath, reviewed) {
       content: Buffer.from(body).toString('base64'),
       branch: GITHUB_BRANCH,
       ...(sha ? { sha } : {}),
-      committer: { name: 'Plater CMS', email: ADMIN_EMAIL },
-      author: { name: 'Zach Phillips', email: ADMIN_EMAIL },
+      committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
+      author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
     }),
   });
   if (!put.ok) return { ok: false, status: 502, error: `github write ${put.status}: ${(await put.text()).slice(0, 300)}` };
@@ -284,7 +291,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  if (!auth) return res.status(401).json({ error: `sign in as ${ADMIN_EMAIL} to review` });
+  if (!auth) return res.status(401).json({ error: `${SIGN_IN} to review` });
 
   let verifiedEmail;
   if (EDIT_TOKEN && safeEqual(auth, EDIT_TOKEN)) {

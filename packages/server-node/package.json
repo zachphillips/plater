@@ -1,7 +1,7 @@
 {
   "name": "@plater/server-node",
   "version": "0.1.0",
-  "description": "Drop-in Vercel/Node serverless handlers for Plater: config, content, save (GitHub-commit durable save with Google-or-token auth).",
+  "description": "Drop-in Vercel/Node serverless handlers for Plater: config, content, save (GitHub-commit durable save with Google-or-token auth), plus feeds, sitemap, redirects/404, agent manifest, review state, and draft versions.",
   "type": "module",
   "exports": {
     "./config": "./config.js",
@@ -10,7 +10,12 @@
     "./agent-note": "./agent-note.js",
     "./review": "./review.js",
     "./publish": "./publish.js",
-    "./propose-post": "./propose-post.js"
+    "./propose-post": "./propose-post.js",
+    "./feed": "./feed.js",
+    "./sitemap": "./sitemap.js",
+    "./route": "./route.js",
+    "./manifest": "./manifest.js",
+    "./versions": "./versions.js"
   },
   "files": [
     "config.js",
@@ -19,7 +24,12 @@
     "agent-note.js",
     "review.js",
     "publish.js",
-    "propose-post.js"
+    "propose-post.js",
+    "feed.js",
+    "sitemap.js",
+    "route.js",
+    "manifest.js",
+    "versions.js"
   ],
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

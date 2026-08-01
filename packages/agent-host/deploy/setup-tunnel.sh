@@ -1,16 +1,17 @@
 #!/bin/bash
-# Stand up the Cloudflare Tunnel for the Plater agent host on Trapjaw.
-# PREREQUISITE: run `~/bin/cloudflared tunnel login` first and authorize the
-# thekitchen.co zone (creates ~/.cloudflared/cert.pem). This script is safe to
-# re-run (idempotent).
+# Stand up the Cloudflare Tunnel for the Plater agent host.
+# PREREQUISITE: run `~/bin/cloudflared tunnel login` first and authorize YOUR
+# zone (creates ~/.cloudflared/cert.pem). This script is safe to re-run.
+#
+#   ZMS_AGENT_HOSTNAME=agent.example.com ./setup-tunnel.sh
 set -e
 CF="$HOME/bin/cloudflared"
-HOSTNAME="${ZMS_AGENT_HOSTNAME:-agent.thekitchen.co}"
+HOSTNAME="${ZMS_AGENT_HOSTNAME:?set ZMS_AGENT_HOSTNAME, e.g. agent.example.com}"
 PORT="${ZMS_AGENT_PORT:-8787}"
 NAME="zms-agent"
 
 if [ ! -f "$HOME/.cloudflared/cert.pem" ]; then
-  echo "ERROR: no cert.pem. Run '$CF tunnel login' and authorize thekitchen.co first." >&2
+  echo "ERROR: no cert.pem. Run '$CF tunnel login' and authorize your zone first." >&2
   exit 1
 fi
 
@@ -21,7 +22,7 @@ fi
 TID=$($CF tunnel list | awk -v n="$NAME" '$0 ~ n {print $1; exit}')
 echo "tunnel id: $TID"
 
-# ingress config: only agent.thekitchen.co -> the local host; everything else 404
+# ingress config: only $HOSTNAME -> the local host; everything else 404
 cat > "$HOME/.cloudflared/config.yml" <<CFG
 tunnel: $TID
 credentials-file: $HOME/.cloudflared/$TID.json
@@ -31,7 +32,7 @@ ingress:
   - service: http_status:404
 CFG
 
-# point the DNS record at the tunnel (Cloudflare-managed thekitchen.co zone)
+# point the DNS record at the tunnel (in your Cloudflare-managed zone)
 $CF tunnel route dns "$NAME" "$HOSTNAME" || true
 
 # persist: start script + cron (no sudo), mirroring the host's approach

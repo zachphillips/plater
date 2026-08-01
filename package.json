@@ -2,8 +2,25 @@
   "name": "plater",
   "version": "0.1.0",
   "private": true,
-  "description": "Plater — a reusable in-browser CMS + click-to-note agent-routing module for the Kitchen fleet. Extracted from the Sherwood reference CMS.",
+  "description": "Plater — a git-native in-browser CMS with click-to-note agent routing. Edit any page in place, or click an element, leave a note, and let a coding agent open the PR.",
   "type": "module",
+  "homepage": "https://zachphillips.github.io/plater/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zachphillips/plater.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zachphillips/plater/issues"
+  },
+  "keywords": [
+    "cms",
+    "static-site",
+    "git",
+    "contenteditable",
+    "ai-agents",
+    "llms-txt",
+    "vercel"
+  ],
   "workspaces": [
     "packages/*"
   ],
@@ -13,8 +30,10 @@
   },
   "scripts": {
     "doctor": "node cli/plater.js doctor",
+    "dev": "node cli/dev.mjs",
+    "demo": "node cli/dev.mjs examples/static-site",
     "lint": "find cli examples packages test -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "test": "node --test"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

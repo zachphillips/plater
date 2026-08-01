@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plater — click an element, leave a note, get a pull request</title>
+<meta name="description" content="A dependency-free CMS for static sites. Inline editing that commits to git, and click-to-note routing that hands real changes to a coding agent.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2310151a'/%3E%3Crect x='6' y='9' width='20' height='3' fill='%23c9a96e'/%3E%3Crect x='6' y='15' width='20' height='8' fill='%2329333b'/%3E%3C/svg%3E">
+<meta property="og:title" content="Plater — click an element, leave a note, get a pull request">
+<meta property="og:description" content="A dependency-free CMS for static sites. Inline editing that commits to git, and click-to-note routing that hands real changes to a coding agent.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sub:#10151a; --panel:#161c22; --panel2:#1b232a; --rule:#29333b; --rule2:#3a4650;
+  --bone:#e8e4db; --dim:#97a3ac; --dim2:#69757d;
+  --brass:#c9a96e; --brass-d:#8a7340; --verd:#6fc9b8; --verd-d:#2f5f57;
+  --disp:'Bricolage Grotesque',system-ui,sans-serif;
+  --serif:'Newsreader',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --gut:172px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--sub);color:var(--bone);overflow-x:hidden;
+  font-family:var(--serif);font-size:18px;line-height:1.62;font-weight:300;
+  -webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(180deg,#131a20 0,var(--sub) 640px);
+}
+a{color:var(--bone);text-decoration-color:var(--brass-d);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--brass)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+code,kbd{font-family:var(--mono);font-size:.86em}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 30px}
+.rails{display:grid;grid-template-columns:var(--gut) minmax(0,1fr);gap:44px}
+.rails>*{min-width:0}
+section[id]{scroll-margin-top:72px}
+.rail{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--dim2);padding-top:9px}
+.rail b{display:block;color:var(--brass);font-weight:500}
+.rail span{display:block;margin-top:7px;color:var(--dim2);line-height:1.6}
+.rail::before{content:"";display:block;width:26px;height:2px;background:var(--brass);margin-bottom:11px}
+
+/* ---------- header ---------- */
+.top{position:sticky;top:0;z-index:60;background:rgba(16,21,26,.86);backdrop-filter:blur(9px);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
+.mark{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.2em;text-decoration:none}
+.mark i{width:15px;height:15px;background:var(--brass);display:block;box-shadow:0 -5px 0 -1px var(--rule2)}
+.top nav{margin-left:auto;display:flex;gap:24px;align-items:center;font-family:var(--mono);font-size:12px;letter-spacing:.04em}
+.top nav a{color:var(--dim);text-decoration:none}
+.top nav a:hover{color:var(--bone)}
+.ghbtn{border:1px solid var(--rule2);padding:7px 13px;color:var(--bone)!important}
+.ghbtn:hover{border-color:var(--brass);background:#1b2028}
+@media(max-width:760px){.top nav a.hide-s{display:none}.top nav{gap:16px}}
+@media(max-width:460px){.top nav a:not(.ghbtn){display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding:78px 0 34px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--brass);margin:0 0 26px}
+h1{
+  font-family:var(--disp);font-weight:800;font-size:clamp(38px,6.4vw,80px);line-height:.98;
+  letter-spacing:-.032em;margin:0 0 24px;max-width:15ch;
+}
+h1 em{font-style:normal;color:var(--brass)}
+.lede{font-size:clamp(18px,2vw,22px);line-height:1.55;color:var(--dim);max-width:52ch;margin:0 0 30px}
+.lede strong{color:var(--bone);font-weight:400}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-family:var(--mono);font-size:13px}
+.btn{display:inline-block;padding:12px 20px;text-decoration:none;border:1px solid var(--rule2);color:var(--bone);letter-spacing:.03em}
+.btn-p{background:var(--brass);color:#12161a;border-color:var(--brass);font-weight:700}
+.btn-p:hover{background:#dcbe83}
+.btn:hover{border-color:var(--brass)}
+.cta small{color:var(--dim2);font-size:12px}
+
+/* ---------- the demo ---------- */
+.stage{display:grid;grid-template-columns:minmax(0,1.42fr) minmax(0,1fr);gap:22px;margin-top:52px;align-items:start}
+@media(max-width:960px){.stage{grid-template-columns:1fr}}
+.slab{background:var(--panel);border:1px solid var(--rule);position:relative}
+.slab>.cap{
+  display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--rule);
+  font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim2);background:#141a20;
+}
+.cap .dot{width:6px;height:6px;border-radius:50%;background:var(--rule2)}
+.cap .url{margin-left:auto;text-transform:none;letter-spacing:0;color:var(--dim2)}
+.hint{position:absolute;right:13px;top:41px;z-index:5;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--brass);background:#12181d;border:1px solid var(--brass-d);padding:4px 8px;pointer-events:none;transition:opacity .3s}
+@media(hover:none),(max-width:760px){.hint{display:none}}
+
+/* mock site */
+.mock{padding:30px 28px 34px;position:relative;min-height:392px}
+.mock-nav{display:flex;gap:18px;align-items:baseline;padding-bottom:20px;border-bottom:1px solid var(--rule);margin-bottom:26px}
+.mock-nav b{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:-.01em}
+.mock-nav span{font-family:var(--mono);font-size:10.5px;color:var(--dim2);letter-spacing:.08em}
+.mock-nav span:nth-of-type(1){margin-left:auto}
+.mock h3{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.3vw,36px);line-height:1.04;letter-spacing:-.022em;margin:0 0 12px;max-width:16ch}
+.mock p.sub{color:var(--dim);font-size:16px;margin:0 0 26px;max-width:44ch}
+.mock-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mcard{border:1px solid var(--rule);padding:14px 14px 16px;background:#131920}
+.mcard b{display:block;font-family:var(--disp);font-weight:600;font-size:14px;margin-bottom:5px}
+.mcard span{font-family:var(--mono);font-size:10.5px;color:var(--dim2);letter-spacing:.05em}
+.pick{cursor:crosshair}
+.mock.busy .pick{cursor:default}
+
+/* brass selection overlay — the real product accent */
+.sel{position:absolute;pointer-events:none;border:1.5px solid var(--brass);background:rgba(201,169,110,.07);
+  opacity:0;transition:all .09s ease;z-index:8}
+.sel.on{opacity:1}
+.sel .tag{position:absolute;top:-20px;left:-1.5px;background:var(--brass);color:#12161a;
+  font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:.05em;padding:1px 6px;white-space:nowrap}
+
+/* note popover — mirrors @plater/capture */
+.pop{position:absolute;z-index:20;width:min(300px,calc(100% - 20px));background:#12181d;border:1px solid var(--rule2);
+  box-shadow:0 22px 60px -18px rgba(0,0,0,.85);display:none}
+.pop.on{display:block;animation:popin .14s ease}
+@keyframes popin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pop header{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--rule);background:#161d23}
+.pop header i{width:6px;height:6px;border-radius:50%;background:var(--brass);box-shadow:0 0 7px var(--brass)}
+.pop header b{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--brass);font-weight:700}
+.pop header button{margin-left:auto;background:none;border:0;color:var(--dim2);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;font-family:var(--mono)}
+.pop-body{padding:11px;display:flex;flex-direction:column;gap:10px}
+.pop-target{font-family:var(--mono);font-size:10px;color:var(--dim2);letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop-target b{color:var(--brass);font-weight:500}
+.pop textarea{width:100%;height:66px;resize:none;background:#0d1216;border:1px solid var(--rule);color:var(--bone);
+  padding:8px 9px;font-family:var(--serif);font-size:14px;line-height:1.45;outline:none}
+.pop textarea:focus{border-color:var(--brass)}
+.pop textarea::placeholder{color:#4e5a62}
+.seg{display:flex;flex-direction:column;gap:5px}
+.seg em{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim2);font-style:normal}
+.seg div{display:flex;gap:4px}
+.seg button{flex:1;background:#171d23;border:1px solid var(--rule);color:var(--dim);padding:6px 3px;
+  font-family:var(--mono);font-size:11px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--brass);border-color:var(--brass);color:#12161a;font-weight:700}
+.pop footer{display:flex;align-items:center;gap:9px;padding:10px 11px;border-top:1px solid var(--rule);background:#0f1418}
+.pop footer span{font-family:var(--mono);font-size:10.5px;color:var(--dim2);flex:1}
+.send{background:var(--brass);border:0;color:#12161a;font-family:var(--mono);font-weight:700;font-size:12px;padding:8px 14px;cursor:pointer}
+.send:hover{background:#dcbe83}
+
+/* pipeline */
+.pipe{padding:15px 0 6px}
+.step{display:grid;grid-template-columns:15px 1fr;gap:12px;padding:0 16px}
+.step .bar{position:relative}
+.step .bar::before{content:"";position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--rule)}
+.step:last-of-type .bar::before{bottom:auto;height:14px}
+.step .bar i{position:absolute;left:2px;top:9px;width:9px;height:9px;background:var(--sub);border:1.5px solid var(--rule2);border-radius:50%;transition:.25s}
+.step.act .bar i{border-color:var(--brass);background:var(--brass);box-shadow:0 0 0 4px rgba(201,169,110,.16)}
+.step.done .bar i{border-color:var(--verd);background:var(--verd)}
+.step .txt{padding:4px 0 16px;opacity:.34;transition:opacity .3s}
+.step.act .txt,.step.done .txt{opacity:1}
+.step .where{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim2)}
+.step.act .where{color:var(--brass)}
+.step.done .where{color:var(--verd-d)}
+.step .what{font-family:var(--disp);font-weight:600;font-size:14.5px;margin-top:3px;letter-spacing:-.005em}
+.step .det{font-family:var(--mono);font-size:11px;color:var(--dim2);margin-top:4px;line-height:1.55;word-break:break-word}
+.diffbox{margin:0 16px 16px;border:1px solid var(--rule);background:#0d1216;font-family:var(--mono);font-size:11px;
+  line-height:1.72;padding:10px 12px;white-space:pre;overflow-x:auto;color:var(--dim);display:none}
+.diffbox.on{display:block}
+.diffbox u{display:block;text-decoration:none;color:var(--dim2);border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:7px}
+.diffbox .a{color:var(--verd)}
+.diffbox .m{color:#5d686f}
+.result{margin:0 16px 16px;border:1px solid var(--verd-d);background:rgba(111,201,184,.06);padding:11px 12px;display:none}
+.result.on{display:block;animation:popin .2s ease}
+.result b{display:block;font-family:var(--mono);font-size:11px;color:var(--verd);letter-spacing:.05em;margin-bottom:4px}
+.result span{font-family:var(--serif);font-size:14px;color:var(--dim)}
+.replay{display:block;width:calc(100% - 32px);margin:0 16px 16px;background:none;border:1px dashed var(--rule2);
+  color:var(--dim2);font-family:var(--mono);font-size:11px;padding:8px;cursor:pointer;letter-spacing:.06em}
+.replay:hover{border-color:var(--brass);color:var(--brass)}
+.replay[hidden]{display:none}
+
+/* ---------- sections ---------- */
+.sec{padding:88px 0;border-top:1px solid var(--rule)}
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(28px,4vw,46px);line-height:1.03;letter-spacing:-.028em;margin:0 0 18px;max-width:17ch}
+h2 em{font-style:normal;color:var(--brass)}
+.sec p{max-width:60ch;color:var(--dim);margin:0 0 18px;overflow-wrap:break-word}
+.sec p strong{color:var(--bone);font-weight:400}
+h3.sub{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:-.012em;margin:38px 0 10px;color:var(--bone)}
+
+pre{background:#0d1216;border:1px solid var(--rule);padding:15px 17px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.5px;line-height:1.72;color:var(--dim);margin:0}
+pre b{color:var(--brass);font-weight:400}
+pre i{color:var(--verd);font-style:normal}
+pre u{color:#5d686f;text-decoration:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0 0}
+.two>*,.stage>*,.status>*{min-width:0}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim2);margin:0 0 8px}
+
+.commit{display:flex;align-items:center;gap:13px;margin-top:16px;border:1px solid var(--rule);
+  border-left:2px solid var(--verd);background:var(--panel);padding:12px 15px;font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+.commit b{color:var(--verd);font-weight:500}
+.commit span{color:var(--dim2)}
+
+/* standards list */
+.std{border-top:1px solid var(--rule);margin-top:34px}
+.std li{list-style:none;display:grid;grid-template-columns:200px 1fr;gap:26px;padding:20px 0;border-bottom:1px solid var(--rule)}
+.std{padding:0}
+.std li b{font-family:var(--mono);font-size:13px;color:var(--brass);font-weight:500}
+.std li i{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim2);font-style:normal;margin-top:5px;letter-spacing:.03em}
+.std li p{margin:0;font-size:16.5px}
+@media(max-width:760px){.std li{grid-template-columns:1fr;gap:8px}}
+
+/* ladder table */
+.tbl{width:100%;border-collapse:collapse;margin-top:28px;font-size:15px}
+.tbl th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--dim2);font-weight:500;padding:0 16px 11px 0;border-bottom:1px solid var(--rule2)}
+.tbl td{padding:15px 16px 15px 0;border-bottom:1px solid var(--rule);color:var(--dim);vertical-align:top;font-size:15px}
+.tbl td:first-child{color:var(--bone);font-family:var(--disp);font-weight:600;white-space:nowrap}
+.tbl code{color:var(--brass)}
+@media(max-width:760px){.tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}.tbl thead{display:none}
+  .tbl tr{border-bottom:1px solid var(--rule2);padding:14px 0}.tbl td{border:0;padding:3px 0}
+  .tbl td:first-child{font-size:17px;margin-bottom:6px}}
+
+/* status columns */
+.status{display:grid;grid-template-columns:1fr 1fr;gap:44px;margin-top:34px}
+@media(max-width:760px){.status{grid-template-columns:1fr;gap:34px}}
+.status ul{list-style:none;padding:0;margin:14px 0 0}
+.status li{padding:9px 0 9px 26px;position:relative;font-size:16px;color:var(--dim);border-bottom:1px solid var(--rule);line-height:1.5}
+.status li::before{position:absolute;left:0;top:9px;font-family:var(--mono);font-size:12px}
+.status .yes li::before{content:"✓";color:var(--verd)}
+.status .no li::before{content:"—";color:var(--dim2)}
+.status li b{color:var(--bone);font-weight:400}
+
+.quiet{font-size:15px;color:var(--dim2);max-width:62ch}
+.pull{font-family:var(--disp);font-weight:600;font-size:clamp(19px,2.4vw,26px);line-height:1.32;letter-spacing:-.018em;
+  color:var(--bone);border-left:2px solid var(--brass);padding-left:22px;margin:36px 0;max-width:34ch}
+
+footer.foot{border-top:1px solid var(--rule);padding:44px 0 60px;font-family:var(--mono);font-size:12px;color:var(--dim2)}
+footer.foot .wrap{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+footer.foot a{color:var(--dim)}
+footer.foot .r{margin-left:auto}
+@media(max-width:900px){.rails{grid-template-columns:1fr;gap:16px}.rail{padding-top:0}.rail::before{margin-bottom:8px}
+  .rail span{display:none}.sec{padding:64px 0}.hero{padding:52px 0 20px}}
+
+.rv{opacity:0;transform:translateY(14px)}
+.rv.in{opacity:1;transform:none;transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .rv{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#top"><i></i>PLATER</a>
+    <nav>
+      <a href="#loop">The loop</a>
+      <a href="#cms" class="hide-s">Git-native</a>
+      <a href="#standards" class="hide-s">Standards</a>
+      <a href="#start">Start</a>
+      <a class="ghbtn" href="https://github.com/zachphillips/plater">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap rails">
+    <div class="rail"><b>hero.pitch</b><span>every label on this page is a real content path, the way Plater labels a site</span></div>
+    <div>
+      <p class="eyebrow">In-browser CMS · agent routing · zero dependencies</p>
+      <h1>Click the thing. Say what's wrong. Get a <em>pull request</em>.</h1>
+      <p class="lede">Plater makes any static site editable in the browser, and every save is a <strong>git commit</strong>. When a change is bigger than the words — when it's layout, markup, CSS — you click the element, type a sentence, and a coding agent opens the PR. <strong>No database. No build step. No framework.</strong></p>
+      <div class="cta">
+        <a class="btn btn-p" href="https://github.com/zachphillips/plater">View on GitHub</a>
+        <a class="btn" href="#start">Run the demo</a>
+        <small>MIT · Node 20+</small>
+      </div>
+
+      <div class="stage">
+        <div class="slab">
+          <div class="cap"><span class="dot"></span>fieldhouse.example — ?edit<span class="url">plater-capture.js</span></div>
+          <div class="hint" id="hint">hover, then click →</div>
+          <div class="mock" id="mock">
+            <div class="mock-nav">
+              <b>Fieldhouse</b><span>Work</span><span>Studio</span><span>Contact</span>
+            </div>
+            <h3 class="pick" tabindex="0" role="button" aria-label="Leave a note on the headline" data-path="home.hero.title" data-sel="main &gt; h1">Buildings that are cheaper to keep than to replace.</h3>
+            <p class="sub pick" tabindex="0" role="button" aria-label="Leave a note on the intro paragraph" data-path="home.hero.sub" data-sel="main &gt; p.sub">A four-person studio in the Cascades. We draw slowly and specify for a fifty-year roof.</p>
+            <div class="mock-grid pick" tabindex="0" role="button" aria-label="Leave a note on the work cards" data-path="work.projects" data-sel="main &gt; .work-grid" data-note="Make these three cards a single column on phones — they're unreadable at 375px.">
+              <div class="mcard"><b>Alder Shed</b><span>2025 · timber</span></div>
+              <div class="mcard"><b>Ridge House</b><span>2024 · stone</span></div>
+              <div class="mcard"><b>Mill Annex</b><span>2023 · adaptive</span></div>
+            </div>
+            <div class="sel" id="sel"><span class="tag" id="tag"></span></div>
+            <div class="pop" id="pop">
+              <header><i></i><b>PLATER NOTE</b><button type="button" id="popx" aria-label="Close note">✕</button></header>
+              <div class="pop-body">
+                <div class="pop-target">target <b id="ptar">—</b></div>
+                <textarea id="pnote" placeholder="Describe the change in one sentence…"></textarea>
+                <div class="seg"><em>Engine</em><div id="seg-e">
+                  <button type="button" aria-pressed="true">Claude</button>
+                  <button type="button" aria-pressed="false">Codex</button>
+                  <button type="button" aria-pressed="false">Local</button>
+                </div></div>
+                <div class="seg"><em>Output</em><div id="seg-o">
+                  <button type="button" aria-pressed="true">Open PR</button>
+                  <button type="button" aria-pressed="false">Publish</button>
+                </div></div>
+              </div>
+              <footer><span id="pstat">signed in · token</span><button class="send" id="psend" type="button">Send →</button></footer>
+            </div>
+          </div>
+        </div>
+
+        <div class="slab">
+          <div class="cap"><span class="dot"></span>where the note goes</div>
+          <div class="pipe" id="pipe">
+            <div class="step" data-k="0"><div class="bar"><i></i></div><div class="txt">
+              <div class="where">Browser</div><div class="what">Capture</div>
+              <div class="det" id="d0">selector · outerHTML · nearby text · bound content path · page URL · element box</div></div></div>
+            <div class="step" data-k="1"><div class="bar"><i></i></div><div class="txt">
+              <div class="where">Your origin</div><div class="what">Relay</div>
+              <div class="det">POST /api/agent-note — re-verifies your CMS credential, forces the site name, attaches the bearer the browser never sees</div></div></div>
+            <div class="step" data-k="2"><div class="bar"><i></i></div><div class="txt">
+              <div class="where">Your machine</div><div class="what">Agent</div>
+              <div class="det">claude -p · in a real checkout of your repo · rate-limited, concurrency-capped, audit-logged</div></div></div>
+            <div class="step" data-k="3"><div class="bar"><i></i></div><div class="txt">
+              <div class="where">GitHub</div><div class="what">Pull request</div>
+              <div class="det">branch pushed, PR opened for review — never a live deploy unless you asked for one</div></div></div>
+          </div>
+          <pre class="diffbox" id="diff"></pre>
+          <div class="result" id="res"><b>PR #128 opened · plater/note-8f3c</b><span>Work cards stack to a single column below 640px.</span></div>
+          <button class="replay" id="replay" type="button" hidden>↻ Run it again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ THE LOOP ============ -->
+<section class="sec" id="loop">
+  <div class="wrap rails">
+    <div class="rail"><b>loop.why</b><span>the part no other CMS does</span></div>
+    <div>
+      <h2>Some changes aren't <em>words</em>.</h2>
+      <p>Every lightweight CMS can swap a headline. None of them can make three cards stack on mobile, because that isn't content — it's markup and CSS, and it lives in files the CMS was never allowed to touch. So it becomes a ticket, and the ticket becomes a month.</p>
+      <p>Plater routes it instead. The capture overlay records what you clicked with enough precision that an agent can find it again: the CSS selector, the element's own HTML, the visible text around it, the content key it binds if it binds one, the page URL, and the element's box on screen. You add a sentence. That package goes to a coding agent running against a real checkout of your repository.</p>
+      <p class="pull">The person who noticed the problem is the person who fixes it, in the place where they noticed it.</p>
+
+      <h3 class="sub">The trust boundary is the interesting part</h3>
+      <p>The browser never holds a repository credential, and it never names a repository. It posts to <strong>your own origin</strong>, authenticated the same way saving is. That relay checks your credential again, overwrites the site field with its own configured name — so a request can't be aimed at someone else's repo — and only then forwards the note with a server-side bearer token.</p>
+      <p>The agent host maps site names to repositories on its own side, from a file you control. It is bearer-gated with a constant-time compare, rate-limited, concurrency-capped, and writes an append-only job journal. And it opens a <strong>pull request by default</strong>. A note produces something to review, not something to explain afterwards.</p>
+
+      <h3 class="sub">Design mode: pictures before code</h3>
+      <p>When you don't know what you want yet, toggle design mode and the loop inverts. The host screenshots the live page, generates several concept images of the element redesigned, and hands them back to the overlay. You pick one. <strong>The chosen image becomes the specification</strong> — only then does a coding agent start writing, and it writes to match the picture you approved. Nothing is committed against a guess.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GIT-NATIVE ============ -->
+<section class="sec" id="cms">
+  <div class="wrap rails">
+    <div class="rail"><b>cms.model</b><span>the substrate stays; the layer is thin</span></div>
+    <div>
+      <h2>Your content is a <em>JSON file</em> in your repo.</h2>
+      <p>There is no template language and no build step. You write ordinary HTML and mark the parts that are content. The markup you author is the fallback: if a key is missing, or JavaScript never runs, the page still renders exactly what you wrote. The site is never blank, never waiting on a fetch, and fully indexable before a single script executes.</p>
+
+      <div class="two">
+        <div><p class="lbl">index.html — authored, and the fallback</p><pre>&lt;h1 <b>data-bind</b>=<i>"home.hero.title"</i>&gt;
+  Buildings that age well.
+&lt;/h1&gt;
+&lt;p <b>data-bind</b>=<i>"home.hero.sub"</i>&gt;…&lt;/p&gt;
+&lt;div <b>data-cards</b>=<i>"work.projects"</i>&gt;
+  &lt;template&gt;
+    &lt;article&gt;
+      &lt;b <b>data-field</b>=<i>"name"</i>&gt;&lt;/b&gt;
+      &lt;a <b>data-field-link</b>=<i>"url"</i>&gt;&lt;/a&gt;
+    &lt;/article&gt;
+  &lt;/template&gt;
+&lt;/div&gt;</pre></div>
+        <div><p class="lbl">content/site.json — the layer</p><pre>{
+  <b>"home"</b>: {
+    <b>"hero"</b>: {
+      "title": <i>"Buildings that age well."</i>,
+      "sub": <i>"A four-person studio…"</i>
+    }
+  },
+  <b>"work"</b>: {
+    "projects": [
+      { "name": <i>"Alder Shed"</i>, "url": <i>"/work/alder/"</i> },
+      { "name": <i>"Ridge House"</i>, "url": <i>"/work/ridge/"</i> }
+    ]
+  }
+}</pre></div>
+      </div>
+
+      <h3 class="sub">Saving is a commit, not a write</h3>
+      <p>Add <code>?edit</code> to any URL and every bound element becomes editable in place. Saving sends only the keys you changed. The handler fetches the current JSON from the GitHub Contents API, deep-merges your patch, and puts it back as a commit — which triggers whatever deploy you already had.</p>
+      <div class="commit"><b>content: home.hero.title (via Plater)</b><span>web/content/site.json · +1 −1 · main</span></div>
+      <p style="margin-top:20px">That's the whole publish pipeline. There's no cache to bust, no CMS database that can drift from the repository, and no export path to worry about, because nothing was ever imported. <code>git log</code> is your edit history. <code>git revert</code> is undo. Delete Plater tomorrow and the site keeps working — it's still HTML and a JSON file.</p>
+
+      <h3 class="sub">Two credentials, both checked on the server</h3>
+      <p>Sign in with Google — verified against Google's tokeninfo endpoint, checking audience, verified email, expiry, and your allowlisted address — or use a shared edit token compared in constant time. The token path exists because real editing happens on a phone at 11pm, and OAuth popups on a phone at 11pm are how edits don't get made. With no admin address configured, the handlers <strong>fail closed</strong>: nobody is authorized until you say who is. The GitHub token stays on the server, always.</p>
+
+      <h3 class="sub">Named drafts, not commit archaeology</h3>
+      <p>Git remembers every save, but that's forensics, not editing. Versions are the editorial layer: named tracks of whole alternate drafts, one file per page. Call a track <code>shorter</code> or <code>v2-launch</code> — it exists as soon as a file is written. Add <code>?draft=shorter</code> to a URL and the entire page renders from that track, in place, on the real site. Edits autosave to the draft. When you like it, <strong>Make this live</strong> promotes it as a normal commit.</p>
+
+      <h3 class="sub">Review state that expires by itself</h3>
+      <p>On a multi-page site, edit mode shows a sitemap rail with a persistent reviewed checkbox per page. The record stores a hash of the page's HTML plus <strong>only the content keys that page binds</strong> — so any later edit or push automatically flips exactly the affected pages back to unreviewed, and nothing else. Checked means checked since it last changed.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STANDARDS ============ -->
+<section class="sec" id="standards">
+  <div class="wrap rails">
+    <div class="rail"><b>standards.set</b><span>plumbing the web already asked for</span></div>
+    <div>
+      <h2>Everything a CMS <em>owes</em> the web. Nothing that tells you how to think.</h2>
+      <p>No tags. No categories. No channels. No collections. A post is just a page somebody decided to put in the feed. One-off pages stay great, and nothing has to match anything else to exist. What Plater does ship is the boring, load-bearing plumbing that small sites skip and then regret.</p>
+
+      <ul class="std">
+        <li><div><b>/feed.xml + /feed.json</b><i>feed.js</i></div><p>The feed is hand-curated content, not a database query. It's an array in your JSON — edit it the way you edit a page, reorder it by reordering it, point an item at any URL including someone else's site. Dates are stored once as RFC 3339 and emitted as valid RFC 822, so nobody hand-writes the web's most-fumbled date format. Item ids are permanent; readers dedupe on them.</p></li>
+        <li><div><b>/sitemap.xml</b><i>sitemap.js</i></div><p>Built from the same page enumeration the review checklist uses, so it can't disagree with the site. <code>lastmod</code> appears only when a real review record backs it, never a fabricated timestamp. No <code>changefreq</code>, no <code>priority</code> — search engines ignore them, so shipping them is just lying politely.</p></li>
+        <li><div><b>Redirects &amp; a real 404</b><i>route.js</i></div><p>Redirects are content: an array in the same JSON, live the moment the save deploys. The rule that follows is enforceable — renaming a URL means adding its redirect in the same change. The 404 page's copy is editable like any other page, and it returns an actual 404 status.</p></li>
+        <li><div><b>/api/manifest + /llms.txt</b><i>manifest.js</i></div><p>The site, machine-readable: every page, the content keys each one binds, review freshness, the feed, and a self-describing <strong>write path</strong> — how to save, how to send a note, what the house rules are. An agent that finds a Plater site learns to edit it from one GET, without ever reading Plater's source.</p></li>
+      </ul>
+
+      <h3 class="sub">The environment ladder</h3>
+      <p>Three legs, one contract. The <strong>same handlers</strong> run in all three; only the backing store changes. What you see locally is what deploys.</p>
+      <table class="tbl">
+        <thead><tr><th>Leg</th><th>Command</th><th>Saves go to</th><th>Agent notes</th></tr></thead>
+        <tbody>
+          <tr><td>Local</td><td><code>plater dev .</code></td><td>the site's JSON on disk — the GitHub token is force-unset, so dev cannot commit</td><td>echoed, never fired</td></tr>
+          <tr><td>Staging</td><td><code>git push</code></td><td>that branch, through the normal save path, on the preview URL</td><td>every note lands as a PR</td></tr>
+          <tr><td>Production</td><td>merge to main</td><td>main, auto-deploys</td><td>PR by default; push for trusted quick edits</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:22px" class="quiet">The local server also serves the feeds, the sitemap, <code>llms.txt</code>, the manifest, and the editable 404 — so feed curation and redirect edits are previewable before a single commit exists.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ START ============ -->
+<section class="sec" id="start">
+  <div class="wrap rails">
+    <div class="rail"><b>start.run</b><span>sixty seconds, no signup</span></div>
+    <div>
+      <h2>Try it in a <em>minute</em>.</h2>
+      <p>There is nothing to install. Plater has zero runtime dependencies and zero dev dependencies — <code>npm test</code> is Node's own test runner, <code>npm run lint</code> is <code>node --check</code>.</p>
+      <pre><u># clone and edit a real site, locally</u>
+git clone https://github.com/zachphillips/plater
+cd plater
+<b>npm run demo</b>            <u># serves examples/static-site</u>
+open <i>'http://127.0.0.1:4188/?edit'</i></pre>
+      <p style="margin-top:20px">Click any highlighted text, type over it, save. Locally that writes straight to the example's JSON file — commit it when you're happy. Deployed, the identical handler commits it for you.</p>
+
+      <h3 class="sub">Wiring your own site</h3>
+      <pre>npm i <b>@plater/core</b> <b>@plater/server-node</b>
+npx plater init .        <u># vendors the client, scaffolds api/</u>
+npx plater <b>doctor</b> .      <u># tells you exactly what's still unwired</u></pre>
+      <p style="margin-top:20px" class="quiet">The doctor command is the honest one: it inspects a site's wiring, prints the environment checklist, and names what's missing rather than failing at deploy time. The agent loop needs one more piece — a machine you own running the agent host, behind a tunnel. The repository's README walks through it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATUS ============ -->
+<section class="sec" id="status">
+  <div class="wrap rails">
+    <div class="rail"><b>status.honest</b><span>0.1.0</span></div>
+    <div>
+      <h2>What works, and what <em>doesn't</em> yet.</h2>
+      <p>Everything on the left is implemented, tested, and running real sites. It has not yet run on anyone else's site, which is precisely what opening it up is for. Everything on the right is a real gap, listed here rather than discovered later.</p>
+      <div class="status">
+        <div class="yes">
+          <p class="lbl">Working today</p>
+          <ul>
+            <li><b>The editor</b> and all five binding attributes</li>
+            <li><b>Git-commit save</b> with Google-or-token auth</li>
+            <li><b>Click-to-note</b> capture, relay, and agent host</li>
+            <li><b>Design mode</b> — concept images before code</li>
+            <li><b>Versions</b>, draft flipping, and promote-to-live</li>
+            <li><b>Review state</b> with per-page content hashing</li>
+            <li><b>Feeds, sitemap, redirects, 404, manifest, llms.txt</b></li>
+            <li><b>Static publishing</b> from Markdown or HTML</li>
+            <li><b>The local leg</b> — full API surface, no cloud</li>
+          </ul>
+        </div>
+        <div class="no">
+          <p class="lbl">Not built yet</p>
+          <ul>
+            <li><b>Nothing is on npm.</b> Today you vendor from a checkout; publishing is the next release task</li>
+            <li><b>The agent host is single-tenant</b> by design. The bearer token is the whole security boundary</li>
+            <li><b>Google auth is one address</b>, not a list. Multiple editors share the token</li>
+            <li><b>Design mode needs local tooling</b> installed, with no graceful fallback when it's absent</li>
+            <li><b>Handlers are Vercel-shaped.</b> They're plain functions, but only Vercel's rewrites are written down</li>
+            <li><b>Tests cover the server seams</b>, not the browser overlay</li>
+            <li><b>The old command name still works</b> and should stop working at 1.0</li>
+          </ul>
+        </div>
+      </div>
+      <p class="quiet" style="margin-top:34px">Issues and pull requests are welcome. The bar for a change is the same as the bar for the codebase: no runtime dependencies, no build step, no framework. Continuous integration runs the linter and the tests on Node 20 and 22, and both have to pass.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Plater · MIT</span>
+    <a href="https://github.com/zachphillips/plater">Source</a>
+    <a href="https://github.com/zachphillips/plater#readme">Documentation</a>
+    <a href="https://github.com/zachphillips/plater/issues">Issues</a>
+    <span class="r">Built by Zach Phillips</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- scroll reveal ---- */
+  var revealables = document.querySelectorAll('.sec > .wrap > div:last-child');
+  if (!reduce && 'IntersectionObserver' in window) {
+    revealables.forEach(function(el){ el.classList.add('rv'); });
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -12% 0px' });
+    revealables.forEach(function(el){ io.observe(el); });
+  }
+
+  /* ---- the hero inspector ---- */
+  var mock = document.getElementById('mock'), sel = document.getElementById('sel'),
+      tag = document.getElementById('tag'), pop = document.getElementById('pop'),
+      ptar = document.getElementById('ptar'), pnote = document.getElementById('pnote'),
+      psend = document.getElementById('psend'), popx = document.getElementById('popx'),
+      pstat = document.getElementById('pstat'), hint = document.getElementById('hint'),
+      diff = document.getElementById('diff'), res = document.getElementById('res'),
+      replay = document.getElementById('replay'), d0 = document.getElementById('d0'),
+      steps = [].slice.call(document.querySelectorAll('.step'));
+  var current = null, running = false, touched = false;
+  var naturalH = 392;
+  window.addEventListener('load', function(){
+    if (!pop.classList.contains('on')) naturalH = mock.offsetHeight;
+  });
+
+  function box(el){
+    var a = el.getBoundingClientRect(), b = mock.getBoundingClientRect();
+    return { x: a.left - b.left, y: a.top - b.top, w: a.width, h: a.height };
+  }
+  function highlight(el){
+    if (running) return;
+    var r = box(el);
+    sel.style.left = (r.x - 4) + 'px'; sel.style.top = (r.y - 4) + 'px';
+    sel.style.width = (r.w + 8) + 'px'; sel.style.height = (r.h + 8) + 'px';
+    tag.textContent = el.dataset.path;
+    sel.classList.add('on');
+  }
+  function clearHighlight(){ if (!running && !pop.classList.contains('on')) sel.classList.remove('on'); }
+
+  function openPop(el){
+    if (running) return;
+    current = el;
+    highlight(el);
+    if (!touched) { touched = true; hint.style.opacity = '0'; }
+    var r = box(el);
+    ptar.textContent = el.dataset.sel;
+    pnote.value = el.dataset.note || '';
+    pnote.placeholder = 'Describe the change in one sentence…';
+    pop.classList.add('on');            // must be on-screen to measure
+    var h = pop.offsetHeight, w = pop.offsetWidth;
+    var top = r.y + r.h + 14;
+    var left = Math.max(10, Math.min(r.x, mock.offsetWidth - w - 10));
+    pop.style.top = top + 'px'; pop.style.left = left + 'px';
+    // grow the panel rather than covering the page it annotates
+    mock.style.minHeight = Math.max(naturalH, top + h + 20) + 'px';
+    pstat.textContent = 'signed in · token';
+    psend.disabled = false; psend.textContent = 'Send →';
+    try { pnote.focus({ preventScroll: true }); } catch (e) { pnote.focus(); }
+  }
+  function closePop(){ pop.classList.remove('on'); sel.classList.remove('on'); mock.style.minHeight = ''; }
+
+  [].slice.call(mock.querySelectorAll('.pick')).forEach(function(el){
+    el.addEventListener('mouseenter', function(){ highlight(el); });
+    el.addEventListener('mouseleave', clearHighlight);
+    el.addEventListener('click', function(ev){ ev.stopPropagation(); openPop(el); });
+    el.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openPop(el); }
+    });
+    el.addEventListener('focus', function(){ highlight(el); });
+    el.addEventListener('blur', clearHighlight);
+  });
+  popx.addEventListener('click', closePop);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !running) closePop(); });
+
+  /* segmented controls behave like the real chooser */
+  [].slice.call(document.querySelectorAll('.seg div')).forEach(function(group){
+    group.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      [].slice.call(group.children).forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+    });
+  });
+
+  /* ---- the run ---- */
+  var DIFF = [
+    '<u>web/styles.css · +5 −0</u>',
+    '<span class="m">@@ -142,6 +142,11 @@</span>',
+    '  .work-grid {',
+    '    display: grid;',
+    '    grid-template-columns: repeat(3, 1fr);',
+    '  }',
+    '<span class="a">+</span>',
+    '<span class="a">+ @media (max-width: 640px) {</span>',
+    '<span class="a">+   .work-grid {</span>',
+    '<span class="a">+     grid-template-columns: 1fr;</span>',
+    '<span class="a">+   }</span>',
+    '<span class="a">+ }</span>'
+  ];
+  var timers = [];
+  function at(ms, fn){ timers.push(setTimeout(fn, reduce ? Math.min(ms, 400) : ms)); }
+  function resetRun(){
+    timers.forEach(clearTimeout); timers = [];
+    steps.forEach(function(s){ s.classList.remove('act', 'done'); });
+    diff.classList.remove('on'); diff.innerHTML = '';
+    res.classList.remove('on'); replay.hidden = true;
+    d0.textContent = 'selector · outerHTML · nearby text · bound content path · page URL · element box';
+    running = false;
+  }
+  function advance(i){
+    steps.forEach(function(s, k){
+      s.classList.toggle('act', k === i);
+      s.classList.toggle('done', k < i);
+    });
+  }
+  function run(){
+    if (running) return;
+    var el = current || mock.querySelector('[data-note]');
+    var note = (pnote.value || '').trim() || el.dataset.note || 'Fix this.';
+    running = true;
+    resetRun(); running = true;
+    highlight(el);
+    psend.disabled = true; psend.textContent = 'Sending…';
+    pstat.textContent = 'routing note…';
+
+    at(120, function(){
+      advance(0);
+      d0.innerHTML = '<span style="color:var(--brass)">' + el.dataset.sel + '</span> · ' +
+        (el.dataset.path ? 'binds <span style="color:var(--brass)">' + el.dataset.path + '</span> · ' : '') +
+        '“' + note.replace(/[<>&]/g, '') + '”';
+    });
+    at(900, function(){ advance(1); pstat.textContent = 'accepted'; psend.textContent = 'Sent'; });
+    at(1750, function(){ advance(2); closePop(); sel.classList.remove('on'); });
+    at(2600, function(){
+      diff.classList.add('on');
+      if (reduce) { diff.innerHTML = DIFF.join('\n'); return; }
+      var n = 0;
+      (function line(){
+        if (n >= DIFF.length) return;
+        diff.innerHTML = DIFF.slice(0, ++n).join('\n');
+        timers.push(setTimeout(line, 78));
+      })();
+    });
+    at(3900, function(){ advance(3); });
+    at(4300, function(){
+      steps.forEach(function(s){ s.classList.remove('act'); s.classList.add('done'); });
+      res.classList.add('on'); replay.hidden = false; running = false;
+    });
+  }
+  psend.addEventListener('click', run);
+  replay.addEventListener('click', function(){ resetRun(); openPop(mock.querySelector('[data-note]')); });
+
+  /* nudge: after a beat, show what's clickable */
+  if (!reduce) {
+    setTimeout(function(){
+      if (touched) return;
+      var el = mock.querySelector('[data-note]');
+      highlight(el);
+      setTimeout(function(){ if (!touched) clearHighlight(); }, 1500);
+    }, 2200);
+  }
+})();
+</script>
+</body>
+</html>

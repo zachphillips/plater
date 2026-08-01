@@ -4,7 +4,7 @@
   },
   "hero": {
     "headline": "This page is rendered and edited by @plater/core.",
-    "subhead": "Same engine as Sherwood — now a package. Press the button or add ?edit to the URL."
+    "subhead": "No database, no build step. Press the button or add ?edit to the URL."
   },
   "features": [
     "Inline contenteditable copy editing",
@@ -33,10 +33,10 @@
     "headline": "Work",
     "subhead": "A nested page — grouped under work/ in the sitemap.",
     "projects": [
-      "Sherwood",
-      "The Great Rebellion",
-      "elizabethand.co",
-      "The Pantry"
+      "A portfolio site",
+      "A launch page",
+      "A club newsletter",
+      "A one-page shop"
     ]
   }
 }

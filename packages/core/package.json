@@ -1,7 +1,7 @@
 {
   "name": "@plater/core",
   "version": "0.1.0",
-  "description": "Framework-free in-browser CMS editor: renders site.json via data-bind attributes, inline contenteditable editing, Google-SSO-or-edit-token auth, durable save. Extracted from the Sherwood reference implementation.",
+  "description": "Framework-free in-browser CMS editor: renders site.json via data-bind attributes, inline contenteditable editing, Google-SSO-or-edit-token auth, durable save. Every save is a git commit.",
   "type": "module",
   "main": "src/editor.js",
   "exports": {
@@ -10,5 +10,5 @@
   "files": [
     "src"
   ],
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

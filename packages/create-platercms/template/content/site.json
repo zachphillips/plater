@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "title": "Northline — a small studio for careful work",
+    "description": "Northline is a two-person studio that designs and builds websites meant to last a decade.",
+    "url": "https://example.com/",
+    "image": "https://example.com/social-card.png"
+  },
+  "site": {
+    "name": "Northline",
+    "tagline": "Built by hand, kept in git."
+  },
+  "hero": {
+    "eyebrow": "Design and build, Providence RI",
+    "title": "A small studio for careful work.",
+    "subtitle": "We make websites for people who intend to keep them — plain HTML, honest typography, and no machinery you have to feed every quarter.",
+    "cta": { "label": "Start a conversation", "url": "mailto:hello@example.com" }
+  },
+  "work": {
+    "title": "Selected work",
+    "intro": "Three projects that show the range: an archive, a shop, and a site that is mostly one very good page.",
+    "projects": [
+      {
+        "title": "Fenwick Press",
+        "summary": "Three hundred back-catalogue titles rebuilt as a fast static archive, with a small shop attached.",
+        "year": "2026",
+        "role": "Design and build",
+        "url": ""
+      },
+      {
+        "title": "Merrow & Co.",
+        "summary": "An identity and one-page site for a cabinet shop that had been running on a phone number and word of mouth.",
+        "year": "2025",
+        "role": "Identity, site",
+        "url": ""
+      },
+      {
+        "title": "The Tuesday Letter",
+        "summary": "A weekly essay list moved off a rented platform and onto its own archive, feed included.",
+        "year": "2025",
+        "role": "Build, editorial",
+        "url": ""
+      }
+    ]
+  },
+  "studio": {
+    "title": "How we work",
+    "body": "Two people, one project at a time, start to finish. We write the HTML by hand, keep the page weight under a couple of hundred kilobytes, and hand over a repository you own outright. When the work is done you can edit the site yourself, from a laptop or a phone, without calling us.",
+    "services": [
+      "Identity and typographic systems",
+      "Website design and hand-built front ends",
+      "Editorial structure and copy shaping",
+      "Quiet ongoing care — small changes, same week"
+    ]
+  },
+  "contact": {
+    "title": "Start a conversation",
+    "body": "Tell us what you are making and roughly when it needs to exist. We answer every note, and we will say so plainly if we are not the right studio for it.",
+    "cta": { "label": "hello@example.com", "url": "mailto:hello@example.com" }
+  },
+  "footer": {
+    "links": [
+      { "label": "Feed", "href": "/feed.xml" },
+      { "label": "Sitemap", "href": "/sitemap.xml" }
+    ]
+  },
+  "feed": {
+    "title": "Northline",
+    "description": "Occasional notes on the work.",
+    "items": []
+  },
+  "redirects": [],
+  "notFound": {
+    "title": "Page not found",
+    "body": "That page is not here. It may have been renamed — every rename here leaves a redirect, so this one is probably a typo.",
+    "homeLabel": "Back to the front page"
+  }
+}

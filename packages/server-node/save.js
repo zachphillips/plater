@@ -2,6 +2,12 @@
 // merges the posted content, and commits it to GitHub via the Contents API.
 // Read-only by default: no token/credentials → no write. Extracted verbatim
 // from the reference implementation Plater was extracted from.
+//
+// Concurrent saves: two editors (or an editor and an agent) can commit between
+// our read and our write. GitHub answers that with 409 (or 422 sha mismatch);
+// we refetch the sha AND the current file, re-apply the client's patch over
+// that fresh base, and retry ONCE. A second conflict is reported honestly as
+// 409 { error: 'conflict' } rather than resolved by clobbering someone.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -55,7 +61,18 @@ async function readBaseContent() {
   }
 }
 
-async function commitToGitHub(content, who, track) {
+// GitHub rejects a write whose `sha` is no longer HEAD: 409 outright, or 422
+// with a "does not match" / sha complaint. Both mean the same thing — someone
+// committed between our read and our write.
+function isConflict(status, text) {
+  return status === 409 || (status === 422 && /sha|does not match|is at/i.test(text));
+}
+
+// `rebuild(freshBase)` re-applies the client's patch over whatever is on
+// GitHub NOW, so the retry after a conflict merges instead of clobbering the
+// commit that beat us. If the fresh base can't be read back as an object we
+// refuse to retry rather than blind-write the winner's commit away.
+async function commitToGitHub(content, who, track, rebuild) {
   const token = process.env.GITHUB_TOKEN || process.env.CMS_GITHUB_TOKEN;
   if (!token) return { ok: false, status: 501, error: 'missing GITHUB_TOKEN' };
   if (!GITHUB_REPOSITORY) return { ok: false, status: 501, error: 'missing GITHUB_REPOSITORY' };
@@ -71,34 +88,67 @@ async function commitToGitHub(content, who, track) {
     'X-GitHub-Api-Version': '2022-11-28',
   };
 
-  let sha;
-  const get = await fetch(`${api}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, { headers, cache: 'no-store' });
-  if (get.ok) {
+  // Current sha + current decoded content in one read. 404 = file not created yet.
+  async function readCurrent() {
+    const get = await fetch(`${api}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, { headers, cache: 'no-store' });
+    if (get.status === 404) return { sha: undefined, base: {} };
+    if (!get.ok) return { error: `github read ${get.status}: ${(await get.text()).slice(0, 300)}` };
     const file = await get.json();
-    sha = file.sha;
-  } else if (get.status !== 404) {
-    return { ok: false, status: 502, error: `github read ${get.status}: ${(await get.text()).slice(0, 300)}` };
+    let base = null;
+    // Files over 1 MB come back with encoding "none" and no content — then we
+    // have no base to merge and must not pretend it is empty.
+    if (file.encoding === 'base64' && typeof file.content === 'string') {
+      try { base = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')); } catch { base = null; }
+    }
+    return { sha: file.sha, base };
   }
 
-  const body = {
-    message: track
-      ? `draft(${SITE_NAME}): ${track} track edit via CMS by ${who}`
-      : `content(${SITE_NAME}): edit via CMS by ${who}`,
-    content: Buffer.from(stableJson(content)).toString('base64'),
-    branch: GITHUB_BRANCH,
-    ...(sha ? { sha } : {}),
-    committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
-    author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
-  };
-
-  const put = await fetch(api, {
+  const message = track
+    ? `draft(${SITE_NAME}): ${track} track edit via CMS by ${who}`
+    : `content(${SITE_NAME}): edit via CMS by ${who}`;
+  const put = (value, sha) => fetch(api, {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      message,
+      content: Buffer.from(stableJson(value)).toString('base64'),
+      branch: GITHUB_BRANCH,
+      ...(sha ? { sha } : {}),
+      committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
+      author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
+    }),
   });
-  if (!put.ok) return { ok: false, status: 502, error: `github write ${put.status}: ${(await put.text()).slice(0, 300)}` };
-  const result = await put.json();
-  return { ok: true, sha: result.commit?.sha };
+
+  const current = await readCurrent();
+  if (current.error) return { ok: false, status: 502, error: current.error };
+
+  const first = await put(content, current.sha);
+  if (first.ok) return { ok: true, sha: (await first.json()).commit?.sha };
+  const firstText = await first.text();
+  if (!isConflict(first.status, firstText)) {
+    return { ok: false, status: 502, error: `github write ${first.status}: ${firstText.slice(0, 300)}` };
+  }
+
+  // Exactly one refetch-and-retry. A second conflict is a real race the human
+  // has to resolve by reloading — silently looping would keep overwriting them.
+  const fresh = await readCurrent();
+  if (fresh.error) return { ok: false, status: 502, error: fresh.error };
+  // No usable fresh base (>1 MB inline-less response, or unparseable JSON) means
+  // we cannot merge — report the conflict instead of overwriting the other save.
+  const mergeable = fresh.base && typeof fresh.base === 'object' && !Array.isArray(fresh.base);
+  if (!mergeable) return { ok: false, status: 409, conflict: true, error: 'conflict' };
+  const second = await put(rebuild ? rebuild(fresh.base) : content, fresh.sha);
+  if (second.ok) return { ok: true, sha: (await second.json()).commit?.sha };
+  const secondText = await second.text();
+  if (isConflict(second.status, secondText)) return { ok: false, status: 409, conflict: true, error: 'conflict' };
+  return { ok: false, status: 502, error: `github write ${second.status}: ${secondText.slice(0, 300)}` };
+}
+
+const CONFLICT_MESSAGE = 'Someone else saved this content a moment ago — reload to see the latest before saving again.';
+
+function failed(res, gh) {
+  if (gh.conflict) return res.status(409).json({ error: 'conflict', message: CONFLICT_MESSAGE });
+  return res.status(gh.status || 500).json({ error: gh.error });
 }
 
 export default async function handler(req, res) {
@@ -134,13 +184,18 @@ export default async function handler(req, res) {
   if (typeof payload.promote === 'string') {
     if (!TRACK_RE.test(payload.promote)) return res.status(400).json({ error: 'bad track name' });
     if (!payload.content || typeof payload.content !== 'object') return res.status(400).json({ error: 'promote needs the rendered draft content' });
-    const content = { ...(await readBaseContent()), ...payload.content };
-    delete content._track_note;
-    content.updatedAt = new Date().toISOString();
-    content.updatedBy = verifiedEmail;
-    content.promotedFrom = payload.promote;
-    const gh = await commitToGitHub(content, verifiedEmail, null);
-    if (!gh.ok) return res.status(gh.status || 500).json({ error: gh.error });
+    // The patch (the rendered draft) re-applied over any base — disk now, or
+    // GitHub's fresher copy if the first write loses a race.
+    const promoted = (base) => {
+      const out = { ...base, ...payload.content };
+      delete out._track_note;
+      out.updatedAt = new Date().toISOString();
+      out.updatedBy = verifiedEmail;
+      out.promotedFrom = payload.promote;
+      return out;
+    };
+    const gh = await commitToGitHub(promoted(await readBaseContent()), verifiedEmail, null, promoted);
+    if (!gh.ok) return failed(res, gh);
     const hook = process.env.CMS_DEPLOY_HOOK;
     if (hook) { try { await fetch(hook, { method: 'POST' }); } catch {} }
     return res.status(200).json({ ok: true, promoted: payload.promote, git: { committed: true, commit: gh.sha } });
@@ -152,14 +207,17 @@ export default async function handler(req, res) {
   // us everything it rendered), so no merge with the live base here.
   const track = typeof payload.track === 'string' && TRACK_RE.test(payload.track) ? payload.track : null;
 
-  const content = track
-    ? { ...payload.content }
-    : { ...(await readBaseContent()), ...payload.content };
-  content.updatedAt = new Date().toISOString();
-  content.updatedBy = verifiedEmail;
-
-  const gh = await commitToGitHub(content, verifiedEmail, track);
-  if (!gh.ok) return res.status(gh.status || 500).json({ error: gh.error });
+  // The client's patch as a function of a base, so a conflict retry can re-apply
+  // it over GitHub's fresher bytes. On retry the base is whatever file we are
+  // writing (live content, or that track's own overlay), never the other one.
+  const apply = (base) => {
+    const out = { ...base, ...payload.content };
+    out.updatedAt = new Date().toISOString();
+    out.updatedBy = verifiedEmail;
+    return out;
+  };
+  const gh = await commitToGitHub(apply(track ? {} : await readBaseContent()), verifiedEmail, track, apply);
+  if (!gh.ok) return failed(res, gh);
 
   const hook = process.env.CMS_DEPLOY_HOOK;
   let deployTriggered = false;

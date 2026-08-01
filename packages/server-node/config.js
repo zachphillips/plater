@@ -15,6 +15,6 @@ export default function handler(req, res) {
     devNoauth: false,
     // Advertises the agent-routing feature to the client when an agent-host
     // endpoint is configured. The endpoint URL/secret are never sent here.
-    agentRouting: Boolean(process.env.ZMS_AGENT_ENDPOINT),
+    agentRouting: Boolean(process.env.PLATER_AGENT_ENDPOINT || process.env.ZMS_AGENT_ENDPOINT),
   });
 }

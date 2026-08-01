@@ -1,0 +1,111 @@
+/* Starter styles — no framework, no fonts to download, no build step.
+   Two knobs: the custom properties below, and the section rhythm. */
+
+:root {
+  color-scheme: dark;
+  --bg: #0f1011;
+  --surface: #17191a;
+  --line: #26292b;
+  --text: #e7e6e3;
+  --muted: #9aa0a2;
+  --accent: #d8cfc0;
+  --measure: 34rem;
+  --gutter: clamp(1.25rem, 5vw, 3rem);
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 clamp(1rem, 0.96rem + 0.2vw, 1.0625rem)/1.65 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 0.5rem; font-weight: 600; }
+p { margin: 0 0 1rem; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+/* ---------- CMS bar ---------- @platercms/core toggles [hidden] and the ids. */
+#cms-bar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  padding: 0.5rem var(--gutter);
+  background: #101112; border-bottom: 1px solid var(--line);
+  font: 500 0.8125rem/1.4 var(--mono);
+}
+#cms-bar[hidden] { display: none !important; }
+.cms-brand { color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+#cms-status { margin-left: auto; color: var(--muted); }
+#cms-bar button {
+  border: 1px solid var(--line); border-radius: 5px;
+  padding: 0.3rem 0.7rem; background: var(--surface); color: var(--text);
+  font: inherit; cursor: pointer;
+}
+#cms-bar button:hover { border-color: var(--accent); color: var(--accent); }
+#cms-bar button[hidden] { display: none; }
+/* Bound regions get a dashed outline only while editing. */
+body.cms-editing [data-path] { outline: 1px dashed var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+/* ---------- layout ---------- */
+.site-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;
+  max-width: 62rem; margin: 0 auto; padding: 2rem var(--gutter) 0;
+}
+.wordmark { font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+.site-nav { display: flex; gap: 1.25rem; font-size: 0.9375rem; }
+.site-nav a { color: var(--muted); text-decoration: none; }
+.site-nav a:hover { color: var(--text); }
+
+main { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+
+.hero { padding: clamp(3.5rem, 12vw, 7rem) 0 clamp(2.5rem, 8vw, 4.5rem); }
+.eyebrow { font: 500 0.75rem/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.hero h1 { font-size: clamp(2rem, 1.3rem + 3.4vw, 3.4rem); max-width: 18ch; margin-bottom: 1rem; }
+.lede { max-width: var(--measure); font-size: 1.125rem; color: var(--muted); }
+
+.section { padding: clamp(2.5rem, 7vw, 4rem) 0; border-top: 1px solid var(--line); }
+.section h2 { font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.6rem); }
+.section > p { max-width: var(--measure); color: var(--muted); }
+.section-intro { margin-bottom: 2rem; }
+
+.button {
+  display: inline-block; margin-top: 0.75rem;
+  padding: 0.7rem 1.25rem; border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); text-decoration: none; font-size: 0.9375rem;
+}
+.button:hover { background: var(--accent); color: #14100b; }
+
+/* ---------- cards ---------- one <template> clone per work.projects item */
+.cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.card { padding: 1.4rem; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.card h3 { font-size: 1.0625rem; }
+.card p { color: var(--muted); font-size: 0.9375rem; margin-bottom: 0.75rem; }
+.card-meta { font: 500 0.75rem/1.5 var(--mono); letter-spacing: 0.04em; color: var(--muted); margin: 0; }
+.card-link { display: inline-block; margin-top: 0.75rem; font-size: 0.875rem; color: var(--accent); text-decoration: none; }
+.card-link[hidden] { display: none; }
+
+.services { max-width: var(--measure); margin: 1.5rem 0 0; padding: 0; list-style: none; }
+.services li { padding: 0.6rem 0; border-top: 1px solid var(--line); color: var(--muted); }
+
+.contact { padding-bottom: clamp(3rem, 9vw, 5rem); }
+
+.site-foot {
+  max-width: 62rem; margin: 0 auto;
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 1.75rem var(--gutter) 3rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem; color: var(--muted);
+}
+.site-foot p { margin: 0; }
+.foot-links { display: flex; gap: 1.25rem; }
+.foot-links a { color: var(--muted); text-decoration: none; }
+.foot-links a:hover { color: var(--text); }
+
+@media (prefers-reduced-motion: no-preference) {
+  a, button { transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease; }
+}

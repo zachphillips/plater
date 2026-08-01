@@ -1,4 +1,4 @@
-// @plater/capture — click an element on the live page, leave a note, choose where
+// @platercms/capture — click an element on the live page, leave a note, choose where
 // it goes (engine × output), and route it to the agent host via the site's
 // /api/agent-note relay. A refined, unobtrusive editing overlay: it sits on top
 // of the host site, imposes no fonts, and stays out of the way until invoked.
@@ -55,6 +55,35 @@ function injectStyles() {
   .${NS}-launch{background:#1b1813;border:1px solid #3a352b;color:#c9a96e;font:600 12px/1 inherit;padding:5px 9px;
     border-radius:5px;cursor:pointer}
   .${NS}-launch[aria-pressed="true"]{background:#c9a96e;color:#151208;border-color:#c9a96e}
+  .${NS}-badge{margin-left:5px;font:700 10px/1 ui-monospace,Menlo,monospace;opacity:.75}
+  .${NS}-tray{position:fixed;right:12px;z-index:2147483642;width:352px;max-width:calc(100vw - 24px);
+    max-height:min(66vh,560px);display:flex;flex-direction:column;background:#141414;color:#e8e3d9;
+    border:1px solid #2f2b25;border-radius:10px;overflow:hidden;
+    box-shadow:0 18px 50px -12px rgba(0,0,0,.7),0 0 0 1px rgba(201,169,110,.12);
+    font:13px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif;animation:${NS}in .12s ease}
+  .${NS}-tray header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #232019;background:#191712}
+  .${NS}-tray header b{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#c9a96e}
+  .${NS}-tray header .n{font:600 11px/1 ui-monospace,Menlo,monospace;color:#6d665c}
+  .${NS}-clear{margin-left:auto;background:none;border:1px solid #2f2b25;color:#8a8277;font:600 10px/1.6 ui-monospace,Menlo,monospace;
+    letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:5px;cursor:pointer}
+  .${NS}-clear:hover{border-color:#a5453a;color:#e8b3ac}
+  .${NS}-clear+.${NS}-x{margin-left:0}
+  .${NS}-clear[hidden]{display:none}
+  .${NS}-list{overflow-y:auto;padding:6px 0;-webkit-overflow-scrolling:touch}
+  .${NS}-note{display:flex;flex-direction:column;gap:4px;padding:9px 12px;border-bottom:1px solid #1d1a15;position:relative}
+  .${NS}-note:last-child{border-bottom:0}
+  .${NS}-note .t{color:#ddd6c9;padding-right:18px;overflow-wrap:anywhere}
+  .${NS}-note .m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    font:600 10px/1.5 ui-monospace,Menlo,monospace;color:#6d665c}
+  .${NS}-note .m .st{color:#c9a96e}
+  .${NS}-note .m .st.err{color:#d08a80}
+  .${NS}-note .m .st.done{color:#7fae7f}
+  .${NS}-note .m a{color:#9fb8d8}
+  .${NS}-note .rm{position:absolute;top:6px;right:7px;background:none;border:0;color:#4d4842;font-size:14px;line-height:1;
+    padding:2px 4px;cursor:pointer}
+  .${NS}-note .rm:hover{color:#d08a80}
+  .${NS}-empty{padding:22px 16px;text-align:center;color:#6d665c;font-size:12px}
+  .${NS}-empty b{display:block;color:#8a8277;font:600 11px/1.8 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
   `;
   const s = document.createElement('style'); s.id = `${NS}-style`; s.textContent = css;
   document.head.appendChild(s);
@@ -78,6 +107,47 @@ function cssPath(el) {
   }
   return parts.join(' > ');
 }
+
+/* ---------------- note log ---------------- */
+// Notes used to vanish the moment the popover closed: you sent one, got a job
+// id in a status line, and had no way to answer "did that land?". The log is
+// deliberately local-only (localStorage, this browser) — it is a receipt book,
+// not state the server owes anyone. Reads and writes are total: a corrupt or
+// quota-full store degrades to "no notes", never to a thrown error mid-send.
+const NOTES_KEY = 'plater-notes';
+const NOTES_MAX = 200;
+
+function readNotes() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]');
+    return Array.isArray(arr) ? arr.filter((n) => n && typeof n === 'object' && n.id) : [];
+  } catch { return []; }
+}
+function writeNotes(list) {
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(list.slice(0, NOTES_MAX))); } catch {}
+  return list;
+}
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Only http(s) links are ever rendered as links — a note's status payload comes
+// back from the agent host, so javascript:/data: must not become clickable.
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '');
+
+// Job ids are hex on the agent host; the dev echo answers "dev-echo", which is
+// not pollable. Anything non-hex is treated as un-pollable rather than sent.
+const pollable = (job) => /^[a-f0-9]+$/i.test(String(job || ''));
+
+const DONE_RE = /^(done|complete|completed|merged|pushed|shipped|alternatives-ready)$/i;
+const FAIL_RE = /^(error|failed|cancelled|canceled|timeout)$/i;
+
+const noteAge = (ts) => {
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60); if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+};
 
 function contentPathFor(el) {
   const p = el.closest('[data-path]'); if (p) return p.dataset.path;
@@ -118,7 +188,21 @@ export function initCapture(opts = {}) {
   let picking = false, pop = null, current = null;
   const route = { engine: defaults.engine, output: defaults.output };
 
-  const isTool = (el) => el && (el.closest(`.${NS}-pop`) || el.closest(`.${NS}-hl`) || el.closest(barSelector) || el.closest(`.${NS}-launch`));
+  // One JSON call to the relay, shared by the popover and the tray's poller.
+  const apiPost = async (payload) => {
+    const token = getToken && getToken();
+    const headers = { 'content-type': 'application/json' };
+    if (token) headers.authorization = 'Bearer ' + token;
+    const res = await fetch(`${apiBase}/agent-note`, { method: 'POST', headers, body: JSON.stringify(payload) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || out.error) throw new Error(out.error || 'HTTP ' + res.status);
+    return out;
+  };
+
+  // Tool chrome is never a note target — picking inside the tray would capture
+  // the tray itself instead of the page element the user meant.
+  const isTool = (el) => el && (el.closest(`.${NS}-pop`) || el.closest(`.${NS}-hl`) || el.closest(barSelector)
+    || el.closest(`.${NS}-launch`) || el.closest(`.${NS}-tray`));
 
   function moveHL(el) {
     const r = el.getBoundingClientRect();
@@ -223,15 +307,7 @@ export function initCapture(opts = {}) {
         : `${current.contentPath ? 'bound content' : 'element'} selected`;
     };
 
-    const api = async (payload) => {
-      const token = getToken && getToken();
-      const headers = { 'content-type': 'application/json' };
-      if (token) headers.authorization = 'Bearer ' + token;
-      const res = await fetch(`${apiBase}/agent-note`, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const out = await res.json().catch(() => ({}));
-      if (!res.ok || out.error) throw new Error(out.error || 'HTTP ' + res.status);
-      return out;
-    };
+    const api = apiPost;
 
     const imgSrc = async (jobId, n) => {
       // fetch through the same-origin relay so the agent-host bearer stays server-side
@@ -278,6 +354,7 @@ export function initCapture(opts = {}) {
           use.disabled = true; status.textContent = 'sending the chosen design to the build agent…';
           try {
             const out = await api({ action: 'accept', designJob: jobId, alternative: n, note, route });
+            logNote(`${note} — building concept ${n}`, out, route.output);
             status.textContent = `building from concept ${n} · job ${out.id} → PR when done`;
             send.textContent = 'Accepted ✓';
           } catch (err) { status.textContent = 'accept failed: ' + err.message; use.disabled = false; }
@@ -295,22 +372,168 @@ export function initCapture(opts = {}) {
       const note = ta.value.trim();
       if (!note) { ta.focus(); return; }
       send.disabled = true;
+      // The receipt is written from the RESPONSE, not optimistically: a note the
+      // relay refused never happened, and logging it would be a lie in the tray.
       try {
         if (mode === 'design') {
           status.textContent = 'screenshotting the live page…';
           const out = await api({ action: 'design', note, capture: current });
+          logNote(note, out, 'design');
           await showAlternatives(out.id, note);
           send.disabled = false; send.textContent = 'Generate more →';
         } else {
           status.textContent = 'sending…';
           const out = await api({ note, capture: current, route });
-          status.innerHTML = out.prUrl ? `sent → <a href="${out.prUrl}" target="_blank">PR</a>` : `queued · ${out.id || 'ok'} (${route.engine} · ${route.output})`;
+          logNote(note, out, route.output);
+          const url = safeUrl(out.prUrl);
+          status.innerHTML = url ? `sent → <a href="${esc(url)}" target="_blank" rel="noopener">PR</a>`
+            : `queued · ${esc(out.id || 'ok')} (${esc(route.engine)} · ${esc(route.output)})`;
           send.textContent = 'Sent ✓';
         }
       } catch (e) { status.textContent = 'error: ' + e.message; send.disabled = false; }
     };
+
+    // The note this popover records: bindPath is the CONTENT path when the
+    // click landed on bound copy, else the CSS selector — the two things that
+    // let a later reader find the element the note is about.
+    function logNote(text, out, output) {
+      const job = pollable(out && out.id) ? String(out.id) : undefined;
+      const rec = {
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        text,
+        bindPath: (current && (current.contentPath || current.selector)) || '',
+        engine: route.engine,
+        output,
+        // dev echo answers 202 with a non-hex id and a `dev` note; there is no
+        // job to poll, so it is terminal on arrival and says so.
+        status: out && out.dev ? 'sent — dev echo' : (out && out.status) || 'queued',
+        ...(job ? { job } : {}),
+        ...(safeUrl(out && out.prUrl) ? { prUrl: safeUrl(out.prUrl) } : {}),
+      };
+      writeNotes([rec, ...readNotes()]);
+      renderTray();
+    }
     return pop;
   }
+
+  /* ---------------- notes tray ---------------- */
+  // A pane, not a modal: no overlay, no focus trap, nothing that stops the page
+  // being read or edited while it is open. It answers one question — what did I
+  // send, and where did it get to. Polling only runs while it is open, so a
+  // forgotten tab costs nothing.
+
+  let trayEl = null;
+  let pollTimer = null;
+
+  function notesCount() { return readNotes().length; }
+
+  function updateBadge() {
+    if (!badge) return;
+    const n = notesCount();
+    badge.textContent = n ? String(n) : '';
+    notesBtn.title = n ? `${n} note${n === 1 ? '' : 's'} sent from this browser` : 'Notes you send are logged here';
+  }
+
+  function noteHtml(n) {
+    const cls = FAIL_RE.test(n.status) ? ' err' : DONE_RE.test(n.status) || /dev echo/.test(n.status) ? ' done' : '';
+    const url = safeUrl(n.prUrl);
+    return `<div class="${NS}-note" data-note="${esc(n.id)}">` +
+      `<button class="rm" type="button" title="Dismiss this note" data-dismiss="${esc(n.id)}">✕</button>` +
+      `<div class="t">${esc(n.text)}</div>` +
+      `<div class="m"><span class="st${cls}">${esc(n.status || 'queued')}</span>` +
+      `<span>${esc(noteAge(Number(n.ts) || Date.now()))}</span>` +
+      (n.bindPath ? `<span>${esc(n.bindPath)}</span>` : '') +
+      `<span>${esc(n.engine || '')}${n.output ? ' · ' + esc(n.output) : ''}</span>` +
+      (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">open PR ↗</a>` : '') +
+      `</div></div>`;
+  }
+
+  function renderTray() {
+    updateBadge();
+    if (!trayEl) return;
+    const notes = readNotes();
+    trayEl.querySelector(`.${NS}-list`).innerHTML = notes.length
+      ? notes.map(noteHtml).join('')
+      : `<div class="${NS}-empty"><b>No notes yet</b>Click <strong>✎ Note</strong>, pick anything on the page, ` +
+        `and say what should change. Every note you send shows up here with its status.</div>`;
+    trayEl.querySelector('.n').textContent = notes.length ? `${notes.length}` : '';
+    trayEl.querySelector(`.${NS}-clear`).hidden = !notes.length;
+    trayEl.querySelectorAll('[data-dismiss]').forEach((b) => {
+      b.onclick = () => { writeNotes(readNotes().filter((x) => x.id !== b.dataset.dismiss)); renderTray(); };
+    });
+  }
+
+  // One status sweep. Each job is polled independently so one dead job cannot
+  // stall the rest, and a failed poll leaves the last known status alone rather
+  // than reporting a network blip as a job failure.
+  async function pollNotes() {
+    const live = readNotes().filter((n) => n.job && pollable(n.job) && !DONE_RE.test(n.status) && !FAIL_RE.test(n.status));
+    if (!live.length) return;
+    const results = await Promise.all(live.map(async (n) => {
+      try { return [n.id, await apiPost({ action: 'status', job: n.job })]; } catch { return null; }
+    }));
+    let changed = false;
+    const byId = new Map(results.filter(Boolean));
+    const next = readNotes().map((n) => {
+      const st = byId.get(n.id);
+      if (!st) return n;
+      const status = st.status || n.status;
+      const prUrl = safeUrl(st.prUrl || st.url || (st.result && (st.result.prUrl || st.result.url))) || n.prUrl;
+      if (status === n.status && prUrl === n.prUrl) return n;
+      changed = true;
+      return { ...n, status, ...(prUrl ? { prUrl } : {}) };
+    });
+    if (changed) { writeNotes(next); renderTray(); }
+  }
+
+  function openTray() {
+    if (trayEl) return;
+    trayEl = document.createElement('div');
+    trayEl.className = `${NS}-tray`;
+    trayEl.setAttribute('role', 'region');
+    trayEl.setAttribute('aria-label', 'Notes sent to agents');
+    trayEl.innerHTML = `<header><span class="${NS}-dot"></span><b>Notes</b><span class="n"></span>` +
+      `<button class="${NS}-clear" type="button" title="Remove every note from this list">Clear all</button>` +
+      `<button class="${NS}-x" type="button" title="Close">✕</button></header><div class="${NS}-list"></div>`;
+    document.body.appendChild(trayEl);
+    positionTray();
+    trayEl.querySelector(`.${NS}-x`).onclick = closeTray;
+    trayEl.querySelector(`.${NS}-clear`).onclick = () => {
+      if (!notesCount() || !window.confirm('Clear every note from this list? The agent jobs themselves are unaffected.')) return;
+      writeNotes([]); renderTray();
+    };
+    renderTray();
+    notesBtn.setAttribute('aria-pressed', 'true');
+    pollNotes().catch(() => {});
+    pollTimer = setInterval(() => { pollNotes().catch(() => {}); }, 10000);
+  }
+
+  function closeTray() {
+    clearInterval(pollTimer); pollTimer = null;
+    if (trayEl) { trayEl.remove(); trayEl = null; }
+    notesBtn.setAttribute('aria-pressed', 'false');
+  }
+
+  // Sits under the bar when there is one (top or bottom), else near the launcher.
+  function positionTray() {
+    if (!trayEl) return;
+    const b = document.querySelector(barSelector);
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (b && !b.hidden) {
+      const r = b.getBoundingClientRect();
+      if (r.top > vh / 2) { trayEl.style.bottom = Math.max(8, Math.round(vh - r.top + 8)) + 'px'; trayEl.style.top = 'auto'; }
+      else { trayEl.style.top = Math.max(8, Math.round(r.bottom + 8)) + 'px'; trayEl.style.bottom = 'auto'; }
+    } else { trayEl.style.bottom = '64px'; trayEl.style.top = 'auto'; }
+  }
+  window.addEventListener('resize', positionTray);
+
+  const notesBtn = document.createElement('button');
+  notesBtn.className = `${NS}-launch`; notesBtn.type = 'button';
+  notesBtn.setAttribute('aria-pressed', 'false');
+  notesBtn.innerHTML = `Notes<span class="${NS}-badge"></span>`;
+  const badge = notesBtn.querySelector(`.${NS}-badge`);
+  notesBtn.onclick = () => (trayEl ? closeTray() : openTray());
 
   // launcher button — prefer the CMS bar, else float bottom-right
   let launcher = document.createElement('button');
@@ -322,13 +545,17 @@ export function initCapture(opts = {}) {
   if (bar) {
     const status = bar.querySelector('#cms-status');
     bar.insertBefore(launcher, status || null);
+    bar.insertBefore(notesBtn, status || null);
   } else {
     Object.assign(launcher.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: 2147483639, padding: '9px 13px' });
+    Object.assign(notesBtn.style, { position: 'fixed', right: '104px', bottom: '16px', zIndex: 2147483639, padding: '9px 13px' });
     document.body.appendChild(launcher);
+    document.body.appendChild(notesBtn);
   }
+  updateBadge();
 
   window.addEventListener('scroll', () => { if (picking) hl.style.display = 'none'; }, true);
-  return { enter, exit, toggle, openFor };
+  return { enter, exit, toggle, openFor, openNotes: openTray, closeNotes: closeTray };
 }
 
 export default initCapture;

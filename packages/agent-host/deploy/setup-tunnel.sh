@@ -3,11 +3,11 @@
 # PREREQUISITE: run `~/bin/cloudflared tunnel login` first and authorize YOUR
 # zone (creates ~/.cloudflared/cert.pem). This script is safe to re-run.
 #
-#   ZMS_AGENT_HOSTNAME=agent.example.com ./setup-tunnel.sh
+#   PLATER_AGENT_HOSTNAME=agent.example.com ./setup-tunnel.sh
 set -e
 CF="$HOME/bin/cloudflared"
-HOSTNAME="${ZMS_AGENT_HOSTNAME:?set ZMS_AGENT_HOSTNAME, e.g. agent.example.com}"
-PORT="${ZMS_AGENT_PORT:-8787}"
+HOSTNAME="${PLATER_AGENT_HOSTNAME:-${ZMS_AGENT_HOSTNAME:?set PLATER_AGENT_HOSTNAME, e.g. agent.example.com}}"
+PORT="${PLATER_AGENT_PORT:-${ZMS_AGENT_PORT:-8787}}"
 NAME="zms-agent"
 
 if [ ! -f "$HOME/.cloudflared/cert.pem" ]; then

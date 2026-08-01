@@ -56,8 +56,20 @@ function rfc822(rfc3339) {
   return Number.isNaN(d.getTime()) ? null : d.toUTCString();
 }
 
+// The CONFIGURED origin, and only that. Item ids and urls resolve against it,
+// and an id must be stable forever — so it must never depend on which host the
+// request arrived at, or the same item re-delivers to every reader whenever the
+// site answers on a second hostname.
 function siteBase(content) {
   return String(SITE_URL || content?.meta?.url || '').trim().replace(/\/+$/, '');
+}
+
+// The channel-level origin: configured first, else whatever the caller derived
+// from the request. <link> is presentation, not identity, so an unconfigured
+// deploy gets a valid feed pointing at itself instead of `<link></link>` —
+// which is an RSS 2.0 required element and fails every validator.
+function channelBase(content, fallbackBase) {
+  return siteBase(content) || String(fallbackBase || '').trim().replace(/\/+$/, '');
 }
 
 // Normalize + validate curated items so hand edits can't break readers.
@@ -81,11 +93,14 @@ function curatedItems(content) {
   return { items, problems };
 }
 
-export function rssXml(content, feedUrl) {
-  const base = siteBase(content);
+export function rssXml(content, feedUrl, fallbackBase = '') {
+  const base = channelBase(content, fallbackBase);
   const { items, problems } = curatedItems(content);
   const title = content?.feed?.title || content?.meta?.title || 'Feed';
-  const description = content?.feed?.description || content?.meta?.description || '';
+  // title, link and description are all REQUIRED by RSS 2.0 — a site with no
+  // description written yet gets the title rather than an empty element that
+  // fails every validator.
+  const description = content?.feed?.description || content?.meta?.description || title;
   const newest = items.map((i) => i.date).filter(Boolean).sort().pop();
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -108,8 +123,8 @@ ${rfc822(it.date) ? `<pubDate>${rfc822(it.date)}</pubDate>` : ''}
   return { body: xml, problems };
 }
 
-export function jsonFeed(content, feedUrl) {
-  const base = siteBase(content);
+export function jsonFeed(content, feedUrl, fallbackBase = '') {
+  const base = channelBase(content, fallbackBase);
   const { items, problems } = curatedItems(content);
   const body = JSON.stringify({
     version: 'https://jsonfeed.org/version/1.1',
@@ -130,13 +145,27 @@ export function jsonFeed(content, feedUrl) {
   return { body, problems };
 }
 
+// Last-resort origin for an unconfigured deploy: the request's own host. Kept
+// local rather than shared — every handler in this package is drop-in
+// standalone and imports nothing from its siblings. Proxies speak
+// x-forwarded-*; without them a host carrying a port (or a raw IPv6 literal) is
+// a dev/LAN box on http and a bare hostname is a public site on https. Anything
+// that is not a plain host[:port] is refused rather than trusted.
+function requestOrigin(req) {
+  const raw = String(req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(',')[0].trim();
+  if (!/^(\[[0-9a-f:]+\]|[a-z0-9.-]+)(:\d{1,5})?$/i.test(raw)) return '';
+  const fwd = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const proto = fwd === 'https' || fwd === 'http' ? fwd : (/:\d{1,5}$/.test(raw) || raw.startsWith('[') ? 'http' : 'https');
+  return `${proto}://${raw}`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method not allowed' });
   const content = await readContent();
-  const base = siteBase(content);
+  const base = channelBase(content, requestOrigin(req));
   const wantJson = /json/i.test(String(req.query?.format || req.url || ''));
   const feedUrl = base ? base + (wantJson ? '/feed.json' : '/feed.xml') : '';
-  const out = wantJson ? jsonFeed(content, feedUrl) : rssXml(content, feedUrl);
+  const out = wantJson ? jsonFeed(content, feedUrl, base) : rssXml(content, feedUrl, base);
   res.setHeader('cache-control', 'public, max-age=300');
   if (out.problems.length) res.setHeader('x-plater-feed-warnings', out.problems.join(' | ').slice(0, 900));
   res.setHeader('content-type', wantJson ? 'application/feed+json; charset=utf-8' : 'application/rss+xml; charset=utf-8');

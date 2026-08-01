@@ -1,0 +1,5 @@
+# vendor/ is derived: copy-template.mjs regenerates it on prepack, so the
+# published tarball carries the client + api sources while git keeps ONE copy
+# (packages/core, packages/capture, packages/server-node). Running from a
+# checkout without it, index.mjs reads those sources directly.
+vendor/

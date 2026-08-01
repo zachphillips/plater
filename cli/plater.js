@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // plater — wire and verify Plater on a site.
+//   plater init    [dir]  a RUNNING site: the starter (index.html, content,
+//                         styles, vercel.json, .env.example, README) + the
+//                         vendored client modules + the api/ handlers. Never
+//                         overwrites a file that is already there.
+//   plater dev     [dir]  serve it locally, no auth, saves straight to disk
+//   plater serve   [dir]  serve it for real: auth on, env from the host + .env
 //   plater doctor  [dir]  inspect a site's Plater wiring + print an env checklist
-//   plater init    [dir]  vendor the client modules + scaffold the api handlers
 //   plater sync    [dir]  re-sync vendored files from this repo (overwrites, adds
 //                         provenance banners, writes .plater-sync.json manifest).
 //                      Sites NEVER hand-edit synced files — edit here, re-sync.
@@ -15,8 +20,11 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+// Resolved against THIS file, never cwd: `platercms init` runs from the site
+// dir (or from an npx cache), so a relative template path would miss.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG = path.resolve(HERE, '..', 'packages');
+const STARTER = path.resolve(HERE, '..', 'templates', 'starter');
 const C = { g: '\x1b[32m', r: '\x1b[31m', y: '\x1b[33m', d: '\x1b[2m', b: '\x1b[1m', x: '\x1b[0m' };
 const ok = (s) => `${C.g}✓${C.x} ${s}`;
 const no = (s) => `${C.r}✗${C.x} ${s}`;
@@ -32,8 +40,8 @@ const ENV = [
   ['GITHUB_EDIT_PATH', 'content path (default web/content/site.json)'],
   ['CMS_SITE_NAME', 'short name used in commit messages'],
   ['CMS_SITE_URL', 'absolute site origin (feeds + sitemap need it; falls back to site.json meta.url)'],
-  ['ZMS_AGENT_ENDPOINT', 'agent host URL (enables note→agent routing)'],
-  ['ZMS_AGENT_TOKEN', 'bearer secret shared with the agent host'],
+  ['PLATER_AGENT_ENDPOINT', 'agent host URL (enables note→agent routing; ZMS_AGENT_ENDPOINT still accepted)'],
+  ['PLATER_AGENT_TOKEN', 'bearer secret shared with the agent host (ZMS_AGENT_TOKEN still accepted)'],
   ['PLATER_WEB_ROOT', 'static web root for sitemap page enumeration (optional; ZMS_WEB_ROOT still accepted)'],
   ['PLATER_REVIEW_PATH', 'review-state file (default .plater-review.json)'],
   ['PLATER_REVIEW_WEBHOOK', 'reviewWebhook — POSTed when the site becomes fully reviewed'],
@@ -71,11 +79,15 @@ function doctor(dir) {
     ['client: initCapture() called', /initCapture\s*\(/.test(appjs), 'note→agent optional'],
     ['markup: #cms-bar present', /id=["\']cms-bar["\']/.test(html)],
     ['markup: data-bind bindings present', /data-bind=/.test(html)],
+    ['content: content/site.json', exists(path.join(webAbs, 'content', 'site.json')), 'the copy the page renders — elsewhere only if GITHUB_EDIT_PATH says so'],
     ['api/config.js', exists(path.join(apiAbs, 'config.js'))],
     ['api/content.js', exists(path.join(apiAbs, 'content.js'))],
     ['api/save.js', exists(path.join(apiAbs, 'save.js'))],
+    ['api/history.js', exists(path.join(apiAbs, 'history.js')), 'history + one-click restore optional'],
+    ['api/upload.js', exists(path.join(apiAbs, 'upload.js')), 'drag-and-drop image uploads optional'],
     ['api/agent-note.js', exists(path.join(apiAbs, 'agent-note.js')), 'note→agent optional'],
     ['api/review.js', exists(path.join(apiAbs, 'review.js')), 'sitemap review optional'],
+    ['vercel.json', exists(path.join(dir, 'vercel.json')), 'feeds/sitemap/404 routing — Vercel hosts only'],
   ];
   let hard = 0;
   for (const [label, pass, opt] of checks) {
@@ -83,38 +95,82 @@ function doctor(dir) {
     if (!pass && !opt) hard++;
   }
   console.log(`\n${C.b}Env checklist${C.x} ${C.d}(set in Vercel; leave editing off by omitting auth)${C.x}`);
-  for (const [k, desc] of ENV) console.log(`  ${C.d}${k.padEnd(20)}${C.x} ${desc}`);
+  for (const [k, desc] of ENV) console.log(`  ${C.d}${k.padEnd(22)}${C.x} ${desc}`);
   console.log(`\n${hard === 0 ? ok('wiring looks complete') : no(`${hard} required piece(s) missing`)} — editing still gated on env (token or Google).`);
   process.exit(hard === 0 ? 0 : 1);
 }
 
+// Host config and docs belong at the project root; the rest of the starter is
+// the page itself and belongs in the web root — the same directory for a fresh
+// site, web/ or public/ for one that already has a layout.
+const PROJECT_FILES = new Set(['vercel.json', '.env.example', 'README.md']);
+
+// An existing web root, or the project root for a fresh site. NOT findWebRoot()
+// — its web/ fallback would bury a brand-new starter one level down and leave
+// the starter's own vercel.json (content/**, not web/content/**) lying.
+function initWebRoot(dir) {
+  for (const w of ['web', 'public']) if (exists(path.join(dir, w, 'index.html'))) return w;
+  return '.';
+}
+
+// Copy the starter file by file. `init` is re-runnable and must never clobber a
+// site's own index.html or content, so an existing destination is a skip, and
+// skips are reported — a silent one reads as "init did nothing".
+function copyStarter(dir, webAbs) {
+  const written = [], skipped = [];
+  const walk = (src, dst, nested) => {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const ent of fs.readdirSync(src, { withFileTypes: true })) {
+      const to = path.join(nested ? dst : (PROJECT_FILES.has(ent.name) ? dir : webAbs), ent.name);
+      if (ent.isDirectory()) { walk(path.join(src, ent.name), to, true); continue; }
+      if (exists(to)) { skipped.push(path.relative(dir, to)); continue; }
+      fs.copyFileSync(path.join(src, ent.name), to);
+      written.push(path.relative(dir, to));
+    }
+  };
+  walk(STARTER, webAbs, false);
+  return { written, skipped };
+}
+
 function init(dir) {
-  const web = findWebRoot(dir);
+  if (!exists(path.join(STARTER, 'index.html'))) { console.log(no(`starter template missing at ${STARTER}`)); process.exit(1); }
+  const web = initWebRoot(dir);
   const webAbs = path.join(dir, web);
   const apiAbs = path.join(dir, 'api');
   fs.mkdirSync(webAbs, { recursive: true });
   fs.mkdirSync(apiAbs, { recursive: true });
-  // vendor client modules
+
+  // 1. the site itself: a page that already renders, with content beside it
+  const { written, skipped } = copyStarter(dir, webAbs);
+
+  // 2. vendor client modules
   fs.copyFileSync(path.join(PKG, 'core/src/editor.js'), path.join(webAbs, 'plater-core.js'));
   fs.writeFileSync(path.join(webAbs, 'zms-core.js'), `export { default, initPlater, initZMS } from './plater-core.js';\n`);
   fs.copyFileSync(path.join(PKG, 'capture/src/capture.js'), path.join(webAbs, 'plater-capture.js'));
   fs.writeFileSync(path.join(webAbs, 'zms-capture.js'), `export { default, initCapture } from './plater-capture.js';\n`);
-  // scaffold api handlers as re-exports of the vendored server package
+
+  // 3. scaffold api handlers as re-exports of the vendored server package
+  const added = [];
   for (const name of HANDLERS) {
     const dst = path.join(apiAbs, `${name}.js`);
-    if (!exists(dst)) fs.copyFileSync(path.join(PKG, 'server-node', `${name}.js`), dst);
+    if (!exists(dst)) { fs.copyFileSync(path.join(PKG, 'server-node', `${name}.js`), dst); added.push(`api/${name}.js`); }
   }
+
+  if (written.length) console.log(ok(`wrote ${written.length} starter file(s): ${written.slice(0, 6).join(', ')}${written.length > 6 ? ', …' : ''}`));
+  if (skipped.length) console.log(warn(`kept your existing ${skipped.join(', ')} ${C.d}(never overwritten)${C.x}`));
   console.log(ok(`vendored plater-core.js + plater-capture.js into ${web}/`));
-  console.log(ok(`scaffolded ${HANDLERS.map((h) => `api/${h}.js`).join(', ')}`));
+  console.log(ok(added.length ? `scaffolded ${added.length} handler(s) in api/` : 'api/ handlers already present'));
+  const at = dir === '.' ? '' : ` ${dir}`;
   console.log(`\n${C.b}Next:${C.x}`);
-  console.log(`  1. Add the CMS bar markup + data-bind attributes (see examples/static-site/index.html)`);
-  console.log(`  2. In your page: import { initPlater } from './${web === '.' ? '' : ''}plater-core.js'; initPlater({ brand: '…' })`);
-  console.log(`  3. Set env in Vercel, then run: plater doctor ${dir}`);
+  console.log(`  1. platercms dev${at || ' .'} ${C.d}—${C.x} edit at http://127.0.0.1:4188/?edit ${C.d}(no auth; Save writes ${path.join(web === '.' ? '' : web, 'content/site.json')})${C.x}`);
+  console.log(`  2. Copy .env.example → .env and set CMS_EDIT_TOKEN, then: platercms serve${at || ' .'} ${C.d}(auth on)${C.x}`);
+  console.log(`  3. platercms doctor${at || ' .'} ${C.d}— what's wired, plus the env every host needs${C.x}`);
+  console.log(`  4. Push to GitHub, import on Vercel: vercel.json already routes feeds, sitemap, llms.txt, and the editable 404.`);
 }
 
 // Server handlers scaffolded by `init` and kept in lockstep by `sync`.
 // Single source of truth — add new handlers here only.
-const HANDLERS = ['config', 'content', 'save', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest', 'propose-post', 'versions'];
+const HANDLERS = ['config', 'content', 'save', 'history', 'upload', 'agent-note', 'review', 'feed', 'sitemap', 'route', 'manifest', 'propose-post', 'versions'];
 
 // Files kept in lockstep between this repo and consuming sites.
 const SYNC_MAP = [
@@ -179,5 +235,6 @@ else if (cmd === 'init') init(dir);
 else if (cmd === 'sync') sync(dir);
 else if (cmd === 'publish') publish(dir).catch((e) => { console.error(no(e.message)); process.exit(1); });
 else if (cmd === 'dev') import('./dev.mjs'); // serves dir from process.argv[2] itself
-else if (cmd === 'deploy-amber') import('./deploy-amber.mjs'); // ships dir to Amber forever-hosting
-else { console.log('usage: plater <doctor|init|sync|publish|dev|deploy-amber> [dir]'); process.exit(1); }
+else if (cmd === 'serve') import('./serve.mjs'); // same, with auth on
+else if (cmd === 'deploy-amber') import('./deploy-amber.mjs'); // ships dir to Amber forever-hosting (undocumented; fleet-internal)
+else { console.log('usage: platercms <init|dev|serve|doctor|sync|publish> [dir]'); process.exit(1); }

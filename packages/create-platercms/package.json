@@ -1,0 +1,42 @@
+{
+  "name": "create-platercms",
+  "version": "0.1.0",
+  "description": "`npm create platercms my-site` — scaffold a running, self-contained Plater site: the starter page, the vendored client editor, and the api/ handlers. No dependencies, no build step.",
+  "type": "module",
+  "bin": {
+    "create-platercms": "index.mjs"
+  },
+  "scripts": {
+    "prepack": "node copy-template.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "copy-template.mjs",
+    "template",
+    "vendor"
+  ],
+  "keywords": [
+    "cms",
+    "create",
+    "scaffold",
+    "static-site",
+    "git",
+    "contenteditable"
+  ],
+  "homepage": "https://zachphillips.github.io/plater/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zachphillips/plater.git",
+    "directory": "packages/create-platercms"
+  },
+  "bugs": {
+    "url": "https://github.com/zachphillips/plater/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

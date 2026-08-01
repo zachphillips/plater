@@ -3,7 +3,7 @@
     "title": "Plater Demo — extracted core"
   },
   "hero": {
-    "headline": "This page is rendered and edited by @plater/core.",
+    "headline": "This page is rendered and edited by @platercms/core.",
     "subhead": "No database, no build step. Press the button or add ?edit to the URL."
   },
   "features": [
@@ -13,15 +13,15 @@
   ],
   "tools": [
     {
-      "name": "@plater/core",
+      "name": "@platercms/core",
       "desc": "framework-free client editor"
     },
     {
-      "name": "@plater/server-node",
+      "name": "@platercms/server-node",
       "desc": "drop-in Vercel handlers"
     },
     {
-      "name": "@plater/capture",
+      "name": "@platercms/capture",
       "desc": "click → note → agent (next)"
     }
   ],

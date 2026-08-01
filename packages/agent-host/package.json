@@ -1,0 +1,12 @@
+{
+  "name": "@platercms/agent-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The long-running box that turns a captured note into an agent turn: bearer-gated, rate-limited, concurrency-capped, append-only audit journal, server-side site→repo allowlist. Deployed, not published.",
+  "type": "module",
+  "main": "server.mjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

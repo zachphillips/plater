@@ -18,14 +18,19 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 
-const PORT = Number(process.env.ZMS_AGENT_PORT || 8787);
-const TOKEN = process.env.ZMS_AGENT_TOKEN || '';
-const WORKDIR = process.env.ZMS_AGENT_WORKDIR || path.join(os.homedir(), 'zms-agent');
-const SITES_FILE = process.env.ZMS_AGENT_SITES || path.join(WORKDIR, 'sites.json');
+// PLATER_AGENT_* are the current names; ZMS_AGENT_* are the deprecated-but-
+// supported aliases. The TOKEN must match whatever the *site* sends, which
+// reads the same pair — so both ends stay migratable one at a time.
+const PORT = Number(process.env.PLATER_AGENT_PORT || process.env.ZMS_AGENT_PORT || 8787);
+const TOKEN = process.env.PLATER_AGENT_TOKEN || process.env.ZMS_AGENT_TOKEN || '';
+// Default workdir stays ~/zms-agent: a deployed host has its repo checkouts,
+// sites.json, and journal there, and renaming the default would orphan them.
+const WORKDIR = process.env.PLATER_AGENT_WORKDIR || process.env.ZMS_AGENT_WORKDIR || path.join(os.homedir(), 'zms-agent');
+const SITES_FILE = process.env.PLATER_AGENT_SITES || process.env.ZMS_AGENT_SITES || path.join(WORKDIR, 'sites.json');
 const JOURNAL = path.join(WORKDIR, 'jobs.jsonl');
 const MAX_BODY = 3_000_000;
-const JOB_TIMEOUT_MS = Number(process.env.ZMS_AGENT_TIMEOUT_MS || 8 * 60_000);
-const MAX_CONCURRENT = Number(process.env.ZMS_AGENT_CONCURRENCY || 2);
+const JOB_TIMEOUT_MS = Number(process.env.PLATER_AGENT_TIMEOUT_MS || process.env.ZMS_AGENT_TIMEOUT_MS || 8 * 60_000);
+const MAX_CONCURRENT = Number(process.env.PLATER_AGENT_CONCURRENCY || process.env.ZMS_AGENT_CONCURRENCY || 2);
 // Git identity for agent-authored commits. Set these to the site owner's own
 // name/email so PRs are attributed correctly.
 const GIT_NAME = process.env.PLATER_GIT_NAME || 'Plater Agent';
@@ -42,10 +47,10 @@ const ENGINES = {
   codex: (prompt) => ['codex', ['exec', '--dangerously-bypass-approvals-and-sandbox', prompt]],
   // Local model via codex's ollama provider. Draft-only;
   // small models are unreliable at agentic file edits — prefer claude/codex.
-  local: (prompt) => ['codex', ['exec', '--oss', '--local-provider=ollama', '-m', process.env.ZMS_LOCAL_MODEL || 'qwen2.5-coder:7b', '--dangerously-bypass-approvals-and-sandbox', prompt]],
+  local: (prompt) => ['codex', ['exec', '--oss', '--local-provider=ollama', '-m', process.env.PLATER_LOCAL_MODEL || process.env.ZMS_LOCAL_MODEL || 'qwen2.5-coder:7b', '--dangerously-bypass-approvals-and-sandbox', prompt]],
 };
 
-if (!TOKEN) { console.error('FATAL: ZMS_AGENT_TOKEN is not set'); process.exit(1); }
+if (!TOKEN) { console.error('FATAL: PLATER_AGENT_TOKEN is not set'); process.exit(1); }
 fs.mkdirSync(WORKDIR, { recursive: true });
 
 // Never let a git subprocess block on an interactive credential/host prompt —
@@ -69,7 +74,7 @@ function safeEqual(a, b) {
 // --- simple in-memory rate limiter (per process) ---
 const hits = [];
 function rateOk() {
-  const now = Date.now(); const windowMs = 60_000; const limit = Number(process.env.ZMS_AGENT_RATE || 20);
+  const now = Date.now(); const windowMs = 60_000; const limit = Number(process.env.PLATER_AGENT_RATE || process.env.ZMS_AGENT_RATE || 20);
   while (hits.length && now - hits[0] > windowMs) hits.shift();
   if (hits.length >= limit) return false;
   hits.push(now); return true;
@@ -139,7 +144,7 @@ function buildPrompt(job, site) {
    the README's long-promised `screenshot` capture field is finally real. */
 const DESIGN_DIR = path.join(WORKDIR, 'design-jobs');
 fs.mkdirSync(DESIGN_DIR, { recursive: true });
-const DESIGN_COUNT = Number(process.env.ZMS_DESIGN_COUNT || 3);
+const DESIGN_COUNT = Number(process.env.PLATER_DESIGN_COUNT || process.env.ZMS_DESIGN_COUNT || 3);
 
 async function screenshotElement(jobDir, pageUrl, selector) {
   const { chromium } = await import('playwright');

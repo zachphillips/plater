@@ -1,0 +1,51 @@
+# Pushing a `v*` tag publishes the public packages to npm with provenance.
+# Tests gate the publish; a version already on the registry is skipped, not
+# failed, so a re-run after a partial release finishes the job. `id-token:
+# write` is what makes `--provenance` possible.
+#
+# `.` is the ROOT package — it is what carries the `platercms` bin, so without
+# it `npx platercms` (the documented first command) never resolves. It is not a
+# workspace, so it publishes without `--workspace`.
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      # Nothing to install: Plater has zero runtime dependencies.
+      - name: Syntax-check every source file
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Publish public workspaces
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -eu
+          for dir in packages/core packages/server-node packages/capture packages/create-platercms .; do
+            if [ ! -f "$dir/package.json" ]; then
+              echo "::warning::$dir has no package.json — skipping"
+              continue
+            fi
+            spec="$(node -p "const p=require('./$dir/package.json');p.name+'@'+p.version")"
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "$spec already published — skipping"
+              continue
+            fi
+            echo "publishing $spec"
+            if [ "$dir" = "." ]; then
+              npm publish --provenance --access public
+            else
+              npm publish --workspace "$dir" --provenance --access public
+            fi
+          done

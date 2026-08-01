@@ -110,7 +110,7 @@ h1 em{font-style:normal;color:var(--brass)}
 .sel .tag{position:absolute;top:-20px;left:-1.5px;background:var(--brass);color:#12161a;
   font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:.05em;padding:1px 6px;white-space:nowrap}
 
-/* note popover — mirrors @plater/capture */
+/* note popover — mirrors @platercms/capture */
 .pop{position:absolute;z-index:20;width:min(300px,calc(100% - 20px));background:#12181d;border:1px solid var(--rule2);
   box-shadow:0 22px 60px -18px rgba(0,0,0,.85);display:none}
 .pop.on{display:block;animation:popin .14s ease}
@@ -251,6 +251,7 @@ footer.foot .r{margin-left:auto}
       <a href="#cms" class="hide-s">Git-native</a>
       <a href="#standards" class="hide-s">Standards</a>
       <a href="#start">Start</a>
+      <a href="https://github.com/zachphillips/plater/blob/main/docs/GUIDE.md">Guide</a>
       <a class="ghbtn" href="https://github.com/zachphillips/plater">GitHub</a>
     </nav>
   </div>
@@ -427,7 +428,7 @@ footer.foot .r{margin-left:auto}
       <table class="tbl">
         <thead><tr><th>Leg</th><th>Command</th><th>Saves go to</th><th>Agent notes</th></tr></thead>
         <tbody>
-          <tr><td>Local</td><td><code>plater dev .</code></td><td>the site's JSON on disk — the GitHub token is force-unset, so dev cannot commit</td><td>echoed, never fired</td></tr>
+          <tr><td>Local</td><td><code>platercms dev .</code></td><td>the site's JSON on disk — the GitHub token is force-unset, so dev cannot commit</td><td>echoed, never fired</td></tr>
           <tr><td>Staging</td><td><code>git push</code></td><td>that branch, through the normal save path, on the preview URL</td><td>every note lands as a PR</td></tr>
           <tr><td>Production</td><td>merge to main</td><td>main, auto-deploys</td><td>PR by default; push for trusted quick edits</td></tr>
         </tbody>
@@ -444,18 +445,22 @@ footer.foot .r{margin-left:auto}
     <div>
       <h2>Try it in a <em>minute</em>.</h2>
       <p>There is nothing to install. Plater has zero runtime dependencies and zero dev dependencies — <code>npm test</code> is Node's own test runner, <code>npm run lint</code> is <code>node --check</code>.</p>
-      <pre><u># clone and edit a real site, locally</u>
-git clone https://github.com/zachphillips/plater
-cd plater
-<b>npm run demo</b>            <u># serves examples/static-site</u>
+      <pre><u># a whole site, running and editable, in one command</u>
+<b>npm create platercms@latest</b> my-site
+cd my-site
+npx platercms <b>dev</b> .
 open <i>'http://127.0.0.1:4188/?edit'</i></pre>
-      <p style="margin-top:20px">Click any highlighted text, type over it, save. Locally that writes straight to the example's JSON file — commit it when you're happy. Deployed, the identical handler commits it for you.</p>
+      <p style="margin-top:20px">Click any highlighted text, type over it, save. Locally that writes straight to the site's JSON file — commit it when you're happy. Deployed, the identical handler commits it for you.</p>
 
-      <h3 class="sub">Wiring your own site</h3>
-      <pre>npm i <b>@plater/core</b> <b>@plater/server-node</b>
-npx plater init .        <u># vendors the client, scaffolds api/</u>
-npx plater <b>doctor</b> .      <u># tells you exactly what's still unwired</u></pre>
-      <p style="margin-top:20px" class="quiet">The doctor command is the honest one: it inspects a site's wiring, prints the environment checklist, and names what's missing rather than failing at deploy time. The agent loop needs one more piece — a machine you own running the agent host, behind a tunnel. The repository's README walks through it.</p>
+      <h3 class="sub">Or read the source first</h3>
+      <pre>git clone https://github.com/zachphillips/plater
+cd plater
+<b>npm run demo</b>            <u># serves examples/static-site</u></pre>
+
+      <h3 class="sub">Wiring a site you already have</h3>
+      <pre>npx platercms <b>init</b> .      <u># vendors the client, scaffolds api/, never overwrites</u>
+npx platercms <b>doctor</b> .    <u># tells you exactly what's still unwired</u></pre>
+      <p style="margin-top:20px" class="quiet">Three bindings, one toolbar, one <code>initPlater</code> call — the <a href="https://github.com/zachphillips/plater/blob/main/docs/GUIDE.md">five-minute guide</a> is the copy-pasteable version. The doctor command is the honest one: it inspects a site's wiring, prints the environment checklist, and names what's missing rather than failing at deploy time. The agent loop needs one more piece — a machine you own running the agent host, behind a tunnel. The repository's README walks through it.</p>
     </div>
   </div>
 </section>
@@ -473,24 +478,29 @@ npx plater <b>doctor</b> .      <u># tells you exactly what's still unwired</u><
           <ul>
             <li><b>The editor</b> and all five binding attributes</li>
             <li><b>Git-commit save</b> with Google-or-token auth</li>
-            <li><b>Click-to-note</b> capture, relay, and agent host</li>
+            <li><b>Array editing</b> — add, remove, and reorder list and card items in place</li>
+            <li><b>Image replace</b> — drop a file on a bound <code>img</code>; the upload is a commit</li>
+            <li><b>History and restore</b> — read past saves, put any one back</li>
+            <li><b>Conflict merge</b> — a save race replays your fields, never drops them</li>
+            <li><b>Click-to-note</b> capture, relay, agent host, and the notes tray with live status</li>
             <li><b>Design mode</b> — concept images before code</li>
             <li><b>Versions</b>, draft flipping, and promote-to-live</li>
             <li><b>Review state</b> with per-page content hashing</li>
             <li><b>Feeds, sitemap, redirects, 404, manifest, llms.txt</b></li>
             <li><b>Static publishing</b> from Markdown or HTML</li>
             <li><b>The local leg</b> — full API surface, no cloud</li>
+            <li><b>Self-hosting</b> — <code>platercms serve</code> runs the same handlers, auth on, off Vercel</li>
           </ul>
         </div>
         <div class="no">
           <p class="lbl">Not built yet</p>
           <ul>
-            <li><b>Nothing is on npm.</b> Today you vendor from a checkout; publishing is the next release task</li>
+            <li><b>The npm packages aren't published yet.</b> They're built and named; the first tag publishes them. Until then, vendor from a checkout</li>
             <li><b>The agent host is single-tenant</b> by design. The bearer token is the whole security boundary</li>
             <li><b>Google auth is one address</b>, not a list. Multiple editors share the token</li>
             <li><b>Design mode needs local tooling</b> installed, with no graceful fallback when it's absent</li>
-            <li><b>Handlers are Vercel-shaped.</b> They're plain functions, but only Vercel's rewrites are written down</li>
-            <li><b>Tests cover the server seams</b>, not the browser overlay</li>
+            <li><b>Handlers are Vercel-shaped.</b> <code>platercms serve</code> runs them anywhere, but only Vercel's rewrites are written down — Cloudflare Pages and Netlify aren't</li>
+            <li><b>Tests cover the server seams</b>, not the browser overlay. There's no headless test of the editor in this repo</li>
             <li><b>The old command name still works</b> and should stop working at 1.0</li>
           </ul>
         </div>

@@ -1,0 +1,12 @@
+{
+  "name": "@platercms/list-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional Cloudflare Worker + D1 email-capture backend shared across sites: captures, exports, deletes. Deployed with wrangler, not published.",
+  "type": "module",
+  "main": "worker.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

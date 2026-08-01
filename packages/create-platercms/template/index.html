@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Head meta is content too. data-bind-attr is "contentPath:attribute", so
+       these stay editable from the browser and stay correct with JS disabled. -->
+  <title>Northline — a small studio for careful work</title>
+  <meta name="description" data-bind-attr="meta.description:content"
+        content="Northline is a two-person studio that designs and builds websites meant to last a decade." />
+  <link rel="canonical" data-bind-attr="meta.url:href" href="https://example.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" data-bind-attr="meta.title:content" content="Northline — a small studio for careful work" />
+  <meta property="og:description" data-bind-attr="meta.description:content"
+        content="Northline is a two-person studio that designs and builds websites meant to last a decade." />
+  <meta property="og:url" data-bind-attr="meta.url:content" content="https://example.com/" />
+  <meta property="og:image" data-bind-attr="meta.image:content" content="https://example.com/social-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="alternate" type="application/rss+xml" title="Northline" href="/feed.xml" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- The CMS bar ships hidden; @platercms/core un-hides it on ?edit, Cmd/Ctrl+E,
+       or a click on "Edit Live". Keep these ids — the editor wires them by id. -->
+  <div id="cms-bar" hidden>
+    <span class="cms-brand">Northline</span>
+    <button id="cms-impeccable" type="button">✦ Edit Live</button>
+    <span id="cms-signin"></span>
+    <button id="cms-edit" type="button" hidden>Edit page</button>
+    <button id="cms-save" type="button" hidden>Save &amp; commit</button>
+    <button id="cms-cancel" type="button" hidden>Cancel</button>
+    <span id="cms-status">read-only</span>
+  </div>
+
+  <header class="site-head">
+    <a class="wordmark" href="/" data-bind="site.name">Northline</a>
+    <nav class="site-nav">
+      <a href="#work">Work</a>
+      <a href="#studio">Studio</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Everything below is authored HTML first and bound content second: the
+         copy in the markup is what renders before (and without) JavaScript. -->
+    <section class="hero">
+      <p class="eyebrow" data-bind="hero.eyebrow">Design and build, Providence RI</p>
+      <h1 data-bind="hero.title">A small studio for careful work.</h1>
+      <p class="lede" data-bind="hero.subtitle">We make websites for people who intend to keep them — plain HTML,
+        honest typography, and no machinery you have to feed every quarter.</p>
+      <a class="button" href="mailto:hello@example.com"
+         data-bind="hero.cta.label" data-bind-attr="hero.cta.url:href">Start a conversation</a>
+    </section>
+
+    <section id="work" class="section">
+      <h2 data-bind="work.title">Selected work</h2>
+      <p class="section-intro" data-bind="work.intro">Three projects that show the range: an archive, a shop, and a
+        site that is mostly one very good page.</p>
+
+      <!-- data-cards clones the &lt;template&gt; once per item in work.projects.
+           The three cards below it are the no-JS fallback; the editor replaces
+           them with identical rendered ones. -->
+      <div class="cards" data-cards="work.projects">
+        <template>
+          <article class="card">
+            <h3 data-field="title"></h3>
+            <p data-field="summary"></p>
+            <p class="card-meta"><span data-field="year"></span> · <span data-field="role"></span></p>
+            <a class="card-link" data-field-link="url" hidden>View project →</a>
+          </article>
+        </template>
+
+        <article class="card">
+          <h3>Fenwick Press</h3>
+          <p>Three hundred back-catalogue titles rebuilt as a fast static archive, with a small shop attached.</p>
+          <p class="card-meta"><span>2026</span> · <span>Design and build</span></p>
+        </article>
+        <article class="card">
+          <h3>Merrow &amp; Co.</h3>
+          <p>An identity and one-page site for a cabinet shop that had been running on a phone number and word of mouth.</p>
+          <p class="card-meta"><span>2025</span> · <span>Identity, site</span></p>
+        </article>
+        <article class="card">
+          <h3>The Tuesday Letter</h3>
+          <p>A weekly essay list moved off a rented platform and onto its own archive, feed included.</p>
+          <p class="card-meta"><span>2025</span> · <span>Build, editorial</span></p>
+        </article>
+      </div>
+    </section>
+
+    <section id="studio" class="section">
+      <h2 data-bind="studio.title">How we work</h2>
+      <p data-bind="studio.body">Two people, one project at a time, start to finish. We write the HTML by hand, keep the
+        page weight under a couple of hundred kilobytes, and hand over a repository you own outright. When the work is
+        done you can edit the site yourself, from a laptop or a phone, without calling us.</p>
+      <ul class="services" data-list="studio.services" data-list-tag="li">
+        <li>Identity and typographic systems</li>
+        <li>Website design and hand-built front ends</li>
+        <li>Editorial structure and copy shaping</li>
+        <li>Quiet ongoing care — small changes, same week</li>
+      </ul>
+    </section>
+
+    <section id="contact" class="section contact">
+      <h2 data-bind="contact.title">Start a conversation</h2>
+      <p data-bind="contact.body">Tell us what you are making and roughly when it needs to exist. We answer every note,
+        and we will say so plainly if we are not the right studio for it.</p>
+      <a class="button" href="mailto:hello@example.com"
+         data-bind="contact.cta.label" data-bind-attr="contact.cta.url:href">hello@example.com</a>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <p>© <span id="year">2026</span> <span data-bind="site.name">Northline</span>. <span data-bind="site.tagline">Built by hand, kept in git.</span></p>
+    <nav class="foot-links" data-links="footer.links">
+      <a href="/feed.xml">Feed</a>
+      <a href="/sitemap.xml">Sitemap</a>
+    </nav>
+  </footer>
+
+  <!-- app.js imports ./plater-core.js, which `platercms init` vendors next to
+       these files. Nothing here blocks the render: the page above is complete
+       HTML and this script only rehydrates it from content/site.json. -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -25,6 +25,21 @@ const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+// Last-resort origin: the request that asked. A site reachable at a host IS
+// published at that host, so answering with the crawler's own origin beats a
+// 500 on an unconfigured deploy — but only as a fallback, since the Host header
+// is attacker-controlled and CMS_SITE_URL / meta.url are not. Proxies speak
+// x-forwarded-*; without them a host carrying a port (or a raw IPv6 literal) is
+// a dev/LAN box on http and a bare hostname is a public site on https.
+// Anything that is not a plain host[:port] is refused rather than trusted.
+function requestOrigin(req) {
+  const raw = String(req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(',')[0].trim();
+  if (!/^(\[[0-9a-f:]+\]|[a-z0-9.-]+)(:\d{1,5})?$/i.test(raw)) return '';
+  const fwd = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const proto = fwd === 'https' || fwd === 'http' ? fwd : (/:\d{1,5}$/.test(raw) || raw.startsWith('[') ? 'http' : 'https');
+  return `${proto}://${raw}`;
+}
+
 async function resolveWebRoot() {
   if (WEB_ROOT) return path.resolve(process.cwd(), WEB_ROOT);
   for (const w of ['web', 'public', '.']) {
@@ -57,10 +72,12 @@ async function readJson(p, fallback) {
   catch { return fallback; }
 }
 
-export async function sitemapXml() {
+// `fallbackBase` is used only when neither CMS_SITE_URL nor meta.url is set —
+// configuration always wins over anything derived from the request.
+export async function sitemapXml(fallbackBase = '') {
   const content = await readJson(CONTENT_PATH, {});
   const review = await readJson(REVIEW_PATH, {});
-  const base = String(SITE_URL || content?.meta?.url || '').trim().replace(/\/+$/, '');
+  const base = String(SITE_URL || content?.meta?.url || fallbackBase || '').trim().replace(/\/+$/, '');
   const exclude = new Set(
     (Array.isArray(content?.sitemap?.exclude) ? content.sitemap.exclude : []).map(String),
   );
@@ -91,7 +108,9 @@ ${urls.map((u) => `<url><loc>${esc(u.loc)}</loc>${u.lastmod ? `<lastmod>${esc(u.
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'method not allowed' });
   try {
-    const { xml, base } = await sitemapXml();
+    const { xml, base } = await sitemapXml(requestOrigin(req));
+    // Only reachable when the request carried no usable Host either (a raw
+    // HTTP/1.0 hit): still absolute-URLs-or-nothing, never a relative sitemap.
     if (!base) return res.status(500).send('sitemap needs CMS_SITE_URL or meta.url in site.json (absolute URLs are required)');
     res.setHeader('cache-control', 'public, max-age=300');
     res.setHeader('content-type', 'application/xml; charset=utf-8');

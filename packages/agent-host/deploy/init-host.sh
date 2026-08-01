@@ -9,7 +9,7 @@
 # What it does (idempotent):
 #   1. Creates the workdir: host/server.mjs (copied from this package),
 #      sites.json (EMPTY allowlist — add the owner's repos, nobody else's),
-#      host.env (fresh ZMS_AGENT_TOKEN; slots for the owner's engine auth),
+#      host.env (fresh PLATER_AGENT_TOKEN; slots for the owner's engine auth),
 #      start.sh + a */5 cron self-heal, jobs.jsonl journal.
 #   2. Prints the exact next steps: engine login (claude/codex as the OWNER's
 #      account), repo checkouts, tunnel (setup-tunnel.sh with the owner's
@@ -45,10 +45,10 @@ if [ ! -f "$WORKDIR/host.env" ]; then
   cat > "$WORKDIR/host.env" <<ENV
 # plater agent-host · owner: $OWNER · created $(date -u +%Y-%m-%dT%H:%M:%SZ)
 # THE OWNER'S OWN CREDENTIALS GO HERE — never your keys on a client host.
-ZMS_AGENT_TOKEN=$TOKEN
-ZMS_AGENT_PORT=$PORT
-ZMS_AGENT_WORKDIR=$WORKDIR
-ZMS_AGENT_SITES=$WORKDIR/sites.json
+PLATER_AGENT_TOKEN=$TOKEN
+PLATER_AGENT_PORT=$PORT
+PLATER_AGENT_WORKDIR=$WORKDIR
+PLATER_AGENT_SITES=$WORKDIR/sites.json
 # Engine auth (pick what the owner has):
 #   claude:  run 'claude login' as this user, or set ANTHROPIC_API_KEY=
 #   codex:   run 'codex login' as this user, or set OPENAI_API_KEY=
@@ -77,11 +77,11 @@ echo "  1. Engine auth:   claude login   (or codex login, or put an API key in h
 echo "  2. Repos:         git clone the owner's site repos into $WORKDIR/repos/"
 echo "                    and list them in $WORKDIR/sites.json"
 echo "  3. Start:         $WORKDIR/start.sh   (+ add the cron lines from start.sh header)"
-echo "  4. Tunnel:        ZMS_AGENT_HOSTNAME=agent.<ownerdomain> ZMS_AGENT_PORT=$PORT \\"
+echo "  4. Tunnel:        PLATER_AGENT_HOSTNAME=agent.<ownerdomain> PLATER_AGENT_PORT=$PORT \\"
 echo "                      $HERE/deploy/setup-tunnel.sh   (needs the owner's CF zone login)"
 echo "  5. On each site (Vercel env):"
-echo "       ZMS_AGENT_ENDPOINT=https://agent.<ownerdomain>"
-echo "       ZMS_AGENT_TOKEN=<the token in $WORKDIR/host.env>"
+echo "       PLATER_AGENT_ENDPOINT=https://agent.<ownerdomain>"
+echo "       PLATER_AGENT_TOKEN=<the token in $WORKDIR/host.env>"
 echo
 echo "For design mode (image alternatives): npm i playwright && npx playwright install chromium"
 echo "in $WORKDIR, and make sure the codex CLI can generate images under the owner's plan."

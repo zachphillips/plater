@@ -1,8 +1,7 @@
 {
-  "name": "plater",
+  "name": "platercms",
   "version": "0.1.0",
-  "private": true,
-  "description": "Plater — a git-native in-browser CMS with click-to-note agent routing. Edit any page in place, or click an element, leave a note, and let a coding agent open the PR.",
+  "description": "Plater \u2014 a git-native in-browser CMS with click-to-note agent routing. Edit any page in place, or click an element, leave a note, and let a coding agent open the PR.",
   "type": "module",
   "homepage": "https://zachphillips.github.io/plater/",
   "repository": {
@@ -25,14 +24,29 @@
     "packages/*"
   ],
   "bin": {
-    "plater": "cli/plater.js",
-    "zms": "cli/zms.js"
+    "platercms": "cli/plater.js"
+  },
+  "files": [
+    "cli",
+    "!cli/deploy-amber.mjs",
+    "!cli/zms.js",
+    "templates",
+    "packages/core/src",
+    "packages/capture/src",
+    "packages/server-node"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "doctor": "node cli/plater.js doctor",
+    "serve": "node cli/serve.mjs",
     "dev": "node cli/dev.mjs",
     "demo": "node cli/dev.mjs examples/static-site",
-    "lint": "find cli examples packages test -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+    "lint": "find cli examples packages templates test -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "test": "node --test"
   },
   "license": "MIT"

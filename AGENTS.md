@@ -6,9 +6,9 @@ and Node sites. Read `README.md` first; this file is only the operating rules.
 ## What it is, in one paragraph
 
 HTML pages carry `data-bind` attributes; the values live in
-`content/site.json`. `@plater/core` renders them, makes them `contenteditable`
+`content/site.json`. `@platercms/core` renders them, makes them `contenteditable`
 under `?edit`, and POSTs changes to `/api/save`, which commits the JSON to
-GitHub via the Contents API. `@plater/capture` lets an editor click an element,
+GitHub via the Contents API. `@platercms/capture` lets an editor click an element,
 leave a note, and route it — through `/api/agent-note` and the agent host — to a
 coding agent that opens a PR. Everything else in the repo is plumbing around
 those two loops.
@@ -39,7 +39,7 @@ repo has zero dependencies, and that is a feature, not an oversight.
 3. **Auth fails closed.** With no `CMS_ADMIN_EMAIL` configured, `verifyGoogle`
    must reject. Never compare a token email against an empty allowlist. Token
    comparisons use `crypto.timingSafeEqual`, never `===`.
-4. **The browser never sees a secret.** `GITHUB_TOKEN` and `ZMS_AGENT_TOKEN` are
+4. **The browser never sees a secret.** `GITHUB_TOKEN` and `PLATER_AGENT_TOKEN` are
    server-side only. `/api/agent-note` forces `site` to `CMS_SITE_NAME`.
 5. **Authored HTML is the fallback.** A page must render correctly with
    JavaScript disabled and with `site.json` missing keys.
@@ -62,7 +62,7 @@ packages/agent-host   the long-running agent runner (server.mjs + deploy/)
 packages/list-worker  optional Cloudflare Worker email capture
 examples/static-site  a complete working site — the demo target
 docs/                 the GitHub Pages marketing site
-tests/, test/         node:test suites
+test/                 node:test suites (the only test dir)
 ```
 
 ## Conventions
@@ -71,7 +71,9 @@ tests/, test/         node:test suites
 - Handlers export `default async function handler(req, res)` (Vercel shape).
 - Long explanatory comments at the top of each file are intentional — they are
   the design docs. Update them when behavior changes; don't strip them.
-- `zms`-prefixed names (`ZMS_AGENT_*`, `zms-core.js`, `initZMS`) are the
-  deprecated-but-supported aliases. Don't add new ones; don't delete old ones
-  before 1.0.
+- `zms`-prefixed names (`ZMS_AGENT_*`, `ZMS_WEB_ROOT`, `zms-core.js`, `initZMS`)
+  are the deprecated-but-supported aliases. Don't add new ones; don't delete old
+  ones before 1.0. Every one of them must have a `PLATER_`/`plater` name to
+  migrate TO — an env var read only under its `ZMS_` spelling is a bug, not an
+  alias.
 - Deprecations stay dual-accepted until a major version.

@@ -15,8 +15,9 @@ const COMMIT_EMAIL = ADMIN_EMAIL || 'plater@users.noreply.github.com';
 const SIGN_IN = ADMIN_EMAIL ? `sign in as ${ADMIN_EMAIL}` : 'sign in with the authorized account';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const EDIT_TOKEN = process.env.CMS_EDIT_TOKEN || '';
-const AGENT_ENDPOINT = process.env.ZMS_AGENT_ENDPOINT || '';
-const AGENT_TOKEN = process.env.ZMS_AGENT_TOKEN || '';
+// ZMS_* are the deprecated-but-supported aliases, same as PLATER_WEB_ROOT.
+const AGENT_ENDPOINT = process.env.PLATER_AGENT_ENDPOINT || process.env.ZMS_AGENT_ENDPOINT || '';
+const AGENT_TOKEN = process.env.PLATER_AGENT_TOKEN || process.env.ZMS_AGENT_TOKEN || '';
 const SITE = process.env.CMS_SITE_NAME || 'site';
 
 function safeEqual(a, b) {
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
   else ok = await verifyGoogle(auth);
   if (!ok) return res.status(401).json({ error: 'auth failed' });
 
-  if (!AGENT_ENDPOINT || !AGENT_TOKEN) return res.status(501).json({ error: 'agent routing not configured (set ZMS_AGENT_ENDPOINT + ZMS_AGENT_TOKEN)' });
+  if (!AGENT_ENDPOINT || !AGENT_TOKEN) return res.status(501).json({ error: 'agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)' });
 
   const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
 

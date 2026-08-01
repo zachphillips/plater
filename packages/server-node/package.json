@@ -1,5 +1,5 @@
 {
-  "name": "@plater/server-node",
+  "name": "@platercms/server-node",
   "version": "0.1.0",
   "description": "Drop-in Vercel/Node serverless handlers for Plater: config, content, save (GitHub-commit durable save with Google-or-token auth), plus feeds, sitemap, redirects/404, agent manifest, review state, and draft versions.",
   "type": "module",
@@ -7,6 +7,7 @@
     "./config": "./config.js",
     "./content": "./content.js",
     "./save": "./save.js",
+    "./upload": "./upload.js",
     "./agent-note": "./agent-note.js",
     "./review": "./review.js",
     "./publish": "./publish.js",
@@ -15,12 +16,14 @@
     "./sitemap": "./sitemap.js",
     "./route": "./route.js",
     "./manifest": "./manifest.js",
-    "./versions": "./versions.js"
+    "./versions": "./versions.js",
+    "./history": "./history.js"
   },
   "files": [
     "config.js",
     "content.js",
     "save.js",
+    "upload.js",
     "agent-note.js",
     "review.js",
     "publish.js",
@@ -29,7 +32,23 @@
     "sitemap.js",
     "route.js",
     "manifest.js",
-    "versions.js"
+    "versions.js",
+    "history.js"
   ],
+  "homepage": "https://zachphillips.github.io/plater/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zachphillips/plater.git",
+    "directory": "packages/server-node"
+  },
+  "bugs": {
+    "url": "https://github.com/zachphillips/plater/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

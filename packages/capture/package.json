@@ -1,5 +1,5 @@
 {
-  "name": "@plater/capture",
+  "name": "@platercms/capture",
   "version": "0.1.0",
   "description": "Click an element on the live page, leave a note, choose engine + output, and route it to the Plater agent host via /api/agent-note. Refined, framework-free editing overlay.",
   "type": "module",
@@ -10,5 +10,20 @@
   "files": [
     "src"
   ],
+  "homepage": "https://zachphillips.github.io/plater/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zachphillips/plater.git",
+    "directory": "packages/capture"
+  },
+  "bugs": {
+    "url": "https://github.com/zachphillips/plater/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

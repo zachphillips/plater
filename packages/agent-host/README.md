@@ -1,4 +1,4 @@
-# @plater/agent-host
+# @platercms/agent-host
 
 The persistent service that turns a captured note into an agent turn. Runs on
 any always-on box you control, with `claude` / `codex` / `ollama` already
@@ -36,16 +36,18 @@ not a live deploy.
 ## Run it
 
 ```bash
-export ZMS_AGENT_TOKEN=$(openssl rand -hex 32)   # the shared secret (also set on the sites)
-export ZMS_AGENT_WORKDIR=$HOME/zms-agent
-# clone the fleet repos into $ZMS_AGENT_WORKDIR/repos/<name> and write sites.json
+export PLATER_AGENT_TOKEN=$(openssl rand -hex 32)   # the shared secret (also set on the sites)
+export PLATER_AGENT_WORKDIR=$HOME/zms-agent
+# clone the fleet repos into $PLATER_AGENT_WORKDIR/repos/<name> and write sites.json
 node server.mjs        # or via the systemd unit + `cloudflared` tunnel
 ```
 
-Env: `ZMS_AGENT_PORT` (8787), `ZMS_AGENT_TOKEN` (required), `ZMS_AGENT_WORKDIR`,
-`ZMS_AGENT_SITES`, `ZMS_AGENT_CONCURRENCY` (2), `ZMS_AGENT_TIMEOUT_MS`,
-`ZMS_AGENT_RATE` (20/min), `ZMS_LOCAL_MODEL` (qwen2.5-coder:7b),
+Env: `PLATER_AGENT_PORT` (8787), `PLATER_AGENT_TOKEN` (required),
+`PLATER_AGENT_WORKDIR` (default `~/zms-agent`), `PLATER_AGENT_SITES`,
+`PLATER_AGENT_CONCURRENCY` (2), `PLATER_AGENT_TIMEOUT_MS`, `PLATER_AGENT_RATE`
+(20/min), `PLATER_LOCAL_MODEL` (qwen2.5-coder:7b),
 `PLATER_GIT_NAME` / `PLATER_GIT_EMAIL` (identity for agent-authored commits).
+The `ZMS_AGENT_*` / `ZMS_LOCAL_MODEL` spellings are still accepted.
 
 ## Security checklist
 

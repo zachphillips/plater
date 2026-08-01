@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/feed.js": { "includeFiles": "content/**" },
+    "api/route.js": { "includeFiles": "content/**" },
+    "api/sitemap.js": { "includeFiles": "{content/**,**/*.html}" },
+    "api/manifest.js": { "includeFiles": "{content/**,**/*.html}" }
+  },
+  "rewrites": [
+    { "source": "/feed.xml", "destination": "/api/feed?format=rss" },
+    { "source": "/feed.json", "destination": "/api/feed?format=json" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/llms.txt", "destination": "/api/manifest?format=llms" },
+    { "source": "/.well-known/plater.json", "destination": "/api/manifest" },
+    { "source": "/(.*)", "destination": "/api/route" }
+  ]
+}

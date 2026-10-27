@@ -173,8 +173,14 @@ export default async function handler(req, res) {
   const len = Number(req.headers['content-length'] || 0);
   if (len > MAX_BODY) return res.status(413).json({ error: 'payload too large' });
 
-  const payload = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
+  let payload;
+  try { payload = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); }
+  catch { return res.status(400).json({ error: 'invalid JSON body' }); }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return res.status(400).json({ error: 'expected { content: {...} }' });
   const TRACK_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
+  if (payload.track != null && payload.track !== '' && (typeof payload.track !== 'string' || !TRACK_RE.test(payload.track))) {
+    return res.status(400).json({ error: 'Invalid track name' });
+  }
 
   // { promote: "opus" } — MAKE THIS DRAFT LIVE, one click, no agent. The
   // client sends the draft content it is currently rendering (already the
@@ -219,7 +225,7 @@ export default async function handler(req, res) {
   const gh = await commitToGitHub(apply(track ? {} : await readBaseContent()), verifiedEmail, track, apply);
   if (!gh.ok) return failed(res, gh);
 
-  const hook = process.env.CMS_DEPLOY_HOOK;
+  const hook = track ? null : process.env.CMS_DEPLOY_HOOK;
   let deployTriggered = false;
   if (hook) {
     try { deployTriggered = (await fetch(hook, { method: 'POST' })).ok; } catch {}

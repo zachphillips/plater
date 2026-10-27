@@ -90,6 +90,7 @@ function injectSitemapStyles() {
   .${SMAP}-row{display:flex;align-items:center}
   .${SMAP}-row .${SMAP}-item{flex:1;min-width:0}
   .${SMAP}-row .${SMAP}-drafts{margin-right:14px;background:transparent}
+  .${SMAP}-row .${SMAP}-drafts:hover{background:#c9a96e}
   .${SMAP}-meta{padding:11px 14px 6px;border-top:1px solid #232323;margin-top:8px}
   .${SMAP}-meta h3{margin:0 0 7px;font:600 10px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.1em;
     text-transform:uppercase;color:#6d665c}
@@ -896,7 +897,7 @@ export function initZMS(options = {}) {
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
     try {
-      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
+      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json().catch(() => ({}));
       if (r.status === 401) clearBearer();
       if (!r.ok || out.error) {
@@ -1974,7 +1975,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         if (chip) chip.textContent = 'saving…';
         const headers = { 'content-type': 'application/json' };
         if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
-        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, track: DRAFT_TRACK }) });
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), track: DRAFT_TRACK }) });
         const out = await r.json().catch(() => ({}));
         if (r.status === 401) clearBearer();
         // Same race as the manual Save path — merge rather than lose a keystroke.

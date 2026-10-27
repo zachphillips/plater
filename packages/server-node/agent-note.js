@@ -54,7 +54,10 @@ export default async function handler(req, res) {
 
   if (!AGENT_ENDPOINT || !AGENT_TOKEN) return res.status(501).json({ error: 'agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)' });
 
-  const body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}');
+  let body;
+  try { body = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); }
+  catch { return res.status(400).json({ error: 'invalid JSON body' }); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'expected an object' });
 
   // Design-loop passthroughs (relayed with the same forced-site + server-side
   // bearer contract as notes):
@@ -80,7 +83,11 @@ export default async function handler(req, res) {
       return res.status(200).send(Buffer.from(await r.arrayBuffer()));
     }
     if (action === 'accept') {
-      const payload = { designJob: String(body.designJob || ''), alternative: Number(body.alternative), note: body.note, route: body.route || {} };
+      if (typeof body.designJob !== 'string' || !/^[a-f0-9]+$/.test(body.designJob)
+          || !Number.isSafeInteger(body.alternative) || body.alternative < 1) {
+        return res.status(400).json({ error: 'bad design reference' });
+      }
+      const payload = { site: SITE, designJob: body.designJob, alternative: body.alternative, note: body.note, route: body.route || {} };
       const r = await fetch(`${base}/accept`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + AGENT_TOKEN },

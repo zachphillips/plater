@@ -17,6 +17,8 @@ const setPath = (obj, path, val) => {
 };
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const GOOGLE_EXPIRY_SKEW = 60; // refresh a minute before the ID token expires
+const GOOGLE_PROMPT_TIMEOUT = 5000;
 
 // Same track-name grammar the server enforces (versions.js / save.js): a draft
 // name becomes a directory, so it stays boring on purpose.
@@ -85,6 +87,10 @@ function injectSitemapStyles() {
   .${SMAP}-drafts{flex:none;font:700 10px/1.6 ui-monospace,Menlo,monospace;color:#c9a96e;cursor:pointer;
     border:1px solid #3a352b;border-radius:4px;padding:0 5px}
   .${SMAP}-drafts:hover{background:#c9a96e;color:#151208}
+  .${SMAP}-row{display:flex;align-items:center}
+  .${SMAP}-row .${SMAP}-item{flex:1;min-width:0}
+  .${SMAP}-row .${SMAP}-drafts{margin-right:14px;background:transparent}
+  .${SMAP}-row .${SMAP}-drafts:hover{background:#c9a96e}
   .${SMAP}-meta{padding:11px 14px 6px;border-top:1px solid #232323;margin-top:8px}
   .${SMAP}-meta h3{margin:0 0 7px;font:600 10px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.1em;
     text-transform:uppercase;color:#6d665c}
@@ -203,10 +209,62 @@ export function initZMS(options = {}) {
   let SAVED = '{}';
   let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false };
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
+  let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
   let EDITING = false;
+  let googleReady = false;
+  let googleButtonRendered = false;
+  let googlePromptPromise = null;
+  let googlePromptResolve = null;
 
   function setLoggedIn(on) {
     document.body.classList.toggle('plater-logged-in', Boolean(on));
+  }
+
+  function storedCredential() {
+    try {
+      const value = localStorage.getItem(tokenKey);
+      const kind = localStorage.getItem(`${tokenKey}.kind`);
+      // Old untyped credentials cannot safely be inferred from JWT syntax.
+      // Reauthenticate once when upgrading a mixed Google/token install.
+      if (value && (kind === 'google' || kind === 'token')) return { value, kind };
+      if (value && !CONFIG.googleClientId && CONFIG.tokenAuth) return { value, kind: 'token' };
+    } catch {}
+    return null;
+  }
+
+  function isExpiredGoogleToken(tok) {
+    try {
+      const part = String(tok || '').split('.')[1];
+      const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '=')));
+      return !Number.isFinite(payload.exp) || Math.floor(Date.now() / 1000) >= payload.exp - GOOGLE_EXPIRY_SKEW;
+    } catch { return true; }
+  }
+
+  function useBearer(tok, kind = 'google', status = 'signed in') {
+    ID_TOKEN = tok;
+    TOKEN_KIND = kind;
+    try {
+      // Remove the previous value first so a partial storage failure cannot
+      // pair an old credential with a new kind on the next visit.
+      localStorage.removeItem(tokenKey);
+      localStorage.setItem(`${tokenKey}.kind`, kind);
+      localStorage.setItem(tokenKey, tok);
+    } catch {}
+    setLoggedIn(true);
+    if ($('#cms-signin')) $('#cms-signin').hidden = true;
+    if ($('#cms-edit')) $('#cms-edit').hidden = EDITING;
+    setStatus(status);
+  }
+
+  function clearBearer() {
+    ID_TOKEN = null;
+    TOKEN_KIND = null;
+    try { localStorage.removeItem(tokenKey); localStorage.removeItem(`${tokenKey}.kind`); } catch {}
+    setLoggedIn(false);
+    if ($('#cms-signin')) $('#cms-signin').hidden = !CONFIG.googleClientId;
+    if ($('#cms-edit') && !EDITING) $('#cms-edit').hidden = true;
+    setStatus('Sign in again — your edits are still here.');
   }
 
   /* ---------------- render ---------------- */
@@ -520,7 +578,7 @@ export function initZMS(options = {}) {
 
   const isDirty = () => JSON.stringify(CONTENT) !== SAVED;
 
-  // TOUCHED gates the unload guard. collectEdits() stringifies everything it
+  // TOUCHED gates DOM collection for the unload guard. collectEdits() stringifies everything it
   // touches, so a number in site.json comes back as a string and CONTENT would
   // look "changed" on a page nobody edited — asking the guard whether the user
   // actually did something first keeps that from becoming a phantom warning.
@@ -643,8 +701,7 @@ export function initZMS(options = {}) {
   // beforeunload is the kind of thing people learn to click through.
 
   const onBeforeUnload = (e) => {
-    if (!EDITING || !TOUCHED) return;
-    collectEdits();
+    if (EDITING && TOUCHED) collectEdits();
     if (!isDirty()) return;
     e.preventDefault();
     e.returnValue = '';       // required by Chrome/Safari to show the prompt
@@ -653,8 +710,8 @@ export function initZMS(options = {}) {
 
   function setUnloadGuard(on) {
     window.removeEventListener('beforeunload', onBeforeUnload);
-    // Draft mode autosaves every edit, so nothing is at risk there.
-    if (on && !DRAFT_TRACK) window.addEventListener('beforeunload', onBeforeUnload);
+    // Draft autosaves can be pending or fail; unsent edits still need protection.
+    if (on || isDirty()) window.addEventListener('beforeunload', onBeforeUnload);
   }
 
   /* ---------------- crash buffer ---------------- */
@@ -830,13 +887,19 @@ export function initZMS(options = {}) {
   // `retried` is passed only by the 401 recovery path below. It is never read
   // from the click listener's Event argument — see the `=== true` guard.
   async function save(retried) {
+    if (!(await ensureAuthFresh())) {
+      setStatus(`sign in as ${CONFIG.adminEmail || 'admin'} to save`);
+      return;
+    }
     collectEdits();
+    const savedSnapshot = JSON.stringify(CONTENT);
     if ($('#cms-status')) $('#cms-status').textContent = 'saving…';
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
     try {
-      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
+      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json().catch(() => ({}));
+      if (r.status === 401) clearBearer();
       if (!r.ok || out.error) {
         // 409: their commit won the race. Keep the user in edit mode with both
         // sides present rather than making them choose between a reload and
@@ -857,8 +920,6 @@ export function initZMS(options = {}) {
           // no token to the editor, so it silently poisons every later save.
           // Drop it and ask again immediately, then retry once — otherwise
           // the only fix is clearing localStorage by hand.
-          ID_TOKEN = null;
-          try { localStorage.removeItem(tokenKey); } catch {}
           if (retried !== true) {
             promptForToken();
             if (ID_TOKEN) return save(true);
@@ -868,7 +929,13 @@ export function initZMS(options = {}) {
         setStatus(humanSaveError(r.status, out));
         return;
       }
-      SAVED = JSON.stringify(CONTENT);
+      SAVED = savedSnapshot;
+      collectEdits(); // include typing that happened while the request was in flight
+      if (isDirty()) {
+        scheduleBufferWrite();
+        setStatus('Saved — newer edits are still unsaved.');
+        return;
+      }
       clearBuffer();   // it committed — the recovery copy is now noise
       const c = out.git && out.git.commit;
       // Order matters: setEditable(false) ends with an unconditional 'signed in'
@@ -896,17 +963,13 @@ export function initZMS(options = {}) {
   /* ---------------- edit-token fallback ---------------- */
 
   function useEditToken(tok) {
-    ID_TOKEN = tok;
-    try { localStorage.setItem(tokenKey, tok); } catch {}
-    setLoggedIn(true);
-    if ($('#cms-signin')) $('#cms-signin').hidden = true;
-    if ($('#cms-edit')) $('#cms-edit').hidden = false;
-    if ($('#cms-status')) $('#cms-status').textContent = 'edit token set — Edit page to begin';
+    useBearer(tok, 'token', 'edit token set — Edit page to begin');
+    if (DRAFT_TRACK && !EDITING) setEditable(true);
   }
 
   function promptForToken() {
-    let tok = ID_TOKEN;
-    try { tok = tok || localStorage.getItem(tokenKey); } catch {}
+    const stored = storedCredential();
+    let tok = TOKEN_KIND === 'token' ? ID_TOKEN : stored?.kind === 'token' ? stored.value : null;
     if (!tok) {
       tok = window.prompt(`Enter the ${brand} edit token`);
       if (tok == null) return;
@@ -924,7 +987,9 @@ export function initZMS(options = {}) {
       const s = document.createElement('script');
       s.src = 'https://accounts.google.com/gsi/client';
       s.async = true; s.defer = true;
-      s.onload = res; s.onerror = rej;
+      const timer = window.setTimeout(() => rej(new Error('Google sign-in timed out')), GOOGLE_PROMPT_TIMEOUT);
+      s.onload = () => { clearTimeout(timer); res(); };
+      s.onerror = () => { clearTimeout(timer); rej(new Error('Google sign-in unavailable')); };
       document.head.appendChild(s);
     });
   }
@@ -933,17 +998,61 @@ export function initZMS(options = {}) {
     if (!CONFIG.googleClientId) return;
     await loadGIS().catch(() => null);
     if (!window.google?.accounts?.id) return;
-    google.accounts.id.initialize({
-      client_id: CONFIG.googleClientId,
-      callback: (resp) => {
-        ID_TOKEN = resp.credential;
-        setLoggedIn(true);
-        if ($('#cms-signin')) $('#cms-signin').hidden = true;
-        if ($('#cms-edit')) $('#cms-edit').hidden = false;
-        if ($('#cms-status')) $('#cms-status').textContent = 'signed in';
-      },
+    if (!googleReady) {
+      window.google.accounts.id.initialize({
+        client_id: CONFIG.googleClientId,
+        auto_select: true,
+        callback: (resp) => {
+          if (!resp.credential || isExpiredGoogleToken(resp.credential)) {
+            if (googlePromptResolve) googlePromptResolve(false);
+            return;
+          }
+          useBearer(resp.credential);
+          if (DRAFT_TRACK && !EDITING) setEditable(true);
+          if (googlePromptResolve) googlePromptResolve(true);
+        },
+      });
+      googleReady = true;
+    }
+    const signin = $('#cms-signin');
+    if (signin && !googleButtonRendered) {
+      window.google.accounts.id.renderButton(signin, { theme: 'filled_black', size: 'small', text: 'signin' });
+      googleButtonRendered = true;
+    }
+  }
+
+  function refreshGoogleToken() {
+    if (!CONFIG.googleClientId) return Promise.resolve(false);
+    if (googlePromptPromise) return googlePromptPromise;
+    googlePromptPromise = (async () => {
+      await initSignIn();
+      if (!window.google?.accounts?.id) return false;
+      return new Promise((resolve) => {
+        const timer = window.setTimeout(() => googlePromptResolve?.(false), GOOGLE_PROMPT_TIMEOUT);
+        googlePromptResolve = (ok) => { clearTimeout(timer); resolve(ok); };
+        try {
+          window.google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.() || notification.isDismissedMoment?.()) {
+              googlePromptResolve?.(false);
+            }
+          });
+        } catch { googlePromptResolve(false); }
+      });
+    })().catch(() => false).finally(() => {
+      googlePromptPromise = null;
+      googlePromptResolve = null;
     });
-    google.accounts.id.renderButton($('#cms-signin'), { theme: 'filled_black', size: 'small', text: 'signin' });
+    return googlePromptPromise;
+  }
+
+  async function ensureAuthFresh() {
+    if (CONFIG.devNoauth) return true;
+    if (ID_TOKEN && (TOKEN_KIND === 'token' || !isExpiredGoogleToken(ID_TOKEN))) return true;
+    if (ID_TOKEN) clearBearer();
+    if (CONFIG.googleClientId && await refreshGoogleToken()) return true;
+    // GIS can load successfully while One Tap is skipped or unavailable.
+    if (CONFIG.tokenAuth) promptForToken();
+    return Boolean(ID_TOKEN);
   }
 
   /* ---------------- first-visit setup ---------------- */
@@ -1042,6 +1151,7 @@ export function initZMS(options = {}) {
   // Read-and-choose UX — applying a winner goes through the normal edit
   // paths (inline edit / agent note), never a blind overwrite.
   async function openVersions(pagePath) {
+    const trigger = document.activeElement;
     const slug = slugForPage(pagePath);
     const tracks = Object.keys(versionTracks || {}).filter((t) => (versionTracks[t] || []).includes(slug));
     if (!tracks.length) return;
@@ -1055,11 +1165,12 @@ export function initZMS(options = {}) {
     if (!drafts.length) return;
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const old = document.getElementById('plater-versions');
-    if (old) old.remove();
-    const wrap = document.createElement('div');
+    if (old) { old.close(); old.remove(); }
+    const wrap = document.createElement('dialog');
     wrap.id = 'plater-versions';
+    wrap.setAttribute('aria-label', `Drafts for ${pagePath}`);
     wrap.innerHTML = `<style>
-#plater-versions{position:fixed;inset:0;z-index:2147483646;background:rgba(12,11,9,.96);color:#e8e3d9;overflow:auto;font:15px/1.6 ui-sans-serif,system-ui,sans-serif}
+#plater-versions{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;z-index:2147483646;background:rgba(12,11,9,.96);color:#e8e3d9;overflow:auto;font:15px/1.6 ui-sans-serif,system-ui,sans-serif}
 #plater-versions .pv-bar{position:sticky;top:0;display:flex;gap:12px;align-items:baseline;padding:14px 20px;background:#191712;border-bottom:1px solid #2f2b25}
 #plater-versions .pv-bar b{color:#c9a96e;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
 #plater-versions .pv-close{margin-left:auto;background:none;border:1px solid #3a352b;color:#e8e3d9;padding:5px 12px;border-radius:6px;cursor:pointer}
@@ -1072,7 +1183,10 @@ export function initZMS(options = {}) {
 <div class="pv-bar"><b>Drafts · ${esc(pagePath)}</b><span style="color:#7a736a;font-size:12px">read, compare — apply the winner with inline edit or a note to the agent</span><button class="pv-close">✕ close</button></div>
 <div class="pv-cols">${drafts.map((d) => `<div class="pv-col"><h2 class="pv-t">${esc(d.track)}</h2><p class="pv-m">${esc(d.source || '')}${d.generated_at ? ' · ' + esc(d.generated_at) : ''}</p><div class="pv-body">${esc(d.body || '')}</div></div>`).join('')}</div>`;
     document.body.appendChild(wrap);
-    wrap.querySelector('.pv-close').onclick = () => wrap.remove();
+    wrap.addEventListener('close', () => { wrap.remove(); if (trigger?.isConnected) trigger.focus(); });
+    wrap.querySelector('.pv-close').onclick = () => wrap.close();
+    wrap.showModal(); // native focus containment and Escape-to-close
+    wrap.querySelector('.pv-close').focus();
   }
 
   /* ---------------- history + restore ---------------- */
@@ -1231,7 +1345,7 @@ export function initZMS(options = {}) {
     if (EDITING && TOUCHED) { collectEdits(); if (isDirty()) warn = '\n\nYour unsaved edits on this page will be replaced.'; }
     const what = DRAFT_TRACK ? `the “${DRAFT_TRACK}” draft` : 'the content';
     if (!window.confirm(`Restore ${what} from ${short}?\n\nThis puts the old version back as a NEW save — the history keeps growing, so you can restore your way back too.${DRAFT_TRACK ? '\n\nThe live page is not touched.' : ''}${warn}`)) return;
-    if (!ID_TOKEN && CONFIG.tokenAuth && !CONFIG.googleClientId) { promptForToken(); if (!ID_TOKEN) return; }
+    if (!(await ensureAuthFresh())) { setStatus('Sign in again to restore — nothing was changed.'); return; }
     btn.disabled = true; btn.textContent = 'restoring…';
     try {
       const r = await fetch(`${apiBase}/history`, {
@@ -1240,6 +1354,7 @@ export function initZMS(options = {}) {
         body: JSON.stringify({ restore: sha, ...trackBody() }),
       });
       const out = await r.json().catch(() => ({}));
+      if (r.status === 401) clearBearer();
       if (!r.ok || out.error || !out.ok) {
         console.warn('[plater] restore failed', r.status, out.error || '');
         btn.disabled = false; btn.textContent = 'Restore';
@@ -1273,7 +1388,7 @@ export function initZMS(options = {}) {
   // /api/upload; only the returned URL goes into CONTENT, so the src change
   // rides the normal Save like any other edit.
 
-  const IMG_EXT = /\.(png|jpe?g|gif|webp|svg)$/i;
+  const IMG_EXT = /\.(png|jpe?g|gif|webp)$/i;
   const IMG_MAX = 4 * 1024 * 1024;
   const OVER = `${EDNS}-imgover`;
 
@@ -1359,7 +1474,7 @@ export function initZMS(options = {}) {
     if (!imgFile || !imgFile.isConnected) {
       imgFile = document.createElement('input');
       imgFile.type = 'file';
-      imgFile.accept = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
+      imgFile.accept = 'image/png,image/jpeg,image/gif,image/webp';
       imgFile.className = `${EDNS}-imgfile`;
       imgFile.setAttribute(CTL, '');
       imgFile.addEventListener('change', () => {
@@ -1426,15 +1541,12 @@ export function initZMS(options = {}) {
     const name = file.name || 'image';
     // Client-side mirror of the server's allowlist and cap: a 20 MB photo
     // should fail in a sentence, not after a minute of uploading.
-    if (!IMG_EXT.test(name)) { setStatus(`“${name}” is not an image this site can use — PNG, JPG, GIF, WebP or SVG only.`); return; }
+    if (!IMG_EXT.test(name)) { setStatus(`“${name}” is not an image this site can use — PNG, JPG, GIF or WebP only.`); return; }
     if (file.size > IMG_MAX) {
       setStatus(`“${name}” is ${(file.size / 1048576).toFixed(1)} MB — images have to be 4 MB or smaller.`);
       return;
     }
-    if (!ID_TOKEN && !CONFIG.devNoauth) {
-      promptForToken();
-      if (!ID_TOKEN) { setStatus('Sign in first — the image was not uploaded.'); return; }
-    }
+    if (!(await ensureAuthFresh())) { setStatus('Sign in first — the image was not uploaded.'); return; }
     hideImgChip();
     setStatus(`Uploading “${name}”…`);
     let dataBase64;
@@ -1447,6 +1559,7 @@ export function initZMS(options = {}) {
         body: JSON.stringify({ filename: name, dataBase64 }),
       });
       const out = await r.json().catch(() => ({}));
+      if (r.status === 401) clearBearer();
       if (!r.ok || out.error || !out.url) {
         console.warn('[plater] upload failed', r.status, out.error || '');
         setStatus(humanUploadError(r.status, name));
@@ -1483,6 +1596,7 @@ export function initZMS(options = {}) {
   }
 
   async function markReviewed(pagePath, reviewed) {
+    if (!(await ensureAuthFresh())) throw new Error(`sign in as ${CONFIG.adminEmail || 'admin'} to review`);
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
     const r = await fetch(`${apiBase}/review`, {
@@ -1490,6 +1604,7 @@ export function initZMS(options = {}) {
       body: JSON.stringify({ path: pagePath, reviewed }),
     });
     const out = await r.json().catch(() => ({}));
+    if (r.status === 401) clearBearer();
     if (!r.ok || out.error) throw new Error(out.error || `review save failed (${r.status})`);
     smapStatus = out;
     renderSitemap();
@@ -1529,7 +1644,7 @@ export function initZMS(options = {}) {
         const norm = normalizePagePath(p.path);
         const isHere = norm === here;
         const label = p.title || norm;
-        html += `<a class="${SMAP}-item${isHere ? ' current' : ''}" href="${esc(norm)}?edit" data-page="${esc(norm)}">`;
+        html += `<div class="${SMAP}-row"><a class="${SMAP}-item${isHere ? ' current' : ''}" href="${esc(norm)}?edit" data-page="${esc(norm)}">`;
         if (p.reviewed) {
           html += `<span class="${SMAP}-done" data-unreview="${esc(norm)}" title="Reviewed ${p.reviewed_at ? new Date(p.reviewed_at).toLocaleString() : ''} — click to mark unreviewed">✓</span>`;
         } else {
@@ -1538,8 +1653,9 @@ export function initZMS(options = {}) {
         html += `<span class="t">${esc(label)}<span class="p">${esc(norm)}</span></span>`;
         if (p.stale) html += `<span class="${SMAP}-stale" title="Changed since last review">edited</span>`;
         const nTracks = versionTracks ? Object.keys(versionTracks).filter((t) => (versionTracks[t] || []).includes(slugForPage(norm))).length : 0;
-        if (nTracks) html += `<span class="${SMAP}-drafts" data-versions="${esc(norm)}" title="${nTracks} alternate draft${nTracks > 1 ? 's' : ''} — click to read side by side">${nTracks}✎</span>`;
         html += `</a>`;
+        if (nTracks) html += `<button type="button" class="${SMAP}-drafts" data-versions="${esc(norm)}" aria-label="Read ${nTracks} drafts for ${esc(norm)}" title="${nTracks} alternate draft${nTracks > 1 ? 's' : ''} — click to read side by side">${nTracks}✎</button>`;
+        html += `</div>`;
       }
       html += `</div>`;
     }
@@ -1811,7 +1927,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
 
     const golive = document.getElementById('plater-golive');
     if (golive) golive.onclick = async () => {
-      if (!ID_TOKEN && !CONFIG.devNoauth) { promptForToken(); if (!ID_TOKEN) return; }
+      if (!(await ensureAuthFresh())) { setStatus('Sign in again to make this draft live.'); return; }
       if (!window.confirm(`Make the “${DRAFT_TRACK}” draft the LIVE copy of this page?\n\nOne commit. The old copy stays in git history; the draft stays editable.`)) return;
       golive.disabled = true; golive.textContent = 'going live…';
       try {
@@ -1820,6 +1936,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
         const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ promote: DRAFT_TRACK, content: CONTENT }) });
         const out = await r.json().catch(() => ({}));
+        if (r.status === 401) clearBearer();
         if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
         golive.textContent = 'LIVE ✓';
         setTimeout(() => { location.href = swap(null); }, 900);
@@ -1848,13 +1965,19 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       if (autosaveInflight) { scheduleDraftAutosave(); return; }
       autosaveInflight = true;
       try {
+        if (!(await ensureAuthFresh())) {
+          if (chip) chip.textContent = 'sign in to save this draft';
+          return;
+        }
         collectEdits();
-        if (JSON.stringify(CONTENT) === SAVED) { if (chip) chip.textContent = 'saved ✓'; return; }
+        const savedSnapshot = JSON.stringify(CONTENT);
+        if (savedSnapshot === SAVED) { if (chip) chip.textContent = 'saved ✓'; return; }
         if (chip) chip.textContent = 'saving…';
         const headers = { 'content-type': 'application/json' };
         if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
-        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: CONTENT, track: DRAFT_TRACK }) });
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), track: DRAFT_TRACK }) });
         const out = await r.json().catch(() => ({}));
+        if (r.status === 401) clearBearer();
         // Same race as the manual Save path — merge rather than lose a keystroke.
         if (r.status === 409 && out.error === 'conflict') {
           console.warn('[plater] draft autosave conflict', out.message || '');
@@ -1870,9 +1993,15 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
           return;
         }
         if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
-        SAVED = JSON.stringify(CONTENT);
-        clearBuffer();
-        if (chip) chip.textContent = 'saved ✓ (draft only)';
+        SAVED = savedSnapshot;
+        collectEdits();
+        if (isDirty()) {
+          scheduleBufferWrite();
+          scheduleDraftAutosave();
+        } else {
+          clearBuffer();
+          if (chip) chip.textContent = 'saved ✓ (draft only)';
+        }
       } catch (e) {
         console.warn('[plater] draft autosave failed', e);
         if (chip) chip.textContent = 'autosave failed — will retry on next edit';
@@ -1921,7 +2050,13 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       }
     }).catch(() => { if (DRAFT_TRACK) draftBanner([], []); });
 
-    try { ID_TOKEN = ID_TOKEN || localStorage.getItem(tokenKey); } catch {}
+    const persisted = storedCredential();
+    if (persisted && (persisted.kind === 'token' || !isExpiredGoogleToken(persisted.value))) {
+      ID_TOKEN = persisted.value;
+      TOKEN_KIND = persisted.kind;
+    } else {
+      clearBearer();
+    }
     setLoggedIn(Boolean(ID_TOKEN));
 
     // edit mode is opt-in: ?edit  OR  Cmd/Ctrl+E  OR  the toolbar button
@@ -1930,8 +2065,11 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       const bar = $('#cms-bar'); if (bar) bar.hidden = false;
       mountHistoryButton();
       initSitemap().then(positionSitemap).catch(() => {});
-      if (CONFIG.googleClientId) { if ($('#cms-signin')) $('#cms-signin').hidden = false; initSignIn(); }
-      else if (CONFIG.tokenAuth) { promptForToken(); }
+      if (CONFIG.googleClientId) initSignIn().catch(() => {});
+      if (ID_TOKEN && (TOKEN_KIND === 'token' || !isExpiredGoogleToken(ID_TOKEN))) { useBearer(ID_TOKEN, TOKEN_KIND); }
+      else if (CONFIG.googleClientId || CONFIG.tokenAuth) {
+        ensureAuthFresh().then((ok) => { if (ok && DRAFT_TRACK && !EDITING) setEditable(true); });
+      }
       else if (CONFIG.devNoauth) { setLoggedIn(true); if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = 'dev mode — no auth (localhost)'; }
       else {
         // Nothing can authenticate here. Hide the sign-in that would do nothing

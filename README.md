@@ -349,6 +349,28 @@ PLATER_GIT_NAME      git author name for agent commits (agent host)
 PLATER_GIT_EMAIL     git author email for agent commits (agent host)
 ```
 
+## Google sign-in setup
+
+Create a Google OAuth web client in Google Cloud Console → APIs & Services →
+Credentials → Create credentials → OAuth client ID → Web application. Configure
+the consent screen first if Google requests it, including permitted test users
+while the app is in testing.
+
+Add every site's exact HTTPS origin under Authorized JavaScript origins, for
+example `https://greatrebellion.net`, `https://sherwood.thekitchen.co`,
+`https://thekitchen.co`, `https://liz.thekitchen.co`, and
+`https://thepantry.thekitchen.co`. Include any custom domains used for editing.
+Set both `GOOGLE_CLIENT_ID` and `CMS_ADMIN_EMAIL` in each site's Vercel
+environment, selecting Production and any Preview environments that need it,
+then redeploy those environments so `/api/config` picks up the changes.
+
+`CMS_EDIT_TOKEN` can stay configured as fallback when Google sign-in cannot
+complete. Credentials persist with an explicit kind across pages and visits;
+Google ID tokens refresh through GIS when possible. One Tap may require
+interaction or be suppressed by browser policy, so this is best-effort renewal,
+not a server-backed refresh session. Old credentials without kind metadata
+require one sign-in again when Google is configured.
+
 ## Local → staging → prod (the environment ladder)
 
 Four legs, one contract: the **same handlers** run everywhere, only the backing

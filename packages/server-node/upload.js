@@ -10,7 +10,7 @@
 // stays a standalone drop-in file. Uploads land in PLATER_IMAGES_DIR, default
 // the "images" dir next to the content dir (web/content/site.json → web/images).
 // The final name is prefixed with 8 hex chars of the content hash so two
-// different "photo.jpg" uploads can never clobber each other.
+// different "photo.jpg" uploads normally get different names; collisions fail closed.
 import path from 'node:path';
 import crypto from 'node:crypto';
 
@@ -33,9 +33,8 @@ const IMAGES_DIR = path.posix
   .normalize((process.env.PLATER_IMAGES_DIR || path.posix.join(WEB_ROOT, 'images')).split(path.sep).join('/'))
   .replace(/^(\.\.\/|\/)+/, '').replace(/\/+$/, '');
 
-// SVG is allowed because sites legitimately upload logos; it is script-capable,
-// so serve the images dir as static assets, never inline it into a page.
-const ALLOWED_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+// Same-origin SVG documents can execute scripts and read persisted credentials.
+const ALLOWED_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
 const MAX_BYTES = 4 * 1024 * 1024; // decoded
 // Base64 is 4/3 the size; leave room for the JSON envelope around it.
 const MAX_BODY = Math.ceil(MAX_BYTES * 4 / 3) + 64 * 1024;
@@ -105,13 +104,14 @@ async function commitImage(rel, buf, who) {
     'X-GitHub-Api-Version': '2022-11-28',
   };
 
-  let sha;
   const get = await fetch(`${api}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, { headers, cache: 'no-store' });
   if (get.ok) {
     const file = await get.json();
     // Identical bytes already at this path → nothing to commit, same URL.
     if (file.sha === gitBlobSha(buf)) return { ok: true, commit: null };
-    sha = file.sha;
+    // The shortened filename hash collided. Never overwrite another image or
+    // report its URL as though it contains the bytes the caller uploaded.
+    return { ok: false, status: 409, error: 'image filename collision; rename the image and try again' };
   } else if (get.status !== 404) {
     return { ok: false, status: 502, error: `github read ${get.status}: ${(await get.text()).slice(0, 300)}` };
   }
@@ -123,7 +123,6 @@ async function commitImage(rel, buf, who) {
       message: `image(${SITE_NAME}): upload ${path.posix.basename(rel)} via CMS by ${who}`,
       content: buf.toString('base64'),
       branch: GITHUB_BRANCH,
-      ...(sha ? { sha } : {}),
       committer: { name: 'Plater CMS', email: COMMIT_EMAIL },
       author: { name: who || 'Plater CMS', email: who || COMMIT_EMAIL },
     }),

@@ -12,12 +12,12 @@
   "hero": {
     "eyebrow": "Design and build, Providence RI",
     "title": "A small studio for careful work.",
-    "subtitle": "We make websites for people who intend to keep them — plain HTML, honest typography, and no machinery you have to feed every quarter.",
+    "subtitle": "We make websites for people who intend to keep them: plain HTML, type that is easy to read, and nothing you have to update every quarter.",
     "cta": { "label": "Start a conversation", "url": "mailto:hello@example.com" }
   },
   "work": {
     "title": "Selected work",
-    "intro": "Three projects that show the range: an archive, a shop, and a site that is mostly one very good page.",
+    "intro": "Three projects: an archive, a shop, and a site that is mostly one page.",
     "projects": [
       {
         "title": "Fenwick Press",
@@ -49,7 +49,7 @@
       "Identity and typographic systems",
       "Website design and hand-built front ends",
       "Editorial structure and copy shaping",
-      "Quiet ongoing care — small changes, same week"
+      "Ongoing small changes, usually the same week"
     ]
   },
   "contact": {

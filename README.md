@@ -18,8 +18,8 @@ that reinforce each other:
 Everything is plain ES modules and Node's standard library. Zero runtime
 dependencies. No build step. No framework.
 
-Plater was extracted from a reference implementation that had been copy-pasted
-into several sites by hand; it's now the package instead of the copy-paste.
+Plater started as code copied by hand into several sites. This repo packages
+that code once, so each site stops carrying its own copy.
 It ships on npm as **platercms** (`@platercms/core`, `@platercms/server-node`,
 `@platercms/capture`, CLI `platercms`); the repo is `zachphillips/plater`.
 
@@ -40,7 +40,7 @@ It ships on npm as **platercms** (`@platercms/core`, `@platercms/server-node`,
 - [Design-alternatives mode](#design-alternatives-mode)
 - [Versions (named drafts)](#versions-named-drafts)
 - [Review state and the Pages rail](#review-state-and-the-pages-rail-multi-page-sites)
-- [Web standards, agent-first](#web-standards-agent-first)
+- [Web standards](#web-standards)
 - [Static publishing](#static-publishing)
 - [Status and roadmap](#status-and-roadmap)
 - [License](#license)
@@ -196,10 +196,10 @@ point — it can only ask a handler you deployed to commit on its behalf.
 let anybody in, which used to mean `?edit` showed a sign-in button that did
 nothing. Now it shows a setup panel instead: the same env checklist
 `platercms doctor` prints, one line each, required keys first, with a direct link
-to mint the fine-grained GitHub PAT. It is the last step of an install, addressed
-to the person who can finish it — not an error.
+to mint the fine-grained GitHub PAT. The panel appears in place of the sign-in
+button until a credential is set.
 
-### 5. Notes go to an agent, not to a backlog
+### 5. Click-to-note: sending work to a coding agent
 
 When inline editing isn't enough, `@platercms/capture` takes over. Click an element
 and it captures:
@@ -229,7 +229,7 @@ live deploy, unless a site is explicitly configured `output: "push"`.
 
 **The notes tray** answers the question a fire-and-forget note used to leave
 hanging: *did that land?* Every note you send is logged in this browser
-(`localStorage`, a receipt book — not state the server owes anyone) and shown in
+(`localStorage` only) and shown in
 a **Notes** pane with its live status, its age, the bound content path, and a
 link to the PR when one exists. Open jobs are polled every 10s while the tray is
 open and never while it's closed; each job is polled independently, so one dead
@@ -246,14 +246,14 @@ job can't stall the rest and a network blip is never reported as a failure.
 | [`@platercms/server-node`](packages/server-node) | Thirteen drop-in serverless handlers (Vercel-shaped `(req, res)`, fine on any Node server): `config`, `content`, `save`, `history`, `upload`, `agent-note`, `review`, `versions`, `feed`, `sitemap`, `route`, `manifest`, `propose-post` — plus `publishSite()`, the static publisher behind `platercms publish`. |
 | [`@platercms/capture`](packages/capture) | The click-to-note overlay: element picker, note popover, engine × output chooser, notes tray, and design mode. Imposes no fonts and no global styles on the host site. |
 | [`create-platercms`](packages/create-platercms) | `npm create platercms@latest my-site` — scaffolds a running site: the starter page, the vendored client modules, and the `api/` handlers. Its payload is refilled from this repo on `prepack`, so a published tarball can never carry a stale fork of the editor. |
-| [`@platercms/agent-host`](packages/agent-host) | The long-running box that actually runs the agents. Bearer-gated, rate-limited, concurrency-capped, append-only audit journal, server-side site→repo allowlist. Designed to sit behind a Cloudflare Tunnel. Deployed, not published. |
-| [`@platercms/list-worker`](packages/list-worker) | Optional. A Cloudflare Worker + D1 email-capture backend shared across sites, to replace the `mailto:` stopgap. Captures, exports, deletes — no campaigns, no segments, no pixels. Deployed with wrangler, not published. |
+| [`@platercms/agent-host`](packages/agent-host) | The long-running service that runs the agents. Bearer-gated, rate-limited, concurrency-capped, append-only audit journal, server-side site→repo allowlist. Designed to sit behind a Cloudflare Tunnel. Deployed, not published. |
+| [`@platercms/list-worker`](packages/list-worker) | Optional. A Cloudflare Worker + D1 email-capture backend shared across sites, so a site can collect email addresses without relying on a `mailto:` link. Captures, exports, deletes — no campaigns, no segments, no pixels. Deployed with wrangler, not published. |
 
 ## Install
 
-Three doors, depending on what you already have.
+Pick the case that matches what you already have.
 
-**A new site** — the front door:
+**A new site:**
 
 ```bash
 npm create platercms@latest my-site
@@ -278,7 +278,7 @@ cd plater && npm run demo          # examples/static-site at http://127.0.0.1:41
 ```
 
 **Deploy with Vercel** — `platercms init` writes the `vercel.json` rewrites for
-you, so any of the three doors above is `git push` + import + set the environment
+you, so any of the options above is `git push` + import + set the environment
 variables away from an editable site on your own domain.
 
 > The npm packages publish from a `v*` tag via
@@ -357,9 +357,8 @@ the consent screen first if Google requests it, including permitted test users
 while the app is in testing.
 
 Add every site's exact HTTPS origin under Authorized JavaScript origins, for
-example `https://greatrebellion.net`, `https://sherwood.thekitchen.co`,
-`https://thekitchen.co`, `https://liz.thekitchen.co`, and
-`https://thepantry.thekitchen.co`. Include any custom domains used for editing.
+example `https://example.com` and `https://www.example.com`. Include any
+custom domains used for editing.
 Set both `GOOGLE_CLIENT_ID` and `CMS_ADMIN_EMAIL` in each site's Vercel
 environment, selecting Production and any Preview environments that need it,
 then redeploy those environments so `/api/config` picks up the changes.
@@ -384,7 +383,7 @@ store changes, so what you see locally is what deploys.
 | **prod (self-host)** | `platercms serve <siteDir>` | the domain you point at it, with `?edit` | commits to `GITHUB_BRANCH`, exactly as on Vercel | same as Vercel — the relay is the same handler |
 
 `platercms dev` also serves `/feed.xml`, `/feed.json`, `/sitemap.xml`,
-`/llms.txt`, `/api/manifest`, and the editable 404 — the full standards surface —
+`/llms.txt`, `/api/manifest`, and the editable 404 — the same set as production —
 so feed curation and redirect edits are previewable before a single commit
 exists. `/api/history` there reads real `git log` of the content file, and
 Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
@@ -465,13 +464,14 @@ No code is written until you've chosen a look.
 
 ## Versions (named drafts)
 
-Git remembers every save; that's forensics, not editing. Versions are the
-editorial layer: **named tracks** of whole alternate drafts, one file per page, at
+Git remembers every save, but reading commit history is a poor way to compare
+drafts. Versions cover that instead: **named tracks** of whole alternate
+drafts, one file per page, at
 `web/content/versions/<track>/<page-slug>.md` (`/` → `index`,
 `/tools/phone/` → `tools__phone`).
 
-A track exists as soon as a file is written — call it `opus`, `v2-launch`,
-`shorter`, whatever. `GET /api/versions` lists tracks; `?track=t&page=/x/`
+A track exists as soon as a file is written — call it `v2-launch`,
+`shorter`, whatever fits. `GET /api/versions` lists tracks; `?track=t&page=/x/`
 returns a draft; an authed POST writes one through the same git-commit path as
 save. In `?edit` mode, pages with drafts show an `N✎` badge in the sitemap rail —
 click it for a side-by-side reader of every track.
@@ -506,18 +506,17 @@ unreviewed. `GET /api/review` (alias `/plater/review-status`) reports per-page
 state, counts, and `fully_reviewed` for external dashboards.
 
 **The meta editor** lives at the foot of that rail: four inputs — title,
-description, site URL, share image — writing straight into `content.meta`. It is
-the part of a page nobody sees and everybody reads (the browser tab, the search
-snippet, the share card), so it has no place *on* the page. The fields are
+description, site URL, share image — writing straight into `content.meta`.
+Those fields show up in the browser tab, search results, and share cards
+rather than on the page itself, so they are edited from the rail. The fields are
 dirty-tracked exactly like inline text, so the same Save commits them, and
 emptying one removes the key rather than committing an empty string.
 
-## Web standards, agent-first
+## Web standards
 
-Plater ships the plumbing every CMS owes the web — and **nothing that forces a
-way of thinking**. No channels, no tags, no categories, no taxonomies, ever. A
-"post" is just a page somebody put in the feed. One-off pages stay great; nothing
-has to match anything else.
+Plater ships the basic plumbing most sites need, and no system for organizing
+pages: no channels, tags, categories, or taxonomies. A "post" is a page
+somebody put in the feed, and a page does not have to match any other page.
 
 - **`/feed.xml` + `/feed.json`** (`feed.js`) — the feed is **hand-curated
   content**, not a query. It serializes `site.json`'s `feed.items` array:
@@ -534,7 +533,7 @@ has to match anything else.
   `sitemap.exclude` or `<meta name="plater:sitemap" content="false">`.
 - **Redirects-as-content + editable 404** (`route.js`) — `site.json`
   `redirects: [{ from, to, permanent }]`, live the moment the save deploys. The
-  permalink law: renaming a URL means adding a redirect in the same change. 404
+  rule here: renaming a URL means adding a redirect in the same change. 404
   copy lives in `site.json` `notFound` and returns a real 404 status.
 - **`/api/manifest` + `/llms.txt`** (`manifest.js`) — the site, machine-readable:
   every page, its bound content keys, review freshness, the feed, and a

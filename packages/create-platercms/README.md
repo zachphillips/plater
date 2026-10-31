@@ -1,6 +1,6 @@
 # create-platercms
 
-The front door to [Plater](https://github.com/zachphillips/plater) — a
+Scaffolds a new site for [Plater](https://github.com/zachphillips/plater), a
 git-native in-browser CMS with click-to-note agent routing.
 
 ```bash

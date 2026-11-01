@@ -1,6 +1,6 @@
 # @platercms/agent-host
 
-The persistent service that turns a captured note into an agent turn. Runs on
+The persistent service that runs a coding agent on notes captured from your sites. Runs on
 any always-on box you control, with `claude` / `codex` / `ollama` already
 authenticated as **you**. Sits behind a **Cloudflare Tunnel** (`agent.<your-domain>`).
 
@@ -38,7 +38,7 @@ not a live deploy.
 ```bash
 export PLATER_AGENT_TOKEN=$(openssl rand -hex 32)   # the shared secret (also set on the sites)
 export PLATER_AGENT_WORKDIR=$HOME/zms-agent
-# clone the fleet repos into $PLATER_AGENT_WORKDIR/repos/<name> and write sites.json
+# clone each site's repo into $PLATER_AGENT_WORKDIR/repos/<name> and write sites.json
 node server.mjs        # or via the systemd unit + `cloudflared` tunnel
 ```
 
@@ -53,7 +53,7 @@ The `ZMS_AGENT_*` / `ZMS_LOCAL_MODEL` spellings are still accepted.
 
 - [x] Constant-time bearer compare on every mutating request
 - [x] Server-side site→repo allowlist (no client-chosen repos)
-- [x] PR-by-default (human-in-the-loop)
+- [x] PR-by-default (you review before anything merges)
 - [x] Rate limit + concurrency cap + per-job timeout
 - [x] Append-only audit journal (`jobs.jsonl`)
 - [ ] Cloudflare Tunnel + (optional) Cloudflare Access in front — set up at deploy

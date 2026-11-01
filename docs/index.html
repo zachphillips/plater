@@ -262,7 +262,7 @@ footer.foot .r{margin-left:auto}
 <!-- ============ HERO ============ -->
 <section class="hero">
   <div class="wrap rails">
-    <div class="rail"><b>hero.pitch</b><span>every label on this page is a real content path, the way Plater labels a site</span></div>
+    <div class="rail"><b>hero.pitch</b><span>labels like these name each piece of content on a Plater site</span></div>
     <div>
       <p class="eyebrow">In-browser CMS · agent routing · zero dependencies</p>
       <h1>Click the thing. Say what's wrong. Get a <em>pull request</em>.</h1>
@@ -337,19 +337,19 @@ footer.foot .r{margin-left:auto}
 <!-- ============ THE LOOP ============ -->
 <section class="sec" id="loop">
   <div class="wrap rails">
-    <div class="rail"><b>loop.why</b><span>the part no other CMS does</span></div>
+    <div class="rail"><b>loop.why</b><span>for changes to layout and markup</span></div>
     <div>
       <h2>Some changes aren't <em>words</em>.</h2>
-      <p>Every lightweight CMS can swap a headline. None of them can make three cards stack on mobile, because that isn't content — it's markup and CSS, and it lives in files the CMS was never allowed to touch. So it becomes a ticket, and the ticket becomes a month.</p>
+      <p>Every lightweight CMS can swap a headline. None of them can make three cards stack on mobile, because that isn't content — it's markup and CSS, and it lives in files the CMS was never allowed to touch. So the change waits for whoever owns those files.</p>
       <p>Plater routes it instead. The capture overlay records what you clicked with enough precision that an agent can find it again: the CSS selector, the element's own HTML, the visible text around it, the content key it binds if it binds one, the page URL, and the element's box on screen. You add a sentence. That package goes to a coding agent running against a real checkout of your repository.</p>
-      <p class="pull">The person who noticed the problem is the person who fixes it, in the place where they noticed it.</p>
+      <p class="pull">You can ask for the fix on the page where you saw the problem, instead of filing it somewhere else and waiting.</p>
 
-      <h3 class="sub">The trust boundary is the interesting part</h3>
+      <h3 class="sub">How a note stays tied to your site</h3>
       <p>The browser never holds a repository credential, and it never names a repository. It posts to <strong>your own origin</strong>, authenticated the same way saving is. That relay checks your credential again, overwrites the site field with its own configured name — so a request can't be aimed at someone else's repo — and only then forwards the note with a server-side bearer token.</p>
       <p>The agent host maps site names to repositories on its own side, from a file you control. It is bearer-gated with a constant-time compare, rate-limited, concurrency-capped, and writes an append-only job journal. And it opens a <strong>pull request by default</strong>. A note produces something to review, not something to explain afterwards.</p>
 
       <h3 class="sub">Design mode: pictures before code</h3>
-      <p>When you don't know what you want yet, toggle design mode and the loop inverts. The host screenshots the live page, generates several concept images of the element redesigned, and hands them back to the overlay. You pick one. <strong>The chosen image becomes the specification</strong> — only then does a coding agent start writing, and it writes to match the picture you approved. Nothing is committed against a guess.</p>
+      <p>When you don't know what you want yet, toggle design mode and the loop inverts. The host screenshots the live page, generates several concept images of the element redesigned, and hands them back to the overlay. You pick one. <strong>The chosen image becomes the specification</strong> — only then does a coding agent start writing, and it writes to match the picture you approved.</p>
     </div>
   </div>
 </section>
@@ -357,7 +357,7 @@ footer.foot .r{margin-left:auto}
 <!-- ============ GIT-NATIVE ============ -->
 <section class="sec" id="cms">
   <div class="wrap rails">
-    <div class="rail"><b>cms.model</b><span>the substrate stays; the layer is thin</span></div>
+    <div class="rail"><b>cms.model</b><span>content lives in one JSON file</span></div>
     <div>
       <h2>Your content is a <em>JSON file</em> in your repo.</h2>
       <p>There is no template language and no build step. You write ordinary HTML and mark the parts that are content. The markup you author is the fallback: if a key is missing, or JavaScript never runs, the page still renders exactly what you wrote. The site is never blank, never waiting on a fetch, and fully indexable before a single script executes.</p>
@@ -391,7 +391,7 @@ footer.foot .r{margin-left:auto}
 }</pre></div>
       </div>
 
-      <h3 class="sub">Saving is a commit, not a write</h3>
+      <h3 class="sub">Saving makes a git commit</h3>
       <p>Add <code>?edit</code> to any URL and every bound element becomes editable in place. Saving sends only the keys you changed. The handler fetches the current JSON from the GitHub Contents API, deep-merges your patch, and puts it back as a commit — which triggers whatever deploy you already had.</p>
       <div class="commit"><b>content: home.hero.title (via Plater)</b><span>web/content/site.json · +1 −1 · main</span></div>
       <p style="margin-top:20px">That's the whole publish pipeline. There's no cache to bust, no CMS database that can drift from the repository, and no export path to worry about, because nothing was ever imported. <code>git log</code> is your edit history. <code>git revert</code> is undo. Delete Plater tomorrow and the site keeps working — it's still HTML and a JSON file.</p>
@@ -399,7 +399,7 @@ footer.foot .r{margin-left:auto}
       <h3 class="sub">Two credentials, both checked on the server</h3>
       <p>Sign in with Google — verified against Google's tokeninfo endpoint, checking audience, verified email, expiry, and your allowlisted address — or use a shared edit token compared in constant time. The token path exists because real editing happens on a phone at 11pm, and OAuth popups on a phone at 11pm are how edits don't get made. With no admin address configured, the handlers <strong>fail closed</strong>: nobody is authorized until you say who is. The GitHub token stays on the server, always.</p>
 
-      <h3 class="sub">Named drafts, not commit archaeology</h3>
+      <h3 class="sub">Named drafts you can preview</h3>
       <p>Git remembers every save, but that's forensics, not editing. Versions are the editorial layer: named tracks of whole alternate drafts, one file per page. Call a track <code>shorter</code> or <code>v2-launch</code> — it exists as soon as a file is written. Add <code>?draft=shorter</code> to a URL and the entire page renders from that track, in place, on the real site. Edits autosave to the draft. When you like it, <strong>Make this live</strong> promotes it as a normal commit.</p>
 
       <h3 class="sub">Review state that expires by itself</h3>
@@ -411,22 +411,22 @@ footer.foot .r{margin-left:auto}
 <!-- ============ STANDARDS ============ -->
 <section class="sec" id="standards">
   <div class="wrap rails">
-    <div class="rail"><b>standards.set</b><span>plumbing the web already asked for</span></div>
+    <div class="rail"><b>standards.set</b><span>feeds, sitemap, redirects, and a 404 page</span></div>
     <div>
-      <h2>Everything a CMS <em>owes</em> the web. Nothing that tells you how to think.</h2>
-      <p>No tags. No categories. No channels. No collections. A post is just a page somebody decided to put in the feed. One-off pages stay great, and nothing has to match anything else to exist. What Plater does ship is the boring, load-bearing plumbing that small sites skip and then regret.</p>
+      <h2>Feeds, a sitemap, and redirects included. Tags and categories are <em>not</em>.</h2>
+      <p>Plater has no tags, categories, channels, or collections. A post is a page you choose to put in the feed, and a page does not have to match any other page. What it does include is the basic plumbing small sites often skip: feeds, a sitemap, redirects, and a proper 404 page.</p>
 
       <ul class="std">
-        <li><div><b>/feed.xml + /feed.json</b><i>feed.js</i></div><p>The feed is hand-curated content, not a database query. It's an array in your JSON — edit it the way you edit a page, reorder it by reordering it, point an item at any URL including someone else's site. Dates are stored once as RFC 3339 and emitted as valid RFC 822, so nobody hand-writes the web's most-fumbled date format. Item ids are permanent; readers dedupe on them.</p></li>
-        <li><div><b>/sitemap.xml</b><i>sitemap.js</i></div><p>Built from the same page enumeration the review checklist uses, so it can't disagree with the site. <code>lastmod</code> appears only when a real review record backs it, never a fabricated timestamp. No <code>changefreq</code>, no <code>priority</code> — search engines ignore them, so shipping them is just lying politely.</p></li>
+        <li><div><b>/feed.xml + /feed.json</b><i>feed.js</i></div><p>The feed is hand-curated content, not a database query. It's an array in your JSON — edit it the way you edit a page, reorder it by reordering it, point an item at any URL including someone else's site. Dates are stored once as RFC 3339 and emitted as valid RFC 822, so you never have to format an RSS date by hand. Item ids are permanent; readers dedupe on them.</p></li>
+        <li><div><b>/sitemap.xml</b><i>sitemap.js</i></div><p>Built from the same page enumeration the review checklist uses, so it can't disagree with the site. <code>lastmod</code> appears only when a real review record backs it, never a fabricated timestamp. No <code>changefreq</code>, no <code>priority</code> — search engines ignore them, so Plater leaves them out.</p></li>
         <li><div><b>Redirects &amp; a real 404</b><i>route.js</i></div><p>Redirects are content: an array in the same JSON, live the moment the save deploys. The rule that follows is enforceable — renaming a URL means adding its redirect in the same change. The 404 page's copy is editable like any other page, and it returns an actual 404 status.</p></li>
         <li><div><b>/api/manifest + /llms.txt</b><i>manifest.js</i></div><p>The site, machine-readable: every page, the content keys each one binds, review freshness, the feed, and a self-describing <strong>write path</strong> — how to save, how to send a note, what the house rules are. An agent that finds a Plater site learns to edit it from one GET, without ever reading Plater's source.</p></li>
       </ul>
 
-      <h3 class="sub">The environment ladder</h3>
-      <p>Three legs, one contract. The <strong>same handlers</strong> run in all three; only the backing store changes. What you see locally is what deploys.</p>
+      <h3 class="sub">Local, staging, and production</h3>
+      <p>The <strong>same handlers</strong> run in all three places below. Only where a save is stored changes, so what you see locally is what deploys.</p>
       <table class="tbl">
-        <thead><tr><th>Leg</th><th>Command</th><th>Saves go to</th><th>Agent notes</th></tr></thead>
+        <thead><tr><th>Where</th><th>Command</th><th>Saves go to</th><th>Agent notes</th></tr></thead>
         <tbody>
           <tr><td>Local</td><td><code>platercms dev .</code></td><td>the site's JSON on disk — the GitHub token is force-unset, so dev cannot commit</td><td>echoed, never fired</td></tr>
           <tr><td>Staging</td><td><code>git push</code></td><td>that branch, through the normal save path, on the preview URL</td><td>every note lands as a PR</td></tr>
@@ -444,7 +444,7 @@ footer.foot .r{margin-left:auto}
     <div class="rail"><b>start.run</b><span>sixty seconds, no signup</span></div>
     <div>
       <h2>Try it in a <em>minute</em>.</h2>
-      <p>There is nothing to install. Plater has zero runtime dependencies and zero dev dependencies — <code>npm test</code> is Node's own test runner, <code>npm run lint</code> is <code>node --check</code>.</p>
+      <p>Plater has zero runtime dependencies and zero dev dependencies — <code>npm test</code> is Node's own test runner, <code>npm run lint</code> is <code>node --check</code>. The npm packages are not published yet (see the status section below), so until the first release tag, use the clone route further down this section.</p>
       <pre><u># a whole site, running and editable, in one command</u>
 <b>npm create platercms@latest</b> my-site
 cd my-site
@@ -460,7 +460,7 @@ cd plater
       <h3 class="sub">Wiring a site you already have</h3>
       <pre>npx platercms <b>init</b> .      <u># vendors the client, scaffolds api/, never overwrites</u>
 npx platercms <b>doctor</b> .    <u># tells you exactly what's still unwired</u></pre>
-      <p style="margin-top:20px" class="quiet">Three bindings, one toolbar, one <code>initPlater</code> call — the <a href="https://github.com/zachphillips/plater/blob/main/docs/GUIDE.md">five-minute guide</a> is the copy-pasteable version. The doctor command is the honest one: it inspects a site's wiring, prints the environment checklist, and names what's missing rather than failing at deploy time. The agent loop needs one more piece — a machine you own running the agent host, behind a tunnel. The repository's README walks through it.</p>
+      <p style="margin-top:20px" class="quiet">Three bindings, one toolbar, one <code>initPlater</code> call — the <a href="https://github.com/zachphillips/plater/blob/main/docs/GUIDE.md">five-minute guide</a> is the copy-pasteable version. The doctor command inspects a site's wiring, prints the environment checklist, and names what is missing, so you find out before you deploy rather than after. The agent loop needs one more piece — a machine you own running the agent host, behind a tunnel. The repository's README walks through it.</p>
     </div>
   </div>
 </section>
@@ -471,7 +471,7 @@ npx platercms <b>doctor</b> .    <u># tells you exactly what's still unwired</u>
     <div class="rail"><b>status.honest</b><span>0.1.0</span></div>
     <div>
       <h2>What works, and what <em>doesn't</em> yet.</h2>
-      <p>Everything on the left is implemented, tested, and running real sites. It has not yet run on anyone else's site, which is precisely what opening it up is for. Everything on the right is a real gap, listed here rather than discovered later.</p>
+      <p>Everything on the left is implemented, tested, and running real sites, though so far only sites run by its author. Everything on the right is a real gap, listed here rather than discovered later.</p>
       <div class="status">
         <div class="yes">
           <p class="lbl">Working today</p>
@@ -488,7 +488,7 @@ npx platercms <b>doctor</b> .    <u># tells you exactly what's still unwired</u>
             <li><b>Review state</b> with per-page content hashing</li>
             <li><b>Feeds, sitemap, redirects, 404, manifest, llms.txt</b></li>
             <li><b>Static publishing</b> from Markdown or HTML</li>
-            <li><b>The local leg</b> — full API surface, no cloud</li>
+            <li><b>Local development</b> — the full API, no cloud account needed</li>
             <li><b>Self-hosting</b> — <code>platercms serve</code> runs the same handlers, auth on, off Vercel</li>
           </ul>
         </div>
@@ -501,7 +501,7 @@ npx platercms <b>doctor</b> .    <u># tells you exactly what's still unwired</u>
             <li><b>Design mode needs local tooling</b> installed, with no graceful fallback when it's absent</li>
             <li><b>Handlers are Vercel-shaped.</b> <code>platercms serve</code> runs them anywhere, but only Vercel's rewrites are written down — Cloudflare Pages and Netlify aren't</li>
             <li><b>Tests cover the server seams</b>, not the browser overlay. There's no headless test of the editor in this repo</li>
-            <li><b>The old command name still works</b> and should stop working at 1.0</li>
+            <li><b>Old <code>zms</code> names still work</b> — vendored file paths, environment variables, and <code>initZMS()</code> — until 1.0</li>
           </ul>
         </div>
       </div>

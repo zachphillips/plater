@@ -1,10 +1,10 @@
 {
   "meta": {
-    "title": "Plater Demo — extracted core"
+    "title": "Plater Demo"
   },
   "hero": {
-    "headline": "This page is rendered and edited by @platercms/core.",
-    "subhead": "No database, no build step. Press the button or add ?edit to the URL."
+    "headline": "Edit this page in the browser.",
+    "subhead": "No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit."
   },
   "features": [
     "Inline contenteditable copy editing",
@@ -14,15 +14,15 @@
   "tools": [
     {
       "name": "@platercms/core",
-      "desc": "framework-free client editor"
+      "desc": "the in-browser editor"
     },
     {
       "name": "@platercms/server-node",
-      "desc": "drop-in Vercel handlers"
+      "desc": "the server handlers that save as git commits"
     },
     {
       "name": "@platercms/capture",
-      "desc": "click → note → agent (next)"
+      "desc": "click an element, leave a note, get a pull request"
     }
   ],
   "about": {

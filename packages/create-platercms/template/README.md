@@ -43,4 +43,4 @@ the keys from [`.env.example`](.env.example) into your project settings. Set
 is live and read-only — editing fails closed by design.
 
 Renaming a URL means adding a redirect to `site.json`'s `redirects` in the same
-change. Permalinks don't break here.
+change, so old links keep working.

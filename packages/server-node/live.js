@@ -8,20 +8,26 @@
 //   event: css       data: <path>   a stylesheet changed — pages swap its href
 //   event: reload    data: <path>   HTML, a script, an image: pages reload
 //
-// One fs.watch per hub (recursive; Node ≥ 20 supports it on Linux, macOS and
-// Windows). Bursts are coalesced per path for DEBOUNCE_MS, because editors and
-// agents often write a file as truncate-then-write, which fires twice.
-// Dot-paths (.git, .env, .plater-review.json) and node_modules never emit:
-// they are not part of the page and .git churns on every commit.
+// One non-recursive fs.watch per directory, not one recursive watch: on Linux a
+// recursive watch holds an inotify watch per FILE, so a file replaced by an
+// atomic save (write temp + rename) or by git checkout goes silent forever, and
+// .git / node_modules cost thousands of watches. A directory watch survives its
+// files being replaced; new or recreated directories are re-armed as they
+// appear. Dot-directories and node_modules are never entered. Bursts are
+// coalesced per path for DEBOUNCE_MS, because editors and agents often write a
+// file as truncate-then-write, which fires twice.
 //
 // Only plater dev and plater serve mount this. A static or serverless host has
-// no long-lived process to watch from; the editor notices the missing stream
-// and polls /api/content instead.
+// no long-lived process to watch from, so it has no live reload; the editor does
+// not poll instead (see editor.js).
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const DEBOUNCE_MS = 120;
 export const HEARTBEAT_MS = 25_000;
+export const MAX_DIRS = 2000;
+export const MAX_CLIENTS = 64;
+const SKIP_DIR = (name) => name.startsWith('.') || name === 'node_modules';
 
 export function classify(rel, contentRel) {
   const parts = rel.split(/[\\/]/);
@@ -38,51 +44,73 @@ export function classify(rel, contentRel) {
 /**
  * createLiveHub — watch a site's web root (and its content file, if it lives
  * outside the web root) and fan changes out to every connected /api/live client.
- * @returns {{ handle(req, res): void, close(): void, clients: () => number, emit(type, data): void }}
+ * contentOnly: emit only `content` events and no file names (plater serve, where
+ *   the stream is public and draft names and uploads are nobody's business).
+ * @returns {{ handle(req, res): void, close(): void, clients: () => number, watched: () => number, emit(type, data): void }}
  */
-export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS }) {
+export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, log = console }) {
   const clients = new Set();
   const pending = new Map();
-  const watchers = [];
+  const dirs = new Map();          // absolute dir -> { w, ino }
+  const extra = [];
   const contentRel = path.relative(webRoot, contentPath);
+  let warned = false, closed = false;
+  const warn = (msg, e) => { if (!warned) { warned = true; log.warn?.(`[plater live] ${msg}${e ? `: ${e.code || e.message}` : ''}`); } };
 
   function emit(type, data) {
-    const frame = `event: ${type}\ndata: ${String(data).replace(/\n/g, ' ')}\n\n`;
+    if (contentOnly && type !== 'content') return;
+    const frame = `event: ${type}\ndata: ${contentOnly ? '' : String(data).replace(/\n/g, ' ')}\n\n`;
     for (const res of clients) res.write(frame);
   }
 
-  function changed(rel) {
-    if (!rel) return;
-    const type = classify(rel, contentRel);
-    if (!type) return;
+  function changed(rel, type = classify(rel, contentRel)) {
+    if (!rel || !type) return;
     clearTimeout(pending.get(rel));
     pending.set(rel, setTimeout(() => { pending.delete(rel); emit(type, rel.split(path.sep).join('/')); }, debounceMs));
   }
 
-  function watch(dir, prefix) {
-    try {
-      const w = fs.watch(dir, { recursive: true }, (_evt, name) => changed(name ? path.join(prefix, String(name)) : null));
-      w.on('error', () => {});
-      watchers.push(w);
-    } catch (e) {
-      // Recursive watch is unsupported on this platform/filesystem: watch the
-      // content directory alone, flat, so data edits still stream.
-      try {
-        const w = fs.watch(path.dirname(contentPath), (_evt, name) => changed(name ? path.join(path.dirname(contentRel), String(name)) : null));
-        w.on('error', () => {});
-        watchers.push(w);
-      } catch {}
+  function unwatch(dir) {
+    for (const [d, entry] of dirs) {
+      if (d === dir || d.startsWith(dir + path.sep)) { try { entry.w.close(); } catch {} dirs.delete(d); }
     }
   }
 
-  watch(webRoot, '');
-  // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere).
-  if (contentRel.startsWith('..')) {
+  function watchTree(dir) {
+    if (closed) return;
+    let st;
+    try { st = fs.statSync(dir); } catch { return unwatch(dir); }
+    if (!st.isDirectory()) return;
+    const have = dirs.get(dir);
+    if (have && have.ino === st.ino) return;
+    if (have) unwatch(dir);                 // the folder was replaced: re-arm it
+    if (dirs.size >= MAX_DIRS) return warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`);
     try {
-      const w = fs.watch(path.dirname(contentPath), (_evt, name) => { if (name) emit('content', String(name)); });
-      w.on('error', () => {});
-      watchers.push(w);
-    } catch {}
+      const w = fs.watch(dir, (_evt, name) => {
+        if (!name) return;
+        const abs = path.join(dir, String(name));
+        changed(path.relative(webRoot, abs));
+        if (!SKIP_DIR(String(name))) watchTree(abs);   // a new or recreated subfolder
+      });
+      w.on('error', (e) => { dirs.delete(dir); try { w.close(); } catch {} if (e.code !== 'EPERM') warn(`stopped watching ${dir}`, e); });
+      dirs.set(dir, { w, ino: st.ino });
+    } catch (e) {
+      return warn(`cannot watch ${dir}`, e);
+    }
+    let names = [];
+    try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch {}
+    for (const d of names) if (d.isDirectory() && !SKIP_DIR(d.name)) watchTree(path.join(dir, d.name));
+  }
+
+  watchTree(webRoot);
+  // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere):
+  // watch just that file's folder, through the same debounce, content only.
+  if (contentRel.startsWith('..')) {
+    const base = path.basename(contentPath);
+    try {
+      const w = fs.watch(path.dirname(contentPath), (_evt, name) => { if (name && String(name) === base) changed(contentRel, 'content'); });
+      w.on('error', (e) => warn(`stopped watching ${contentPath}`, e));
+      extra.push(w);
+    } catch (e) { warn(`cannot watch ${contentPath}`, e); }
   }
 
   const beat = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, heartbeatMs);
@@ -90,6 +118,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
 
   return {
     handle(req, res) {
+      if (clients.size >= maxClients) {
+        res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '30' });
+        return res.end('too many live connections');
+      }
       res.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache, no-transform',
@@ -102,11 +134,15 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     },
     emit,
     clients: () => clients.size,
+    watched: () => dirs.size,
     close() {
+      closed = true;
       clearInterval(beat);
       for (const t of pending.values()) clearTimeout(t);
-      for (const w of watchers) { try { w.close(); } catch {} }
-      for (const res of clients) { try { res.end(); } catch {} }
+      for (const { w } of dirs.values()) { try { w.close(); } catch {} }
+      for (const w of extra) { try { w.close(); } catch {} }
+      dirs.clear();
+      for (const res of clients) { try { res.end(); res.socket?.destroy(); } catch {} }
       clients.clear();
     },
   };
@@ -120,6 +156,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
 // re-renders with the caret and any unsaved edits intact.
 export const LIVE_CLIENT = `(() => {
   if (window.__platerLive || typeof EventSource !== 'function') return;
+  // Headless capture (Playwright, Puppeteer, the ?shot / ?print contracts) waits
+  // for the network to go idle; an open stream would keep it waiting forever.
+  const q = new URLSearchParams(location.search);
+  if (navigator.webdriver || q.has('shot') || q.has('print')) return;
   window.__platerLive = 'inject';
   const core = () => window.__platerCoreLive;
   const dirty = () => { try { return Boolean(core()?.dirty()); } catch { return false; } };

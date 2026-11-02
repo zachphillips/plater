@@ -38,17 +38,31 @@ export function findWebRoot(dir) {
   for (const w of ['web', 'public', '.']) {
     try { fsSync.accessSync(path.join(dir, w, 'index.html')); return path.join(dir, w); } catch {}
   }
+  // A folder of loose pages with no index.html (generated proposals, an
+  // invoice saved from a browser): serve the folder itself.
+  try { if (fsSync.readdirSync(dir).some((n) => /\.html?$/i.test(n))) return dir; } catch {}
   return path.join(dir, 'web');
 }
 
-// A site dir → the three paths every leg of the server needs.
+// The .html pages directly in a folder, for the index of a loose folder.
+export function htmlPages(dir) {
+  try { return fsSync.readdirSync(dir).filter((n) => /\.html?$/i.test(n)).sort(); } catch { return []; }
+}
+
+// A site dir (or one .html file) → the paths every leg of the server needs.
+// Given a file, the site is its folder and `entry` is the page to open.
 export function resolveSite(argDir) {
-  const siteDir = path.resolve(argDir || '.');
-  const webRoot = findWebRoot(siteDir);
+  let siteDir = path.resolve(argDir || '.');
+  let entry = null;
+  if (/\.html?$/i.test(siteDir) && fsSync.statSync(siteDir, { throwIfNoEntry: false })?.isFile()) {
+    entry = path.basename(siteDir);
+    siteDir = path.dirname(siteDir);
+  }
+  const webRoot = entry ? siteDir : findWebRoot(siteDir);
   const contentPath = process.env.GITHUB_EDIT_PATH
     ? path.resolve(siteDir, process.env.GITHUB_EDIT_PATH)
     : path.join(webRoot, 'content', 'site.json');
-  return { siteDir, webRoot, contentPath };
+  return { siteDir, webRoot, contentPath, entry };
 }
 
 // The production handlers read env at IMPORT time — point them at this site
@@ -251,7 +265,7 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 
 /* ---------------- the dev server ---------------- */
 
-export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true }) {
+export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
   // Live reload: every page plater dev serves follows the files on disk.
@@ -323,6 +337,19 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
       if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null })) return;
+      // A loose folder or a single file has no index.html: open the file that
+      // was asked for, or list the pages.
+      if (p === '/') {
+        const pages = htmlPages(webRoot);
+        if (entry || pages.length === 1) { res.writeHead(302, { location: '/' + encodeURIComponent(entry || pages[0]) }); return res.end(); }
+        if (pages.length) {
+          const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' });
+          const list = pages.map((n) => `<li><a href="/${encodeURIComponent(n)}">${esc(n)}</a></li>`).join('');
+          const html = `<!doctype html><meta charset="utf-8"><title>${esc(path.basename(webRoot))}</title><body style="font:15px system-ui;margin:32px"><ul>${list}</ul></body>`;
+          return res.end(hub ? handlers.live.injectLiveClient(html) : html);
+        }
+      }
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
@@ -330,7 +357,9 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });
-  if (hub) server.on('close', () => hub.close());
+  // End the open streams first: server.close() waits for every connection, and
+  // an SSE stream never finishes on its own.
+  if (hub) { const close = server.close.bind(server); server.close = (cb) => { hub.close(); return close(cb); }; }
   server.live = hub;
   return server;
 }
@@ -367,6 +396,7 @@ async function main() {
   const { siteDir, contentPath, webRoot, port } = out;
   console.log(`plater dev · ${path.basename(siteDir)}`);
   if (port !== wanted) console.log(`  port    ${wanted} was busy — serving on ${port}`);
+  if (out.entry) console.log(`  open    http://127.0.0.1:${port}/${encodeURIComponent(out.entry)}`);
   console.log(`  edit    http://127.0.0.1:${port}/?edit   (devNoauth — no token needed)`);
   console.log(`  feeds   http://127.0.0.1:${port}/feed.xml · /feed.json · /sitemap.xml · /llms.txt`);
   console.log(`  saves   → ${path.relative(siteDir, contentPath)} on disk (commit when happy)`);

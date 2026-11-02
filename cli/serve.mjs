@@ -94,7 +94,7 @@ export function createServeServer({ webRoot, contentPath, handlers }) {
   // /api/live streams what changes on this host's disk (an agent working in
   // the checkout, a git pull after a commit). No script is injected here: the
   // Plater editor subscribes on its own while someone is editing.
-  const hub = contentPath && handlers.live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath }) : null;
+  const hub = contentPath && handlers.live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath, contentOnly: true }) : null;
   const API = {
     config, content, save, history, upload, review, versions, feed, sitemap, manifest,
     'agent-note': handlers['agent-note'], 'propose-post': handlers['propose-post'],
@@ -155,7 +155,7 @@ export function createServeServer({ webRoot, contentPath, handlers }) {
       res.end(JSON.stringify({ error: 'internal error' }));
     }
   });
-  if (hub) server.on('close', () => hub.close());
+  if (hub) { const close = server.close.bind(server); server.close = (cb) => { hub.close(); return close(cb); }; }
   return server;
 }
 

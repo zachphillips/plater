@@ -409,22 +409,27 @@ stylesheet, the page you are watching updates in place. Nobody presses reload.
 How it travels:
 
 - **`platercms dev`** streams changes on `GET /api/live` (Server-Sent Events,
-  one recursive `fs.watch` per site, bursts coalesced) and injects a small
-  client into **every HTML page it serves**, so pages with no Plater editor at
-  all also get it: a deck, a mail piece, a one-file invoice. Run
-  `platercms dev ./decks/my-deck` and the deck follows its files.
-- **`platercms serve`** streams the same `/api/live` but injects nothing. The
-  editor subscribes on its own while someone is editing.
-- **Vercel and other static hosts** have no long-lived process to watch from.
-  The editor notices the missing stream and polls `/api/content` every 4 s while
-  the tab is visible. A save there is a commit, so the change appears once the
-  host has redeployed it.
+  one `fs.watch` per directory, skipping `.git`, dot-folders and `node_modules`,
+  re-armed when a save replaces a file or `git checkout` swaps a folder; bursts
+  coalesced) and injects a small client into **every HTML page it serves**, so
+  pages with no Plater editor at all also get it: a deck, a mail piece, a
+  one-file invoice. Run `platercms dev ./decks/my-deck`, a folder of loose HTML
+  pages, or a single `invoice.html`, and the open tab follows its files. The
+  client stays off under automation (`navigator.webdriver`, `?shot`, `?print`)
+  so headless screenshots and PDFs settle.
+- **`platercms serve`** streams content changes only (no file names, at most
+  64 open streams) and injects nothing. The editor subscribes on its own while
+  someone is editing.
+- **Vercel and other static hosts** have no long-lived process to watch from,
+  so there is no live reload there. The editor does not poll instead: on
+  Vercel `/api/content` serves the deployed snapshot, which lags each save
+  until the redeploy, and re-rendering from it would roll back the edit just
+  saved.
 
 The editor turns this on automatically when the edit UI is open, on
 `localhost`, or when the URL carries `?live`. Public visitors on a deployed site
-open no stream and no poll. `initPlater({ live: false })` turns it off;
-`live: true` forces it on; `livePollMs` sets the poll interval. `PLATER_LIVE=0`
-turns the server side off.
+open no stream. `initPlater({ live: false })` turns it off; `live: true` forces
+it on. `PLATER_LIVE=0` turns the server side off.
 
 ## Self-hosting: `platercms serve`
 

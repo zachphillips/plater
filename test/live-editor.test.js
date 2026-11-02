@@ -1,7 +1,7 @@
 // The editor's side of live reload, run in an isolated browser boundary like
 // editor-auth.test.js: a content event re-renders without a refresh, a
 // tab's unsaved field survives someone else's change, and a host with no
-// /api/live stream falls back to polling /api/content.
+// /api/live stream stays quiet (no polling).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -56,7 +56,7 @@ function page({ search = '?edit', stream = true, devNoauth = true } = {}) {
       if (url.endsWith('/config')) return json({ editable: true, devNoauth });
       if (url.includes('/content')) return json(JSON.stringify(server));
       if (url.includes('/versions') || url.includes('/review')) return json({}, 404);
-      if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content }; return json({ ok: true }); }
+      if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content, updatedAt: new Date(0).toISOString(), updatedBy: 'dev' }; return json({ ok: true }); }
       throw new Error('unexpected ' + url);
     },
   });
@@ -99,16 +99,35 @@ test("this tab's unsaved field survives another editor's change to a different f
   assert.ok(p.editor.test.isDirty(), 'and it is still unsaved');
 });
 
-test('a host with no stream (Vercel) falls back to polling /api/content', async () => {
+test('a host with no stream (Vercel) closes it and does not poll a stale snapshot', async () => {
   const p = page({ stream: false });
   await p.boot();
   assert.ok(p.sources[0].closed, 'the dead stream is closed');
-  assert.equal(p.intervals.length, 1);
-  assert.equal(p.intervals[0].ms, 4000);
-  p.server = { title: 'Polled', total: '$1' };
-  await p.intervals[0].fn();
+  assert.equal(p.intervals.length, 0, 'no polling: on Vercel /api/content lags every save');
+});
+
+test('our own save echoing back with updatedAt/updatedBy stamps does not re-render', async () => {
+  const p = page();
+  await p.boot();
+  let renders = 0;
+  const orig = p.title.textContent;
+  Object.defineProperty(p.title, 'textContent', { get: () => orig, set: () => { renders += 1; }, configurable: true });
+  p.server = { ...p.editor.getContent(), updatedAt: '2026-11-02T19:00:00Z', updatedBy: 'dev' };
+  await p.editor.test.pullRemote();
   await drain();
-  assert.equal(p.title.textContent, 'Polled');
+  assert.equal(renders, 0, 'the DOM was left alone');
+  assert.equal(p.editor.getContent().updatedAt, '2026-11-02T19:00:00Z', 'the stamps were taken');
+  assert.ok(!p.editor.test.isDirty(), 'and the page is not dirty');
+});
+
+test('a reconnected stream catches up on what changed meanwhile', async () => {
+  const p = page();
+  await p.boot();
+  p.sources[0].fire('open');
+  p.server = { title: 'Changed while offline', total: '$2' };
+  p.sources[0].fire('open');
+  await drain();
+  assert.equal(p.title.textContent, 'Changed while offline');
 });
 
 test('public visitors on a deployed site open no stream and no poll', async () => {
@@ -116,6 +135,12 @@ test('public visitors on a deployed site open no stream and no poll', async () =
   await p.boot();
   assert.equal(p.sources.length, 0);
   assert.equal(p.intervals.length, 0);
+});
+
+test('headless capture (?shot, webdriver) opens no stream', async () => {
+  const p = page({ search: '?edit&shot' });
+  await p.boot();
+  assert.equal(p.sources.length, 0);
 });
 
 test('an HTML change reloads a clean page', async () => {

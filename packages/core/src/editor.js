@@ -198,8 +198,6 @@ const normalizePagePath = (p) => {
  *                                                 server (an agent's turn, another editor's save) and
  *                                                 hot-swap CSS, with no refresh. 'auto' = on whenever the
  *                                                 edit UI is open, on localhost, or the URL has ?live.
- * @param {number} [options.livePollMs=4000]       Poll interval when the server has no /api/live stream
- *                                                 (Vercel): /api/content is re-read while the tab is visible.
  * @returns {{getContent:Function, setEditable:Function, save:Function, refresh:Function}}
  */
 export function initZMS(options = {}) {
@@ -210,7 +208,6 @@ export function initZMS(options = {}) {
     cardTemplates = {},
     onSaved = null,
     live = 'auto',
-    livePollMs = 4000,
   } = options;
 
   let CONTENT = {};
@@ -2026,8 +2023,8 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   /* ---------------- live reload ---------------- */
   // While Zach watches a page, an agent's turn or another editor's save changes
   // site.json. The page should follow without a refresh. Servers that can stream
-  // (plater dev / plater serve) push events on /api/live; anything else (Vercel)
-  // is polled through /api/content while the tab is visible.
+  // (plater dev / plater serve) push events on /api/live; a host with no stream
+  // (Vercel) gets no live updates, on purpose (see the error handler below).
   //
   //   content  → refetch content, replay THIS tab's unsaved fields on top (the
   //              same rule as a save conflict), re-render, keep the caret
@@ -2039,12 +2036,15 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   // on the page it owns the stream and hands content events to us, so one tab
   // never holds two connections.
   let LIVE_SEEN = '';        // last content text from the server, to skip no-op events
+  const LIVE_STAMP = ['updatedAt', 'updatedBy'];
+  const sansStamp = (o) => { const c = { ...o }; for (const k of LIVE_STAMP) delete c[k]; return JSON.stringify(c); };
   let livePulling = false, livePullAgain = false;
 
   function liveWanted() {
     if (live === true) return true;
     if (live === false) return false;
     const q = new URLSearchParams(location.search);
+    if (globalThis.navigator?.webdriver || q.has('shot') || q.has('print')) return false;   // let headless capture settle
     return q.has('live') || q.has('edit') || CONFIG.devNoauth || EDITING || Boolean(DRAFT_TRACK) ||
       /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   }
@@ -2091,7 +2091,14 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) return;
       LIVE_SEEN = text;
       const theirs = JSON.stringify(fresh);
-      if (theirs === SAVED) return;                       // our own save coming back
+      // Our own save coming back. The server stamps updatedAt/updatedBy on every
+      // save, so compare without them, take the stamps, and leave the DOM alone:
+      // re-rendering under someone typing would wipe their undo and selection.
+      if (theirs === SAVED || sansStamp(fresh) === sansStamp(JSON.parse(SAVED))) {
+        SAVED = theirs;
+        for (const k of LIVE_STAMP) { if (k in fresh) CONTENT[k] = fresh[k]; else delete CONTENT[k]; }
+        return;
+      }
       if (EDITING && TOUCHED) collectEdits();
       // Replay this tab's unsaved fields — only the ones that still differ.
       const mine = changedPaths(JSON.parse(SAVED), CONTENT).filter(Boolean)
@@ -2119,25 +2126,23 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     window.__platerCoreLive = { pull: pullRemote, dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()) };
     if (window.__platerLive) return;                      // the injected dev client owns the stream
     window.__platerLive = 'core';
-    let polling = 0, opened = false;
-    const poll = () => {
-      if (polling) return;
-      polling = setInterval(() => { if (document.visibilityState === 'visible') pullRemote(); }, Math.max(1000, livePollMs));
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullRemote(); });
-    };
-    if (typeof EventSource !== 'function') return poll();
+    let opened = false;
+    if (typeof EventSource !== 'function') return;
     const es = new EventSource(`${apiBase}/live`);
-    es.addEventListener('open', () => { opened = true; });
+    // After a dropped stream reconnects, catch up on whatever changed meanwhile.
+    es.addEventListener('open', () => { if (opened) pullRemote(); opened = true; });
     es.addEventListener('content', () => pullRemote());
     es.addEventListener('css', (ev) => swapCss(ev.data));
     es.addEventListener('reload', () => {
       if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
       location.reload();
     });
-    // No stream here (a 404 from a static host closes it before it ever opens):
-    // fall back to polling. A stream that opened and dropped is left to
-    // EventSource's own reconnect.
-    es.addEventListener('error', () => { if (!opened) { es.close(); poll(); } });
+    // No stream here (a static or serverless host answers 404): stop. There is
+    // deliberately no polling fallback. On Vercel /api/content serves the
+    // deployed snapshot, which lags every save until the redeploy, so a poll
+    // would roll the page back to it and the next save would commit the revert.
+    // A stream that opened and dropped is left to EventSource's own reconnect.
+    es.addEventListener('error', () => { if (!opened) es.close(); });
   }
 
   function swapCss(changed) {

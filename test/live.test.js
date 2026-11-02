@@ -100,7 +100,7 @@ test('dotfiles, git internals and node_modules never stream', () => {
 
 test('the editor ships live reload and the client parses', () => {
   const editor = fs.readFileSync(new URL('../packages/core/src/editor.js', import.meta.url), 'utf8');
-  for (const needle of ["new EventSource(`${apiBase}/live`)", 'function pullRemote', 'livePollMs', 'SAVE_INFLIGHT']) {
+  for (const needle of ["new EventSource(`${apiBase}/live`)", 'function pullRemote', 'sansStamp', 'SAVE_INFLIGHT']) {
     assert.ok(editor.includes(needle), `editor.js is missing ${needle}`);
   }
   assert.doesNotThrow(() => new Function(LIVE_CLIENT));

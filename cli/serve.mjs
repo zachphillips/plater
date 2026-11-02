@@ -89,17 +89,22 @@ async function readCapped(req, res) {
 
 /* ---------------- the server ---------------- */
 
-export function createServeServer({ webRoot, handlers }) {
+export function createServeServer({ webRoot, contentPath, handlers }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload, config, save, history } = handlers;
+  // /api/live streams what changes on this host's disk (an agent working in
+  // the checkout, a git pull after a commit). No script is injected here: the
+  // Plater editor subscribes on its own while someone is editing.
+  const hub = contentPath && handlers.live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath }) : null;
   const API = {
     config, content, save, history, upload, review, versions, feed, sitemap, manifest,
     'agent-note': handlers['agent-note'], 'propose-post': handlers['propose-post'],
   };
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = decodeURIComponent(url.pathname);
     try {
+      if (hub && p === '/api/live' && req.method === 'GET') return hub.handle(req, res);
       // The vercel.json rewrites, served by hand so a Node host matches Vercel.
       if (p === '/feed.xml') { const [rq, rs] = shim(req, res, new URL('/api/feed?format=rss', 'http://x')); return feed.default(rq, rs); }
       if (p === '/feed.json') { const [rq, rs] = shim(req, res, new URL('/api/feed?format=json', 'http://x')); return feed.default(rq, rs); }
@@ -150,6 +155,8 @@ export function createServeServer({ webRoot, handlers }) {
       res.end(JSON.stringify({ error: 'internal error' }));
     }
   });
+  if (hub) server.on('close', () => hub.close());
+  return server;
 }
 
 // Resolve → .env → configure env → load handlers → build → listen (autopick).

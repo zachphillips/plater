@@ -35,6 +35,7 @@ It ships on npm as **platercms** (`@platercms/core`, `@platercms/server-node`,
 - [Install](#install)
 - [Environment](#environment)
 - [Local → staging → prod](#local--staging--prod-the-environment-ladder)
+- [Live reload](#live-reload)
 - [Self-hosting: `platercms serve`](#self-hosting-platercms-serve)
 - [The agent loop](#the-agent-loop)
 - [Design-alternatives mode](#design-alternatives-mode)
@@ -392,6 +393,38 @@ Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
 upward from their port on `EADDRINUSE` and print the port they actually took, so
 a second site never fails to start. `PORT=<n>` picks the starting point; every
 port in the range being busy is one human line, not a stack trace.
+
+## Live reload
+
+An open tab follows the files. When an agent takes a turn on `site.json`, when
+someone saves from another tab or another person's laptop, or when you nudge a
+stylesheet, the page you are watching updates in place. Nobody presses reload.
+
+| What changed | What the open page does |
+|---|---|
+| a `.json` under the content directory (`site.json`, a `?file=` alternate, a `versions/<track>/` draft) | refetches content and re-renders the bindings. Fields **this tab** has typed but not saved are replayed on top, the same rule a save conflict uses, and the caret stays where it was. |
+| a `.css` file | swaps that stylesheet's `href`. No reload, so scroll position and the caret stay. |
+| HTML, a script, an image, any other `.json` | reloads, unless this tab has unsaved edits, in which case it says so and waits. |
+
+How it travels:
+
+- **`platercms dev`** streams changes on `GET /api/live` (Server-Sent Events,
+  one recursive `fs.watch` per site, bursts coalesced) and injects a small
+  client into **every HTML page it serves**, so pages with no Plater editor at
+  all also get it: a deck, a mail piece, a one-file invoice. Run
+  `platercms dev ./decks/my-deck` and the deck follows its files.
+- **`platercms serve`** streams the same `/api/live` but injects nothing. The
+  editor subscribes on its own while someone is editing.
+- **Vercel and other static hosts** have no long-lived process to watch from.
+  The editor notices the missing stream and polls `/api/content` every 4 s while
+  the tab is visible. A save there is a commit, so the change appears once the
+  host has redeployed it.
+
+The editor turns this on automatically when the edit UI is open, on
+`localhost`, or when the URL carries `?live`. Public visitors on a deployed site
+open no stream and no poll. `initPlater({ live: false })` turns it off;
+`live: true` forces it on; `livePollMs` sets the poll interval. `PLATER_LIVE=0`
+turns the server side off.
 
 ## Self-hosting: `platercms serve`
 

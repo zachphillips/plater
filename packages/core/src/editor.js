@@ -194,6 +194,12 @@ const normalizePagePath = (p) => {
  *                                                 used as a fallback when a [data-cards] element
  *                                                 lacks a nested <template> / data-card-template.
  * @param {function} [options.onSaved]             Called with (content, result) after a save.
+ * @param {boolean|'auto'} [options.live='auto']   Live reload: re-render when site.json changes on the
+ *                                                 server (an agent's turn, another editor's save) and
+ *                                                 hot-swap CSS, with no refresh. 'auto' = on whenever the
+ *                                                 edit UI is open, on localhost, or the URL has ?live.
+ * @param {number} [options.livePollMs=4000]       Poll interval when the server has no /api/live stream
+ *                                                 (Vercel): /api/content is re-read while the tab is visible.
  * @returns {{getContent:Function, setEditable:Function, save:Function, refresh:Function}}
  */
 export function initZMS(options = {}) {
@@ -203,10 +209,13 @@ export function initZMS(options = {}) {
     tokenKey = `zms.${slug(brand)}.editToken`,
     cardTemplates = {},
     onSaved = null,
+    live = 'auto',
+    livePollMs = 4000,
   } = options;
 
   let CONTENT = {};
   let SAVED = '{}';
+  let SAVE_INFLIGHT = false;
   let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false };
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
@@ -896,6 +905,7 @@ export function initZMS(options = {}) {
     if ($('#cms-status')) $('#cms-status').textContent = 'saving…';
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
+    SAVE_INFLIGHT = true;   // live reload waits: our own write is about to echo back
     try {
       const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json().catch(() => ({}));
@@ -950,6 +960,8 @@ export function initZMS(options = {}) {
     } catch (e) {
       console.warn('[plater] save error', e);
       setStatus('Could not reach the server — nothing was saved, your edits are still here.');
+    } finally {
+      SAVE_INFLIGHT = false;
     }
   }
 
@@ -2011,6 +2023,136 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     }, 2000);
   }
 
+  /* ---------------- live reload ---------------- */
+  // While Zach watches a page, an agent's turn or another editor's save changes
+  // site.json. The page should follow without a refresh. Servers that can stream
+  // (plater dev / plater serve) push events on /api/live; anything else (Vercel)
+  // is polled through /api/content while the tab is visible.
+  //
+  //   content  → refetch content, replay THIS tab's unsaved fields on top (the
+  //              same rule as a save conflict), re-render, keep the caret
+  //   css      → swap that stylesheet's href; no reload, scroll and caret stay
+  //   reload   → the HTML or a script changed: reload, unless edits are unsaved
+  //
+  // `plater dev` also injects a small standalone client into every HTML page it
+  // serves (decks, mail, invoices with no data-bind at all). When that client is
+  // on the page it owns the stream and hands content events to us, so one tab
+  // never holds two connections.
+  let LIVE_SEEN = '';        // last content text from the server, to skip no-op events
+  let livePulling = false, livePullAgain = false;
+
+  function liveWanted() {
+    if (live === true) return true;
+    if (live === false) return false;
+    const q = new URLSearchParams(location.search);
+    return q.has('live') || q.has('edit') || CONFIG.devNoauth || EDITING || Boolean(DRAFT_TRACK) ||
+      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  }
+
+  // Remember which binding has the caret and where, so a re-render under a
+  // typing human puts it back instead of throwing it to the top of the page.
+  function caretMark() {
+    const el = document.activeElement?.closest?.('[data-path]');
+    const sel = window.getSelection?.();
+    if (!el || !sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0).cloneRange();
+    r.selectNodeContents(el);
+    r.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
+    return { path: el.dataset.path, offset: r.toString().length };
+  }
+  function caretRestore(mark) {
+    if (!mark) return;
+    const el = $$('[data-path]').find((n) => n.dataset.path === mark.path);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let left = mark.offset, node;
+    while ((node = walker.nextNode())) {
+      if (left <= node.length) {
+        const r = document.createRange(); r.setStart(node, left); r.collapse(true);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        return;
+      }
+      left -= node.length;
+    }
+  }
+
+  async function pullRemote() {
+    // A save in flight will echo back as a change; pull once it has settled.
+    if (SAVE_INFLIGHT || autosaveInflight) { setTimeout(pullRemote, 400); return; }
+    if (livePulling) { livePullAgain = true; return; }
+    livePulling = true;
+    try {
+      const r = await fetch(contentEndpoint(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const text = await r.text();
+      if (text === LIVE_SEEN) return;
+      const fresh = JSON.parse(text);
+      if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) return;
+      LIVE_SEEN = text;
+      const theirs = JSON.stringify(fresh);
+      if (theirs === SAVED) return;                       // our own save coming back
+      if (EDITING && TOUCHED) collectEdits();
+      // Replay this tab's unsaved fields — only the ones that still differ.
+      const mine = changedPaths(JSON.parse(SAVED), CONTENT).filter(Boolean)
+        .filter((p) => JSON.stringify(getPath(fresh, p)) !== JSON.stringify(getPath(CONTENT, p)));
+      for (const p of mine) setPath(fresh, p, getPath(CONTENT, p));
+      const mark = caretMark();
+      CONTENT = fresh;
+      SAVED = theirs;
+      render();
+      if (EDITING) applyEditable(true);
+      caretRestore(mark);
+      if (mine.length) { markDirty(); setStatus(`Updated live — your ${mine.length} unsaved change${mine.length === 1 ? ' is' : 's are'} still here.`); }
+      else if (EDITING) setStatus('Updated live.');
+      document.dispatchEvent(new CustomEvent('plater:live', { detail: { type: 'content', kept: mine.length } }));
+    } catch (e) {
+      console.warn('[plater] live update failed', e);
+    } finally {
+      livePulling = false;
+      if (livePullAgain) { livePullAgain = false; pullRemote(); }
+    }
+  }
+
+  function startLive() {
+    if (!liveWanted() || typeof window === 'undefined' || typeof setInterval !== 'function') return;
+    window.__platerCoreLive = { pull: pullRemote, dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()) };
+    if (window.__platerLive) return;                      // the injected dev client owns the stream
+    window.__platerLive = 'core';
+    let polling = 0, opened = false;
+    const poll = () => {
+      if (polling) return;
+      polling = setInterval(() => { if (document.visibilityState === 'visible') pullRemote(); }, Math.max(1000, livePollMs));
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullRemote(); });
+    };
+    if (typeof EventSource !== 'function') return poll();
+    const es = new EventSource(`${apiBase}/live`);
+    es.addEventListener('open', () => { opened = true; });
+    es.addEventListener('content', () => pullRemote());
+    es.addEventListener('css', (ev) => swapCss(ev.data));
+    es.addEventListener('reload', () => {
+      if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
+      location.reload();
+    });
+    // No stream here (a 404 from a static host closes it before it ever opens):
+    // fall back to polling. A stream that opened and dropped is left to
+    // EventSource's own reconnect.
+    es.addEventListener('error', () => { if (!opened) { es.close(); poll(); } });
+  }
+
+  function swapCss(changed) {
+    const name = String(changed || '').split('/').pop();
+    let hit = false;
+    $$('link[rel="stylesheet"]').forEach((l) => {
+      const u = new URL(l.href, location.href);
+      if (name && u.pathname.split('/').pop() !== name) return;
+      u.searchParams.set('plater-live', Date.now().toString(36));
+      l.href = u.toString();
+      hit = true;
+    });
+    if (!hit && !window.__platerCoreLive?.dirty()) location.reload();
+  }
+
   async function boot() {
     try {
       const contentUrl = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
@@ -2032,6 +2174,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     }
     SAVED = JSON.stringify(CONTENT);
     render();
+    startLive();
 
     // draft banner: shows in draft mode always, and on the live page whenever
     // overlay-capable tracks exist (so flipping is one click from ?edit)

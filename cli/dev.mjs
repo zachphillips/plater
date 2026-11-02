@@ -65,10 +65,10 @@ export function configureEnv({ siteDir, webRoot, contentPath }, { dev = true } =
 // Dynamic, because configureEnv() has to win the race with their module bodies.
 export async function loadHandlers() {
   const load = (n) => import(path.join(PKG, 'server-node', n));
-  const [content, review, feed, sitemap, route, manifest, versions, upload] = await Promise.all(
-    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js'].map(load),
+  const [content, review, feed, sitemap, route, manifest, versions, upload, live] = await Promise.all(
+    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js'].map(load),
   );
-  return { content, review, feed, sitemap, route, manifest, versions, upload };
+  return { content, review, feed, sitemap, route, manifest, versions, upload, live };
 }
 
 export async function readBody(req) {
@@ -92,7 +92,7 @@ export function shim(req, res, url, body) {
 
 // Static files from the web root, plus /packages/* from the repo so the browser
 // can import the un-vendored client modules. Returns true when it answered.
-export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT }) {
+export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT, transformHtml = null }) {
   const fromPackages = pathname.startsWith('/packages/');
   const root = fromPackages ? repoRoot : webRoot;
   let file = path.join(root, pathname === '/' ? 'index.html' : pathname);
@@ -101,7 +101,9 @@ export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO
   let stat = await fs.stat(file).catch(() => null);
   if (stat?.isDirectory()) { file = path.join(file, 'index.html'); stat = await fs.stat(file).catch(() => null); }
   if (!stat?.isFile()) return false;
-  res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+  const ext = path.extname(file).toLowerCase();
+  res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': 'no-cache' });
+  if (transformHtml && (ext === '.html' || ext === '.htm')) return res.end(transformHtml(await fs.readFile(file, 'utf8'))), true;
   res.end(await fs.readFile(file));
   return true;
 }
@@ -249,14 +251,23 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 
 /* ---------------- the dev server ---------------- */
 
-export function createDevServer({ siteDir, webRoot, contentPath, handlers }) {
+export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
+  // Live reload: every page plater dev serves follows the files on disk.
+  // An agent's write, a save from another tab, a CSS tweak — the open tab
+  // updates without a refresh. PLATER_LIVE=0 turns it off.
+  const hub = live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath }) : null;
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = decodeURIComponent(url.pathname);
     try {
+      if (hub && p === '/api/live') return hub.handle(req, res);
+      if (hub && p === '/__plater/live.js') {
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
+        return res.end(handlers.live.LIVE_CLIENT);
+      }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
         return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
@@ -311,14 +322,17 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers }) {
 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
-      if (await serveStatic(req, res, p, { webRoot })) return;
+      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null })) return;
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
-      res.writeHead(500, { 'content-type': 'application/json' });
+      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });
+  if (hub) server.on('close', () => hub.close());
+  server.live = hub;
+  return server;
 }
 
 // Resolve → configure env → load handlers → build → listen (with autopick).
@@ -358,6 +372,7 @@ async function main() {
   console.log(`  saves   → ${path.relative(siteDir, contentPath)} on disk (commit when happy)`);
   console.log(`  history real git log of that file — Restore writes the old version back to disk`);
   console.log(`  images  drop a file on any bound <img> — uploads write to ${path.relative(siteDir, path.join(webRoot, 'images')) || 'images'}/`);
+  console.log(`  live    ${out.server.live ? 'on — open tabs follow edits on disk (agent turns, other tabs, CSS) with no refresh' : 'off (PLATER_LIVE=0)'}`);
   console.log(`  ladder  local (this) → staging (push branch → Vercel preview) → prod (merge to main)`);
 }
 

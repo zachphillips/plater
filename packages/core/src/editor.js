@@ -2059,7 +2059,11 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
 
   // Remember which binding has the caret and where, so a re-render under a
   // typing human puts it back instead of throwing it to the top of the page.
+  // Both are best-effort: an odd selection must never cost the remote change.
   function caretMark() {
+    try { return caretMarkUnsafe(); } catch { return null; }
+  }
+  function caretMarkUnsafe() {
     const el = document.activeElement?.closest?.('[data-path]');
     const sel = window.getSelection?.();
     if (!el || !sel || !sel.rangeCount) return null;
@@ -2069,6 +2073,9 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     return { path: el.dataset.path, offset: r.toString().length };
   }
   function caretRestore(mark) {
+    try { caretRestoreUnsafe(mark); } catch {}
+  }
+  function caretRestoreUnsafe(mark) {
     if (!mark) return;
     const el = $$('[data-path]').find((n) => n.dataset.path === mark.path);
     if (!el) return;

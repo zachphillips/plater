@@ -229,3 +229,14 @@ test('an upload whose only echo was itself reloads nothing', async () => {
   p.editor.test.upload.end('/images/up.png');
   assert.ok(!p.ctx.reloaded);
 });
+
+test('a selection the caret helper cannot read never costs the remote change', async () => {
+  const p = page();
+  await p.boot();
+  p.ctx.document.activeElement = { closest: () => ({ dataset: { path: 'title' } }) };
+  p.ctx.window.getSelection = () => ({ rangeCount: 1, getRangeAt() { throw new Error('odd selection'); } });
+  p.server = { title: 'Invoice 2', total: '$100' };
+  p.sources[0].fire('content', 'content/site.json');
+  await drain(); await new Promise((r) => setTimeout(r, 20)); await drain();
+  assert.equal(p.title.textContent, 'Invoice 2');
+});

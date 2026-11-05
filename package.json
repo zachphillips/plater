@@ -46,8 +46,11 @@
     "serve": "node cli/serve.mjs",
     "dev": "node cli/dev.mjs",
     "demo": "node cli/dev.mjs examples/static-site",
-    "lint": "find cli examples packages templates test -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
-    "test": "node --test"
+    "lint": "find cli examples packages templates test verify -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+    "test": "node --test",
+    "verify": "npm run verify:release && npm run verify:ci",
+    "verify:release": "node verify/release.mjs",
+    "verify:ci": "node verify/editor.mjs"
   },
   "license": "MIT"
 }

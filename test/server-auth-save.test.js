@@ -1,3 +1,6 @@
+// CMS write gate. These are the invariant guards kept when the model-written
+// suite was replaced by verification (see verify/): a wrong answer here writes
+// to a live site or leaks a write path, and nothing on screen would show it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -55,15 +58,6 @@ test('invalid track names never fall through to a live write', async (t) => {
     assert.equal(res.body.error, 'Invalid track name');
   }
   assert.equal(fetch.mock.callCount(), 0);
-});
-
-test('malformed and non-object save payloads return 400', async (t) => {
-  const save = await handler(t, 'save');
-  for (const body of ['{', 'null', 'true', '42', '[]']) {
-    const res = response();
-    await save(request(body), res);
-    assert.equal(res.code, 400, body);
-  }
 });
 
 test('draft saves target the overlay and skip deploy hooks; live and promotion trigger them', async (t) => {

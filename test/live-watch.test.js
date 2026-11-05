@@ -381,3 +381,50 @@ test('single-file mode serves no site APIs, and the stream takes GET only', asyn
     process.chdir(prev);
   }
 });
+
+test('every stream is greeted with the generation, and every change advances it', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  assert.equal(events()[0].type, 'hello');
+  assert.equal(events()[0].data, hub.gen());
+  const before = hub.gen();
+  fs.writeFileSync(path.join(dir, 'styles.css'), 'b{}');
+  assert.ok(await until(() => hub.gen() !== before));
+  hub.close();
+});
+
+test('single-file redirects keep the query string', async () => {
+  const dir = tmp('scope-query');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i</p>');
+  const prev = process.cwd();
+  const { server, port } = await startDev(path.join(dir, 'invoice.html'), { port: 4778 });
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/?print`, { redirect: 'manual' });
+    assert.equal(r.headers.get('location'), '/invoice.html?print');
+    const html = await (await fetch(`http://127.0.0.1:${port}/invoice.html`)).text();
+    assert.match(html, /\/__plater\/live\.js\?v=/, 'the page is stamped with the generation it was served at');
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});
+
+test('a content folder outside the web root is re-armed when it is swapped', async () => {
+  const dir = site();
+  const ext = tmp('ext');
+  fs.mkdirSync(path.join(ext, 'content'));
+  fs.writeFileSync(path.join(ext, 'content', 'site.json'), '{}');
+  const { hub, events } = hubOn(dir, { contentPath: path.join(ext, 'content', 'site.json') });
+  await sleep(50);
+  const fresh = tmp('fresh');
+  fs.writeFileSync(path.join(fresh, 'site.json'), '{"n":1}');
+  fs.renameSync(path.join(ext, 'content'), path.join(tmp('old'), 'content'));
+  fs.renameSync(fresh, path.join(ext, 'content'));
+  const count = () => events().filter((e) => e.type === 'content').length;
+  assert.ok(await until(() => count() >= 1), 'the swap itself streams');
+  await sleep(100);
+  const after = count();
+  fs.writeFileSync(path.join(ext, 'content', 'site.json'), '{"n":2}');
+  assert.ok(await until(() => count() > after), 'and a later write in the new folder streams too');
+  hub.close();
+});

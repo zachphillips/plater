@@ -2047,6 +2047,8 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   const LIVE_STAMP = ['updatedAt', 'updatedBy'];
   const sansStamp = (o) => { const c = { ...o }; for (const k of LIVE_STAMP) delete c[k]; return JSON.stringify(c); };
   let livePulling = false, livePullAgain = false;
+  let livePullFails = 0;     // a failed pull (a 5xx, a half-written file) is retried a few times
+  const livePullRetry = () => { if (livePullFails < 4) setTimeout(pullRemote, 500 * 2 ** livePullFails++); };
 
   function liveWanted() {
     if (live === true) return true;
@@ -2099,11 +2101,12 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     livePulling = true;
     try {
       const r = await fetch(contentEndpoint(), { cache: 'no-store' });
-      if (!r.ok) return;
+      if (!r.ok) { livePullRetry(); return; }
       const text = await r.text();
-      if (text === LIVE_SEEN) return;
+      if (text === LIVE_SEEN) { livePullFails = 0; return; }
       const fresh = JSON.parse(text);
-      if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) return;
+      if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) { livePullRetry(); return; }
+      livePullFails = 0;
       LIVE_SEEN = text;
       const theirs = JSON.stringify(fresh);
       // Our own save coming back. The server stamps updatedAt/updatedBy on every
@@ -2131,6 +2134,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       document.dispatchEvent(new CustomEvent('plater:live', { detail: { type: 'content', kept: mine.length } }));
     } catch (e) {
       console.warn('[plater] live update failed', e);
+      livePullRetry();
     } finally {
       livePulling = false;
       if (livePullAgain) { livePullAgain = false; pullRemote(); }
@@ -2147,8 +2151,9 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     let opened = false, retryMs = 5000;
     const connect = () => {
       const es = new EventSource(`${apiBase}/live`);
-      // After a dropped stream reconnects, catch up on whatever changed meanwhile.
-      es.addEventListener('open', () => { if (opened) pullRemote(); opened = true; retryMs = 5000; });
+      // Catch up on every open, the first included: a change between this
+      // page's load and the stream opening, or while it was down, sent no event.
+      es.addEventListener('open', () => { pullRemote(); opened = true; retryMs = 5000; });
       es.addEventListener('content', () => pullRemote());
       es.addEventListener('css', (ev) => swapCss(ev.data));
       es.addEventListener('reload', (ev) => {

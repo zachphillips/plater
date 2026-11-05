@@ -16,8 +16,9 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, liveType = null, links = [], live } = {}) {
+function page({ search = '?edit', stream = true, autoOpen = true, devNoauth = true, liveStatus = 404, liveType = null, links = [], live } = {}) {
   let server = { title: 'Invoice', total: '$100' };
+  let contentFails = 0;
   const els = new Map();
   const node = (id = '') => ({
     id, hidden: true, textContent: '', dataset: {}, style: {}, classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
@@ -35,7 +36,7 @@ function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 
   const retries = [];      // long timers (stream retry backoff), held instead of run
   const timer = (fn, ms) => (ms >= 5000 ? (retries.push({ fn, ms }), 0) : setTimeout(fn, ms));
   class FakeEventSource {
-    constructor(url) { this.url = url; this.on = {}; sources.push(this); queueMicrotask(() => (stream ? this.fire('open') : this.fire('error'))); }
+    constructor(url) { this.url = url; this.on = {}; sources.push(this); if (autoOpen) queueMicrotask(() => (stream ? this.fire('open') : this.fire('error'))); }
     addEventListener(t, fn) { (this.on[t] ||= []).push(fn); }
     fire(t, data) { for (const fn of this.on[t] || []) fn({ data }); }
     close() { this.closed = true; }
@@ -57,7 +58,7 @@ function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 
     fetch: async (url, opts = {}) => {
       if (url.endsWith('/config')) return json({ editable: true, devNoauth });
       if (url.endsWith('/live')) return new Response('{}', { status: liveStatus, headers: liveType ? { 'content-type': liveType } : {} });
-      if (url.includes('/content')) return json(JSON.stringify(server));
+      if (url.includes('/content')) { if (contentFails > 0) { contentFails--; return json('{"half":', 200); } return json(JSON.stringify(server)); }
       if (url.includes('/versions') || url.includes('/review')) return json({}, 404);
       if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content, updatedAt: new Date(0).toISOString(), updatedBy: 'dev' }; return json({ ok: true }); }
       throw new Error('unexpected ' + url);
@@ -68,6 +69,7 @@ function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 
   return {
     editor, ctx, title, total, sources, intervals, retries,
     set server(v) { server = v; },
+    set contentFails(v) { contentFails = v; },
     async boot() { await editor.test.boot(); await drain(); },
   };
 }
@@ -268,4 +270,26 @@ test('echoes of two uploads that overlapped are both this tab\'s own', async () 
   assert.ok(!p.ctx.reloaded, 'neither upload reloads the tab');
   p.sources[0].fire('reload', 'index.html');
   assert.ok(p.ctx.reloaded, 'a change from someone else still does');
+});
+
+test('a change that landed before the editor\'s stream opened is pulled on the first open', async () => {
+  const p = page({ autoOpen: false });
+  await p.boot();
+  p.server = { title: 'Changed before connect', total: '$3' };
+  p.sources[0].fire('open');
+  await drain();
+  assert.equal(p.title.textContent, 'Changed before connect');
+});
+
+test('a pull that read a half-written file tries again', async () => {
+  const p = page();
+  await p.boot();
+  p.server = { title: 'Written in two steps', total: '$4' };
+  p.contentFails = 1;
+  p.sources[0].fire('content', 'content/site.json');
+  await drain();
+  assert.equal(p.title.textContent, 'Invoice', 'the half-written read changed nothing');
+  await new Promise((r) => setTimeout(r, 700));
+  await drain();
+  assert.equal(p.title.textContent, 'Written in two steps', 'the retry picked it up');
 });

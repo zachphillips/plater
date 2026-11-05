@@ -418,7 +418,8 @@ How it travels:
   single file is served and watched on its own: the page plus the stylesheets,
   scripts, images and fonts beside it or up to two folders below it (`css/`,
   `assets/img/`), never the folder's other pages or documents. A tab that
-  loses the stream catches up when it reconnects. The client stays off under automation (`navigator.webdriver`,
+  misses a change (before its stream opens, or while it is down) catches up as
+  soon as it connects. The client stays off under automation (`navigator.webdriver`,
   `?shot`, `?print`) so headless screenshots and PDFs settle.
 - **`platercms serve`** streams content changes only (no file names, at most
   64 open streams) and injects nothing. The editor subscribes on its own while

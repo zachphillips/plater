@@ -113,14 +113,14 @@ test('every asset type a page loads reloads it, fonts and icons included', () =>
 });
 
 // Run the injected client in a small fake browser.
-function runClient(core) {
+function runClient(core, { v = null } = {}) {
   const sources = [];
   let reloaded = false;
-  class ES { constructor(u) { this.u = u; this.on = {}; sources.push(this); } addEventListener(t, f) { (this.on[t] ||= []).push(f); } fire(t, data) { for (const f of this.on[t] || []) f({ data }); } close() { this.closed = true; } }
+  class ES { constructor(u) { this.u = u; this.on = {}; sources.push(this); } addEventListener(t, f) { (this.on[t] ||= []).push(f); } fire(t, data, id = '') { for (const f of this.on[t] || []) f({ data, lastEventId: id }); } close() { this.closed = true; } }
   const window = { __platerCoreLive: core };
   const ctx = { window, EventSource: ES, navigator: {}, URLSearchParams, URL,
     location: { search: '', href: 'http://127.0.0.1:4188/', origin: 'http://127.0.0.1:4188', reload() { reloaded = true; } },
-    document: { querySelectorAll: () => [], createElement: () => ({ style: {} }), body: { appendChild() {} } } };
+    document: { currentScript: { src: '/__plater/live.js' + (v ? `?v=${v}` : '') }, querySelectorAll: () => [], createElement: () => ({ style: {} }), body: { appendChild() {} } } };
   new Function(...Object.keys(ctx), LIVE_CLIENT)(...Object.values(ctx));
   return { sources, reloaded: () => reloaded };
 }
@@ -138,10 +138,36 @@ test('the injected client skips the reload for a change this tab made, not for o
   assert.equal(c.reloaded(), true);
 });
 
-test('a standalone page catches up when its stream reconnects', () => {
+test('a page with no generation stamp catches up when its stream reconnects', () => {
   const c = runClient(undefined);
-  c.sources[0].fire('open');
-  assert.equal(c.reloaded(), false, 'the first open is just the connection');
-  c.sources[0].fire('open');
+  c.sources[0].fire('hello', 'b.0');
+  assert.equal(c.reloaded(), false, 'the first connect is just the connection');
+  c.sources[0].fire('hello', 'b.0');
   assert.equal(c.reloaded(), true, 'a reconnect reloads, since what changed meanwhile sent no event');
+});
+
+test('a standalone page catches a change that landed before its stream opened', () => {
+  const c = runClient(undefined, { v: 'b.0' });
+  c.sources[0].fire('hello', 'b.1');
+  assert.equal(c.reloaded(), true);
+});
+
+test('the editor pulls only when it missed something, on connect and on reconnect', () => {
+  let pulls = 0;
+  const c = runClient({ off: false, pull() { pulls++; }, dirty: () => false }, { v: 'b.0' });
+  c.sources[0].fire('hello', 'b.0');
+  assert.equal(pulls, 0, 'nothing missed between load and connect');
+  c.sources[0].fire('content', 'content/site.json', 'b.1');
+  assert.equal(pulls, 1, 'the live event');
+  c.sources[0].fire('hello', 'b.1');
+  assert.equal(pulls, 1, 'a reconnect that missed nothing');
+  c.sources[0].fire('hello', 'c.0');
+  assert.equal(pulls, 2, 'a server restart counts as a change');
+  assert.equal(c.reloaded(), false);
+});
+
+test('the injected tag carries the generation the page was served at', () => {
+  const html = injectLiveClient('<body></body>', 'b.3');
+  assert.ok(html.includes('/__plater/live.js?v=b.3'));
+  assert.equal(injectLiveClient(html, 'b.4'), html, 'never injected twice');
 });

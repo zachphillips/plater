@@ -74,13 +74,23 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   const pending = new Map();
   const dirs = new Map();          // absolute dir -> { w, ino, birth }
   const extra = [];
+  // A generation that every change advances. plater dev stamps it into the
+  // page it serves and greets each stream with the current one, so a page can
+  // tell whether something changed between its load and its stream opening (or
+  // while the stream was down). The boot part makes a restart count as a change.
+  const boot = Date.now().toString(36);
+  let n = 0;
+  const gen = () => `${boot}.${n}`;
   const contentRel = path.relative(webRoot, contentPath);
   let warned = false, closed = false;
   const warn = (msg, e) => { if (!warned) { warned = true; log.warn?.(`[plater live] ${msg}${e ? `: ${e.code || e.message}` : ''}`); } };
 
   function emit(type, data) {
     if (contentOnly && type !== 'content') return;
-    const frame = `event: ${type}\ndata: ${contentOnly ? '' : String(data).replace(/\n/g, ' ')}\n\n`;
+    if (!contentOnly) n++;
+    const frame = contentOnly
+      ? `event: ${type}\ndata: \n\n`
+      : `event: ${type}\nid: ${gen()}\ndata: ${String(data).replace(/\n/g, ' ')}\n\n`;
     send(frame);
   }
 
@@ -220,13 +230,35 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   } catch {}
   // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere):
   // watch just that file's folder, through the same debounce, content only.
+  // That folder can be swapped too (a checkout), so its parent is watched for
+  // its name and the watcher is re-armed, like any folder under the web root.
   if (contentRel.startsWith('..')) {
-    const base = path.basename(contentPath);
+    const cdir = path.dirname(contentPath), base = path.basename(contentPath);
+    let cw = null, id = '';
+    const arm = () => {
+      if (closed) return false;
+      let st;
+      try { st = fs.statSync(cdir); } catch { return false; }
+      const next = `${st.ino}:${st.birthtimeMs}`;
+      if (cw && next === id) return false;
+      try { cw?.close(); } catch {}
+      cw = null;
+      id = next;
+      try {
+        const w = fs.watch(cdir, (_evt, name) => { if (!name || String(name) === base) changed(contentRel, 'content'); });
+        w.on('error', () => { try { w.close(); } catch {} if (cw === w) cw = null; });
+        cw = w;
+      } catch (e) { warn(`cannot watch ${contentPath}`, e); }
+      return true;
+    };
+    arm();
+    extra.push({ close: () => cw?.close() });
     try {
-      const w = fs.watch(path.dirname(contentPath), (_evt, name) => { if (name && String(name) === base) changed(contentRel, 'content'); });
-      w.on('error', (e) => warn(`stopped watching ${contentPath}`, e));
-      extra.push(w);
-    } catch (e) { warn(`cannot watch ${contentPath}`, e); }
+      const name = path.basename(cdir);
+      const pw = fs.watch(path.dirname(cdir), (_evt, n2) => { if (n2 && String(n2) === name && arm()) changed(contentRel, 'content'); });
+      pw.on('error', () => {});
+      extra.push(pw);
+    } catch {}
   }
 
   const beat = setInterval(() => send(': ping\n\n'), heartbeatMs);
@@ -245,6 +277,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
         'x-accel-buffering': 'no',
       });
       res.write('retry: 1500\n: plater live\n\n');
+      if (!contentOnly) res.write(`event: hello\ndata: ${gen()}\n\n`);
       clients.add(res);
       // The response closing is what ends a stream; the request closing is kept
       // as a second signal. Deleting twice is harmless.
@@ -255,6 +288,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     emit,
     clients: () => clients.size,
     watched: () => dirs.size,
+    gen,
     close() {
       closed = true;
       clearInterval(beat);
@@ -298,12 +332,28 @@ export const LIVE_CLIENT = `(() => {
     document.body.appendChild(n);
   };
   const reload = (ev) => (mine(ev?.data) ? undefined : dirty() ? hold() : location.reload());
+  // The generation plater dev stamped into this page when it served it.
+  let known = null;
+  try { known = new URL(document.currentScript.src, location.href).searchParams.get('v'); } catch {}
   const es = new EventSource('/api/live');
-  const on = (type, fn) => es.addEventListener(type, (ev) => (off() ? es.close() : fn(ev)));
-  // Whatever changed while the stream was down (a dev server restart) sent no
-  // event, so a reconnect catches up: the editor pulls, a plain page reloads.
+  const on = (type, fn) => es.addEventListener(type, (ev) => {
+    if (off()) return es.close();
+    if (ev.lastEventId) known = ev.lastEventId;   // this tab has seen up to here
+    fn(ev);
+  });
+  // Every connect, the first one included, is greeted with the server's
+  // generation. If it is not the one this tab last saw, something changed while
+  // no stream was open (between page load and connect, or across a restart):
+  // the editor pulls, a plain page reloads. A page with no stamp (a hand-written
+  // tag) can only catch up on reconnects.
   let opened = false;
-  on('open', () => { if (opened) { if (core()) core().pull(); else reload(); } opened = true; });
+  es.addEventListener('hello', (ev) => {
+    if (off()) return es.close();
+    const behind = known === null ? opened : ev.data !== known;
+    opened = true;
+    if (known !== null) known = ev.data;
+    if (behind) { if (core()) core().pull(); else reload(); }
+  });
   on('content', (ev) => (core() ? core().pull() : reload(ev)));
   on('reload', reload);
   on('css', (ev) => {
@@ -321,9 +371,9 @@ export const LIVE_CLIENT = `(() => {
 `;
 
 // Add the client to an HTML document, just before </body> (or at the end).
-export function injectLiveClient(html) {
-  const tag = '<script src="/__plater/live.js" defer></script>';
-  if (html.includes(tag)) return html;
+export function injectLiveClient(html, gen = null) {
+  if (html.includes('<script src="/__plater/live.js')) return html;
+  const tag = `<script src="/__plater/live.js${gen ? `?v=${encodeURIComponent(gen)}` : ''}" defer></script>`;
   const i = html.toLowerCase().lastIndexOf('</body>');
   return i === -1 ? html + tag : html.slice(0, i) + tag + html.slice(i);
 }

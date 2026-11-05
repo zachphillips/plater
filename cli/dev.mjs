@@ -306,7 +306,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       // either, since the folder around a loose file (~/Downloads) is not a
       // site. `platercms dev ~/Downloads/invoice.html` must not publish the
       // rest of ~/Downloads. / is the page itself.
-      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) }); return res.end(); }
+      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) + url.search }); return res.end(); }
       if (entry && !singleFileServes(p, entry)) {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end('not part of this page');
@@ -365,12 +365,12 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
-      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null, cacheControl: 'no-cache' })) return;
+      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? (html) => handlers.live.injectLiveClient(html, hub.gen()) : null, cacheControl: 'no-cache' })) return;
       // A loose folder or a single file has no index.html: open the file that
       // was asked for, or list the pages.
       if (p === '/') {
         const pages = htmlPages(webRoot);
-        if (entry || pages.length === 1) { res.writeHead(302, { location: '/' + encodeURIComponent(entry || pages[0]) }); return res.end(); }
+        if (entry || pages.length === 1) { res.writeHead(302, { location: '/' + encodeURIComponent(entry || pages[0]) + url.search }); return res.end(); }
         if (pages.length) {
           const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
           res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' });
@@ -425,7 +425,12 @@ async function main() {
   const { siteDir, contentPath, webRoot, port } = out;
   console.log(`plater dev · ${path.basename(siteDir)}`);
   if (port !== wanted) console.log(`  port    ${wanted} was busy — serving on ${port}`);
-  if (out.entry) console.log(`  open    http://127.0.0.1:${port}/${encodeURIComponent(out.entry)}`);
+  if (out.entry) {
+    console.log(`  open    http://127.0.0.1:${port}/${encodeURIComponent(out.entry)}`);
+    console.log(`  scope   this page and its assets only; no editing, saves or feeds for a loose file`);
+    console.log(`  live    ${out.server.live ? 'on — the open tab follows the page and its assets on disk' : 'off (PLATER_LIVE=0)'}`);
+    return;
+  }
   console.log(`  edit    http://127.0.0.1:${port}/?edit   (devNoauth — no token needed)`);
   console.log(`  feeds   http://127.0.0.1:${port}/feed.xml · /feed.json · /sitemap.xml · /llms.txt`);
   console.log(`  saves   → ${path.relative(siteDir, contentPath)} on disk (commit when happy)`);

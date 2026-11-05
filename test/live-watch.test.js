@@ -9,7 +9,7 @@ import path from 'node:path';
 import http from 'node:http';
 import test from 'node:test';
 import { createLiveHub } from '../packages/server-node/live.js';
-import { startDev } from '../cli/dev.mjs';
+import { startDev, serveStatic } from '../cli/dev.mjs';
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `plater-${p}-`));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -207,4 +207,29 @@ test('a root-level content file does not turn every .json in the site into conte
   assert.equal(classify('alt.json', 'site.json'), 'content');
   assert.equal(classify(path.join('versions', 'launch', 'site.json'), 'site.json'), 'content');
   assert.equal(classify(path.join('data', 'prices.json'), 'site.json'), 'reload');
+});
+
+test('static files: dev revalidates every load, serve keeps its own caching', async () => {
+  const dir = site();
+  const head = async (opts) => {
+    let headers = null;
+    const res = { writeHead: (_s, h) => { headers = h; }, end() {} };
+    assert.ok(await serveStatic({}, res, '/styles.css', { webRoot: dir, ...opts }));
+    return headers;
+  };
+  assert.equal((await head({}))['cache-control'], undefined, 'serve passes nothing, so no header is added');
+  assert.equal((await head({ cacheControl: 'no-cache' }))['cache-control'], 'no-cache');
+});
+
+test('a client whose socket died is dropped, and the others still get the event', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  let dead = false;           // connects fine, then its socket goes away
+  hub.handle({ on() {} }, { writeHead() {}, write() { if (dead) throw new Error('EPIPE'); }, end() {}, destroy() {} });
+  dead = true;
+  assert.equal(hub.clients(), 2);
+  assert.doesNotThrow(() => hub.emit('content', 'content/site.json'));
+  assert.equal(hub.clients(), 1, 'the dead client is gone');
+  assert.ok(events().some((e) => e.type === 'content'), 'the live client still got it');
+  hub.close();
 });

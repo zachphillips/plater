@@ -27,6 +27,8 @@ export const DEBOUNCE_MS = 120;
 export const HEARTBEAT_MS = 25_000;
 export const MAX_DIRS = 2000;
 export const MAX_CLIENTS = 64;
+// Names that are plainly files: no need to stat them to see if a folder appeared.
+const FILE_EXT = /\.(html?|css|m?js|json|md|txt|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|map|swp|tmp)$|~$/i;
 const SKIP_DIR = (name) => name.startsWith('.') || name === 'node_modules';
 
 export function classify(rel, contentRel) {
@@ -61,7 +63,7 @@ export function classify(rel, contentRel) {
 export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, entry = null, log = console }) {
   const clients = new Set();
   const pending = new Map();
-  const dirs = new Map();          // absolute dir -> { w, ino }
+  const dirs = new Map();          // absolute dir -> { w, ino, birth }
   const extra = [];
   const contentRel = path.relative(webRoot, contentPath);
   let warned = false, closed = false;
@@ -70,7 +72,15 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   function emit(type, data) {
     if (contentOnly && type !== 'content') return;
     const frame = `event: ${type}\ndata: ${contentOnly ? '' : String(data).replace(/\n/g, ' ')}\n\n`;
-    for (const res of clients) res.write(frame);
+    send(frame);
+  }
+
+  // A client whose socket died between its close event and this write must not
+  // throw out of a watcher callback or the heartbeat; drop it instead.
+  function send(frame) {
+    for (const res of clients) {
+      try { res.write(frame); } catch { clients.delete(res); try { res.destroy?.(); } catch {} }
+    }
   }
 
   function changed(rel, type = classify(rel, contentRel)) {
@@ -94,7 +104,9 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     try { st = fs.statSync(dir); } catch { unwatch(dir); return false; }
     if (!st.isDirectory()) return false;
     const have = dirs.get(dir);
-    if (have && have.ino === st.ino) return false;
+    // Inodes are reused quickly on some filesystems (a delete then recreate can
+    // get the same number back), so the birth time has to match too.
+    if (have && have.ino === st.ino && have.birth === st.birthtimeMs) return false;
     if (have) unwatch(dir);                 // the folder was replaced: re-arm it
     if (entry && dir !== webRoot) return false;   // single-file mode: the page's own folder only
     if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
@@ -106,10 +118,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
         // A new or replaced subfolder arrives already full (git checkout, a
         // folder swapped in whole): its files fire no events of their own, so
         // announce what it brought.
-        if (!SKIP_DIR(String(name)) && watchTree(abs)) announce(abs);
+        if (!SKIP_DIR(String(name)) && !FILE_EXT.test(String(name)) && watchTree(abs)) announce(abs);
       });
       w.on('error', (e) => { dirs.delete(dir); try { w.close(); } catch {} if (e.code !== 'EPERM') warn(`stopped watching ${dir}`, e); });
-      dirs.set(dir, { w, ino: st.ino });
+      dirs.set(dir, { w, ino: st.ino, birth: st.birthtimeMs });
     } catch (e) {
       warn(`cannot watch ${dir}`, e);
       return false;
@@ -153,7 +165,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     } catch (e) { warn(`cannot watch ${contentPath}`, e); }
   }
 
-  const beat = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, heartbeatMs);
+  const beat = setInterval(() => send(': ping\n\n'), heartbeatMs);
   beat.unref?.();
 
   return {

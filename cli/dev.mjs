@@ -117,7 +117,9 @@ export function shim(req, res, url, body) {
 
 // Static files from the web root, plus /packages/* from the repo so the browser
 // can import the un-vendored client modules. Returns true when it answered.
-export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT, transformHtml = null }) {
+// cacheControl: dev passes 'no-cache' so a reload always revalidates; serve
+// passes nothing and keeps the headers it had before live reload.
+export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT, transformHtml = null, cacheControl = null }) {
   const fromPackages = pathname.startsWith('/packages/');
   const root = fromPackages ? repoRoot : webRoot;
   let file = path.join(root, pathname === '/' ? 'index.html' : pathname);
@@ -127,7 +129,7 @@ export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO
   if (stat?.isDirectory()) { file = path.join(file, 'index.html'); stat = await fs.stat(file).catch(() => null); }
   if (!stat?.isFile()) return false;
   const ext = path.extname(file).toLowerCase();
-  res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': 'no-cache' });
+  res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', ...(cacheControl ? { 'cache-control': cacheControl } : {}) });
   if (transformHtml && (ext === '.html' || ext === '.htm')) return res.end(transformHtml(await fs.readFile(file, 'utf8'))), true;
   res.end(await fs.readFile(file));
   return true;
@@ -354,7 +356,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end('not part of this page');
       }
-      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null })) return;
+      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null, cacheControl: 'no-cache' })) return;
       // A loose folder or a single file has no index.html: open the file that
       // was asked for, or list the pages.
       if (p === '/') {

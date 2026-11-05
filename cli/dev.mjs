@@ -48,9 +48,10 @@ export function findWebRoot(dir) {
 // In single-file mode: the page itself, and asset types a page loads. Never
 // another page, a data file or a document from the same folder. ASSET_EXT is
 // the live hub's own list, so whatever is served here also streams changes.
+// pathname is already decoded by the caller; decoding it again would turn a
+// real file called 100%.html into an error.
 export function singleFileServes(pathname, entry) {
-  let rel;
-  try { rel = decodeURIComponent(pathname).replace(/^\/+/, ''); } catch { return false; }
+  const rel = String(pathname).replace(/^\/+/, '');
   if (rel === entry) return true;
   const segs = rel.split('/');
   if (segs.some((seg) => seg.startsWith('.'))) return false;

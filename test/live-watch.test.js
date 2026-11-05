@@ -428,3 +428,34 @@ test('a content folder outside the web root is re-armed when it is swapped', asy
   assert.ok(await until(() => count() > after), 'and a later write in the new folder streams too');
   hub.close();
 });
+
+test('serve watches nothing under the web root when content lives outside it, and only the root when it sits there', () => {
+  const dir = site();
+  fs.mkdirSync(path.join(dir, 'assets'));
+  const ext = tmp('ext-serve');
+  fs.writeFileSync(path.join(ext, 'site.json'), '{}');
+  const outside = hubOn(dir, { contentOnly: true, contentPath: path.join(ext, 'site.json') });
+  assert.equal(outside.hub.watched(), 0);
+  outside.hub.close();
+  fs.writeFileSync(path.join(dir, 'site.json'), '{}');
+  const atRoot = hubOn(dir, { contentOnly: true, contentPath: path.join(dir, 'site.json') });
+  assert.equal(atRoot.hub.watched(), 1, 'the web root alone, not content/ or assets/');
+  atRoot.hub.close();
+});
+
+test('single-file mode serves a page whose name has a percent sign', () => {
+  assert.equal(singleFileServes('/100%.html', '100%.html'), true);
+  assert.equal(singleFileServes('/a%2Fb.css', 'x.html'), true, 'a literal %2F is a file name, not a folder');
+});
+
+test('a client that stopped reading is dropped instead of buffered for', async () => {
+  const dir = site();
+  const { hub } = hubOn(dir);
+  const stalled = { writableLength: 1 << 20, writeHead() {}, write() {}, end() {}, destroy() { this.destroyed = true; } };
+  hub.handle({ on() {} }, stalled);
+  assert.equal(hub.clients(), 2);
+  hub.emit('reload', 'index.html');
+  assert.equal(hub.clients(), 1);
+  assert.ok(stalled.destroyed);
+  hub.close();
+});

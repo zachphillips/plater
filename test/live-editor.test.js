@@ -131,9 +131,31 @@ test('signing in after boot starts live updates', async () => {
   assert.equal(p.sources.length, 0);
   p.editor.setEditable(true);
   assert.equal(p.sources.length, 1, 'entering edit mode opened the stream');
-  p.editor.setEditable(false);
   p.editor.setEditable(true);
   assert.equal(p.sources.length, 1, 'and only once');
+  p.editor.setEditable(false);
+  assert.ok(p.sources[0].closed, 'leaving edit mode gives the connection back');
+  p.editor.setEditable(true);
+  assert.equal(p.sources.length, 2, 'signing in again reopens it');
+});
+
+test('on a local or ?live page, leaving edit mode keeps the stream', async () => {
+  const p = page({ search: '?live', devNoauth: false });
+  await p.boot();
+  p.editor.setEditable(true);
+  p.editor.setEditable(false);
+  assert.ok(!p.sources[0].closed);
+});
+
+test('a stylesheet that matches no link (an @import) refreshes every stylesheet, with no reload', async () => {
+  const link = (href) => ({ href: 'https://invoices.example.test' + href });
+  const a = link('/theme/main.css'), b = link('/print.css');
+  const p = page({ links: [a, b] });
+  await p.boot();
+  p.sources[0].fire('css', 'theme/imported.css');
+  assert.match(a.href, /plater-live=/);
+  assert.match(b.href, /plater-live=/);
+  assert.ok(!p.ctx.reloaded);
 });
 
 test('a stylesheet change cache-busts that path only, not another file with the same name', async () => {

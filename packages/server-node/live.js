@@ -74,6 +74,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   const pending = new Map();
   const dirs = new Map();          // absolute dir -> { w, ino, birth }
   const extra = [];
+  let shallow = false;
   // A generation that every change advances. plater dev stamps it into the
   // page it serves and greets each stream with the current one, so a page can
   // tell whether something changed between its load and its stream opening (or
@@ -98,7 +99,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   // throw out of a watcher callback or the heartbeat; drop it instead.
   function send(frame) {
     for (const res of clients) {
-      try { res.write(frame); } catch { clients.delete(res); try { res.destroy?.(); } catch {} }
+      // A client that stopped reading (its socket buffer keeps growing) is
+      // dropped rather than buffered for; EventSource reconnects and catches up.
+      try { if (res.writableLength > 65536) throw new Error('stalled'); res.write(frame); }
+      catch { clients.delete(res); try { res.destroy?.(); } catch {} }
     }
   }
 
@@ -130,6 +134,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     if (have && have.ino === st.ino && have.birth === st.birthtimeMs) return false;
     if (have) unwatch(dir);                 // the folder was replaced: re-arm it
     if (entry && depth(dir) > SINGLE_DEPTH) return false;   // single-file mode: the page's folder and its shallow asset folders
+    if (shallow && dir !== webRoot) return false;            // serve, content file at the web root: that folder only
     if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
     try {
       const w = fs.watch(dir, (evt, name) => {
@@ -216,18 +221,24 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   // plater serve streams content only, so it watches only the content file's
   // folder: stylesheets and assets can never send an event there, and they
   // must not use up the folder cap before the content folder is reached.
-  const top = contentOnly && !contentRel.startsWith('..') ? path.dirname(contentPath) : webRoot;
-  watchTree(top);
-  // That folder itself can be replaced (a checkout that swaps it); nothing
-  // inside it can see that, so watch its parent for its name.
-  try {
-    const name = path.basename(top);
-    const w = fs.watch(path.dirname(top), (_evt, n) => {
-      if (n && String(n) === name && watchTree(top)) { if (entry) changed(entry, 'reload'); else announce(top); }
-    });
-    w.on('error', () => {});
-    extra.push(w);
-  } catch {}
+  // A content file at the web root means the web root alone, not the folders
+  // below it; one outside the web root has its own watcher below, so then
+  // nothing under the web root is watched at all.
+  const top = !contentOnly ? webRoot : contentRel.startsWith('..') ? null : path.dirname(contentPath);
+  shallow = contentOnly && top === webRoot;
+  if (top) {
+    watchTree(top);
+    // That folder itself can be replaced (a checkout that swaps it); nothing
+    // inside it can see that, so watch its parent for its name.
+    try {
+      const name = path.basename(top);
+      const w = fs.watch(path.dirname(top), (_evt, n) => {
+        if (n && String(n) === name && watchTree(top)) { if (entry) changed(entry, 'reload'); else announce(top); }
+      });
+      w.on('error', () => {});
+      extra.push(w);
+    } catch {}
+  }
   // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere):
   // watch just that file's folder, through the same debounce, content only.
   // That folder can be swapped too (a checkout), so its parent is watched for
@@ -364,6 +375,10 @@ export const LIVE_CLIENT = `(() => {
       .map((l) => ({ l, u: new URL(l.href, location.href) })).filter(({ u }) => u.origin === location.origin);
     let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\\/+/, '') === rel);
     if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
+    // No link matches (an @import, or a stylesheet another page uses): refresh
+    // every stylesheet on the page, which re-reads their imports too. Only a
+    // page with no stylesheet links at all (inline styles) has to reload.
+    if (!hits.length) hits = links;
     hits.forEach(({ l, u }) => { u.searchParams.set('plater-live', Date.now().toString(36)); l.href = u.toString(); });
     if (!hits.length) reload();
   });

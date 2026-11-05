@@ -113,14 +113,14 @@ test('every asset type a page loads reloads it, fonts and icons included', () =>
 });
 
 // Run the injected client in a small fake browser.
-function runClient(core, { v = null } = {}) {
+function runClient(core, { v = null, links = [] } = {}) {
   const sources = [];
   let reloaded = false;
   class ES { constructor(u) { this.u = u; this.on = {}; sources.push(this); } addEventListener(t, f) { (this.on[t] ||= []).push(f); } fire(t, data, id = '') { for (const f of this.on[t] || []) f({ data, lastEventId: id }); } close() { this.closed = true; } }
   const window = { __platerCoreLive: core };
   const ctx = { window, EventSource: ES, navigator: {}, URLSearchParams, URL,
     location: { search: '', href: 'http://127.0.0.1:4188/', origin: 'http://127.0.0.1:4188', reload() { reloaded = true; } },
-    document: { currentScript: { src: '/__plater/live.js' + (v ? `?v=${v}` : '') }, querySelectorAll: () => [], createElement: () => ({ style: {} }), body: { appendChild() {} } } };
+    document: { currentScript: { src: '/__plater/live.js' + (v ? `?v=${v}` : '') }, querySelectorAll: (s) => (s === 'link[rel="stylesheet"]' ? links : []), createElement: () => ({ style: {} }), body: { appendChild() {} } } };
   new Function(...Object.keys(ctx), LIVE_CLIENT)(...Object.values(ctx));
   return { sources, reloaded: () => reloaded };
 }
@@ -170,4 +170,15 @@ test('the injected tag carries the generation the page was served at', () => {
   const html = injectLiveClient('<body></body>', 'b.3');
   assert.ok(html.includes('/__plater/live.js?v=b.3'));
   assert.equal(injectLiveClient(html, 'b.4'), html, 'never injected twice');
+});
+
+test('the injected client refreshes every stylesheet when none matches, instead of reloading', () => {
+  const a = { href: 'http://127.0.0.1:4188/main.css' };
+  const c = runClient(undefined, { links: [a] });
+  c.sources[0].fire('css', 'partials/imported.css');
+  assert.match(a.href, /plater-live=/);
+  assert.equal(c.reloaded(), false);
+  const bare = runClient(undefined);
+  bare.sources[0].fire('css', 'main.css');
+  assert.equal(bare.reloaded(), true, 'a page with no stylesheet links has to reload');
 });

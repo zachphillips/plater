@@ -217,7 +217,8 @@ export function initZMS(options = {}) {
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
   let EDITING = false;
-  let liveStarted = false;  // startLive runs once, from boot or from entering edit mode
+  let liveStarted = false;  // startLive runs from boot or from entering edit mode; stopLive undoes it
+  let liveES = null, liveTimer = 0, liveRun = 0;   // the editor's own stream, its retry, and which start it belongs to
   let googleReady = false;
   let googleButtonRendered = false;
   let googlePromptPromise = null;
@@ -633,6 +634,7 @@ export function initZMS(options = {}) {
     const was = EDITING;
     EDITING = on;
     if (on) startLive();      // signing in after boot turns live updates on too
+    else if (!liveWanted()) stopLive();   // and leaving edit mode gives the stream back
     if (on !== was) TOUCHED = false;
     document.body.classList.toggle('cms-editing', on);
     setChrome(on);
@@ -2048,7 +2050,11 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   const sansStamp = (o) => { const c = { ...o }; for (const k of LIVE_STAMP) delete c[k]; return JSON.stringify(c); };
   let livePulling = false, livePullAgain = false;
   let livePullFails = 0;     // a failed pull (a 5xx, a half-written file) is retried a few times
-  const livePullRetry = () => { if (livePullFails < 4) setTimeout(pullRemote, 500 * 2 ** livePullFails++); };
+  const livePullRetry = () => {
+    if (livePullFails < 4) { setTimeout(pullRemote, 500 * 2 ** livePullFails++); return; }
+    livePullFails = 0;        // the next change gets its own retries
+    setStatus('The latest content could not be read from the server. Reload to try again.');
+  };
 
   function liveWanted() {
     if (live === true) return true;
@@ -2148,9 +2154,12 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     if (window.__platerLive) return;                      // the injected dev client owns the stream
     window.__platerLive = 'core';
     if (typeof EventSource !== 'function') return;
+    const run = ++liveRun;
     let opened = false, retryMs = 5000;
     const connect = () => {
+      if (run !== liveRun) return;           // stopped meanwhile
       const es = new EventSource(`${apiBase}/live`);
+      liveES = es;
       // Catch up on every open, the first included: a change between this
       // page's load and the stream opening, or while it was down, sent no event.
       es.addEventListener('open', () => { pullRemote(); opened = true; retryMs = 5000; });
@@ -2158,7 +2167,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       es.addEventListener('css', (ev) => swapCss(ev.data));
       es.addEventListener('reload', (ev) => {
         if (liveMine(ev.data)) return;
-        if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
+        if (window.__platerCoreLive?.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
         location.reload();
       });
       // A stream that opened and dropped is left to EventSource's own reconnect.
@@ -2172,13 +2181,26 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         if (opened) return;
         es.close();
         liveProbe().then((permanent) => {
-          if (permanent) return;
-          setTimeout(connect, retryMs);
+          if (permanent || run !== liveRun) return;
+          liveTimer = setTimeout(connect, retryMs);
           retryMs = Math.min(retryMs * 2, 60000);
         });
       });
     };
     connect();
+  }
+
+  // Leaving edit mode on a deployed site gives the connection back, since
+  // serve allows only so many. Only the editor's own stream is closed; the
+  // dev client that plater dev injects is left alone.
+  function stopLive() {
+    if (!liveStarted || window.__platerLive !== 'core') return;
+    liveRun++;
+    liveStarted = false;
+    window.__platerLive = undefined;
+    clearTimeout(liveTimer);
+    liveES?.close();
+    liveES = null;
   }
 
   // The bridge to the live client plater dev injects into every page. It is
@@ -2254,6 +2276,10 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       .filter(({ u }) => u.origin === location.origin);
     let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\/+/, '') === rel);
     if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
+    // No link matches (an @import, or a stylesheet another page uses): refresh
+    // every stylesheet, which re-reads their imports. Only a page with no
+    // stylesheet links at all has to reload.
+    if (!hits.length) hits = links;
     for (const { l, u } of hits) { u.searchParams.set('plater-live', Date.now().toString(36)); l.href = u.toString(); }
     if (!hits.length && !window.__platerCoreLive?.dirty()) location.reload();
   }

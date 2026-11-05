@@ -282,8 +282,8 @@ you, so any of the options above is `git push` + import + set the environment
 variables away from an editable site on your own domain.
 
 > The npm packages publish from a `v*` tag via
-> [`.github/workflows/release.yml`](.github/workflows/release.yml) (tests gate the
-> publish; `--provenance`; an already-published version is skipped, not failed).
+> [`.github/workflows/release.yml`](.github/workflows/release.yml) (the write-gate
+> guards and `npm run verify` gate the publish; `--provenance`; an already-published version is skipped, not failed).
 > Until that first tag ships, use the `git clone` route. A one-click
 > `platercms-starter` repo (deploy button, no terminal at all) is planned for
 > after that tag, not published — see [Status](#status-and-roadmap).
@@ -609,9 +609,10 @@ an authenticated editor session and marks the page `plater-logged-in`.
 
 ## Status and roadmap
 
-**Version 0.1.0.** Everything documented above is implemented and tested
-(`npm test`, `npm run lint` — Node's own test runner and `node --check`; no
-dev dependencies either). It runs several real sites. It has not yet run on
+**Version 0.1.0.** Everything documented above is implemented and verified
+(`npm run verify` drives the editor in headless Chromium against the production
+server and reads the saved commit back; `npm test` guards the write gate;
+`npm run lint` is `node --check`; no dev dependencies either). It runs several real sites. It has not yet run on
 anyone else's, which is exactly what open-sourcing is for.
 
 **Working today:** the editor and all five binding attributes · array add /
@@ -650,9 +651,9 @@ files via `?file=` · static publishing · optional email-capture worker.
   functions, and `platercms serve` runs them — with those rewrites reimplemented —
   on a bare `node:http` server, which is the answer for self-hosting. Cloudflare
   Pages and Netlify equivalents still aren't written down.
-- **Tests cover the server seams**, not the browser. There's no headless test of
-  the editor overlay in this repo; the editor is verified by driving a real
-  browser with Playwright from outside it.
+- **`verify:ci` drives one journey**: token sign-in, an inline edit, Save, the
+  commit read back. Google sign-in, drafts, image upload and the agent loop
+  are still proven by hand in a real browser, not in CI.
 
 Deprecations: `zms-core.js` / `zms-capture.js` vendored paths, `.zms-sync.json`,
 `initZMS()`, `ZMS_WEB_ROOT`, and `ZMS_AGENT_*` are still accepted — a site
@@ -664,8 +665,8 @@ is `platercms`.
 ## Contributing
 
 Issues and PRs welcome. The bar is the same as the codebase: no runtime
-dependencies, no build step, no framework. `npm test` and `npm run lint` must
-pass — CI runs both on Node 20 and 22.
+dependencies, no build step, no framework. `npm run lint`, `npm test` and
+`npm run verify` must pass — CI runs them on Node 20 and 22.
 
 ## License
 

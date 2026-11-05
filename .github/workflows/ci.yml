@@ -18,5 +18,15 @@ jobs:
       # Nothing to install: Plater has zero runtime dependencies.
       - name: Syntax-check every source file
         run: npm run lint
-      - name: Test
+      - name: Guards (CMS write gate)
         run: npm test
+      - name: Verify release (doctor, publish, npm pack contents)
+        run: npm run verify:release
+      # Playwright is installed for this run only; Plater still has no
+      # dependencies. verify:ci drives the real editor against the production
+      # server and reads the saved commit back, so a green CI means an edit
+      # still saves, not just that the remaining files parse.
+      - name: Install a browser for verify:ci
+        run: npm i --no-save playwright@1.64.1 && npx playwright install --with-deps chromium
+      - name: Verify the editor saves (headless Chromium)
+        run: npm run verify:ci

@@ -16,23 +16,38 @@ those two loops.
 ## Commands
 
 ```bash
-npm test        # node --test — the only test runner; no dev dependencies
+npm run verify  # proof it works: verify:release (doctor, publishSite, npm pack
+                #   contents) + verify:ci (headless Chromium edits and saves a
+                #   page on the production server; the commit is read back)
+npm test        # node --test — only the CMS write-gate guards in test/
 npm run lint    # node --check on every .js/.mjs — the only linter
 npm run demo    # serve examples/static-site at http://127.0.0.1:4188
 npm run dev     # plater dev on the current directory
 node cli/plater.js doctor <siteDir>   # report a site's wiring + env checklist
 ```
 
-CI (`.github/workflows/ci.yml`) runs `lint` then `test` on Node 20 and 22. Both
-must pass. There is nothing to install — `npm ci` is not part of CI because the
-repo has zero dependencies, and that is a feature, not an oversight.
+CI (`.github/workflows/ci.yml`) runs `lint`, `test`, `verify:release` and
+`verify:ci` on Node 20 and 22; `release.yml` runs the same before it publishes.
+All must pass. Plater itself installs nothing — `npm ci` is not part of CI
+because the repo has zero dependencies, and that is a feature, not an
+oversight. `verify:ci` needs Playwright, which CI installs for the run only
+(`npm i --no-save playwright@1.64.1 && npx playwright install chromium`); do the
+same locally. `node verify/bench.mjs` starts the same bench and keeps it up.
+
+**Proof, not tests.** A change is done when you have driven it in a real
+browser and captured evidence (screenshots and a recording of the journey, in
+the PR), not when a unit test passes. Don't add unit tests that mock the editor
+or restate strings. The only tests kept are invariant guards on the write gate
+(auth, track routing, upload and draft-path safety). A PR that changes the
+editor or the save path updates `verify/editor.mjs` in the same PR.
 
 ## Hard constraints
 
 1. **No runtime dependencies. No dev dependencies. No build step. No framework.**
    If a change needs a package, the change is wrong. Node's standard library and
    browser platform APIs only. (Playwright in the agent host is the single
-   exception, dynamically imported and optional.)
+   exception, dynamically imported and optional; `verify:ci` imports it the same
+   way and CI installs it with `--no-save`.)
 2. **Every handler must work unchanged in all three legs** — `plater dev` (disk),
    preview branch, production. Handlers read env at import time; `cli/dev.mjs`
    sets env *before* importing them. Don't break that ordering.
@@ -62,7 +77,8 @@ packages/agent-host   the long-running agent runner (server.mjs + deploy/)
 packages/list-worker  optional Cloudflare Worker email capture
 examples/static-site  a complete working site — the demo target
 docs/                 the GitHub Pages marketing site
-test/                 node:test suites (the only test dir)
+test/                 write-gate guards (node:test)
+verify/               verify:release + verify:ci drives and the bench server
 ```
 
 ## Conventions

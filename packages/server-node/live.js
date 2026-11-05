@@ -266,27 +266,47 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   // watch just that file's folder, through the same debounce, content only.
   // That folder can be swapped too (a checkout), so its parent is watched for
   // its name and the watcher is re-armed, like any folder under the web root.
+  // Like the content folder under the web root, every .json in it counts as
+  // content: the ?file= alternates beside site.json and the draft overlays in
+  // versions/<track>/ (two folders down).
   if (contentRel.startsWith('..')) {
-    const cdir = path.dirname(contentPath), base = path.basename(contentPath);
-    let cw = null, id = '';
+    const cdir = path.dirname(contentPath);
+    const ext = new Map();                   // folder -> watcher, for the content folder and its drafts
+    const drop = (d) => { for (const [k, w] of ext) if (k === d || k.startsWith(d + path.sep)) { try { w.close(); } catch {} ext.delete(k); } };
+    const armExt = (dir, level) => {
+      if (closed || ext.has(dir)) return;
+      try {
+        const w = fs.watch(dir, (_evt, name) => {
+          if (!name || /\.json$/i.test(String(name))) return changed(contentRel, 'content');
+          if (level >= 2) return;
+          const abs = path.join(dir, String(name));
+          drop(abs);                          // gone or replaced: forget the old one
+          let isDir = false;
+          try { isDir = fs.statSync(abs).isDirectory(); } catch {}
+          if (isDir && !SKIP_DIR(String(name))) { armExt(abs, level + 1); changed(contentRel, 'content'); }
+        });
+        w.on('error', () => { try { w.close(); } catch {} if (ext.get(dir) === w) ext.delete(dir); });
+        ext.set(dir, w);
+      } catch (e) { warn(`cannot watch ${dir}`, e); return; }
+      if (level >= 2) return;
+      let names = [];
+      try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch {}
+      for (const d of names) if (d.isDirectory() && !SKIP_DIR(d.name)) armExt(path.join(dir, d.name), level + 1);
+    };
+    let id = '';
     const arm = () => {
       if (closed) return false;
       let st;
       try { st = fs.statSync(cdir); } catch { return false; }
       const next = `${st.ino}:${st.birthtimeMs}`;
-      if (cw && next === id) return false;
-      try { cw?.close(); } catch {}
-      cw = null;
+      if (ext.has(cdir) && next === id) return false;
+      drop(cdir);
       id = next;
-      try {
-        const w = fs.watch(cdir, (_evt, name) => { if (!name || String(name) === base) changed(contentRel, 'content'); });
-        w.on('error', () => { try { w.close(); } catch {} if (cw === w) cw = null; });
-        cw = w;
-      } catch (e) { warn(`cannot watch ${contentPath}`, e); }
+      armExt(cdir, 0);
       return true;
     };
     arm();
-    extra.push({ close: () => cw?.close() });
+    extra.push({ close: () => drop(cdir) });
     try {
       const name = path.basename(cdir);
       const pw = fs.watch(path.dirname(cdir), (_evt, n2) => { if (n2 && String(n2) === name && arm()) changed(contentRel, 'content'); });
@@ -396,7 +416,8 @@ export const LIVE_CLIENT = `(() => {
     const rel = String(ev.data || '').replace(/^\\/+/, '');
     const links = [...document.querySelectorAll('link[rel="stylesheet"]')]
       .map((l) => ({ l, u: new URL(l.href, location.href) })).filter(({ u }) => u.origin === location.origin);
-    let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\\/+/, '') === rel);
+    const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };   // 100%.css has a literal %
+    let hits = links.filter(({ u }) => dec(u.pathname).replace(/^\\/+/, '') === rel);
     if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
     // No link matches (an @import, or a stylesheet another page uses): refresh
     // every stylesheet on the page, which re-reads their imports too. Only a

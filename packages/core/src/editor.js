@@ -2274,7 +2274,8 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     const rel = String(changed || '').replace(/^\/+/, '');
     const links = $$('link[rel="stylesheet"]').map((l) => ({ l, u: new URL(l.href, location.href) }))
       .filter(({ u }) => u.origin === location.origin);
-    let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\/+/, '') === rel);
+    const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };   // 100%.css has a literal %
+    let hits = links.filter(({ u }) => dec(u.pathname).replace(/^\/+/, '') === rel);
     if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
     // No link matches (an @import, or a stylesheet another page uses): refresh
     // every stylesheet, which re-reads their imports. Only a page with no

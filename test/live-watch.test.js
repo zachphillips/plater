@@ -488,3 +488,26 @@ test('the generated list of loose pages is stamped with the generation too', asy
     process.chdir(prev);
   }
 });
+
+test('a content folder outside the web root streams its alternates and draft overlays too', async () => {
+  const dir = site();
+  const ext = tmp('ext-alt');
+  fs.mkdirSync(path.join(ext, 'versions', 'spring'), { recursive: true });
+  fs.writeFileSync(path.join(ext, 'site.json'), '{}');
+  const { hub, events } = hubOn(dir, { contentPath: path.join(ext, 'site.json') });
+  await sleep(50);
+  const count = () => events().filter((e) => e.type === 'content').length;
+  fs.writeFileSync(path.join(ext, 'pricing.json'), '{"n":1}');
+  assert.ok(await until(() => count() >= 1), 'an alternate beside site.json');
+  await sleep(100);
+  let before = count();
+  fs.writeFileSync(path.join(ext, 'versions', 'spring', 'site.json'), '{"n":2}');
+  assert.ok(await until(() => count() > before), 'a draft overlay');
+  await sleep(100);
+  before = count();
+  fs.mkdirSync(path.join(ext, 'versions', 'fall'));
+  await sleep(100);
+  fs.writeFileSync(path.join(ext, 'versions', 'fall', 'site.json'), '{"n":3}');
+  assert.ok(await until(() => count() > before), 'a draft track created after start');
+  hub.close();
+});

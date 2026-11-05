@@ -182,3 +182,11 @@ test('the injected client refreshes every stylesheet when none matches, instead 
   bare.sources[0].fire('css', 'main.css');
   assert.equal(bare.reloaded(), true, 'a page with no stylesheet links has to reload');
 });
+
+test('a stylesheet whose name has a literal percent sign still swaps', () => {
+  const a = { href: 'http://127.0.0.1:4188/100%.css' };
+  const c = runClient(undefined, { links: [a] });
+  c.sources[0].fire('css', '100%.css');
+  assert.match(a.href, /plater-live=/);
+  assert.equal(c.reloaded(), false);
+});

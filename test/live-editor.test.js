@@ -16,7 +16,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, links = [] } = {}) {
+function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, links = [], live } = {}) {
   let server = { title: 'Invoice', total: '$100' };
   const els = new Map();
   const node = (id = '') => ({
@@ -64,7 +64,7 @@ function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 
     },
   });
   vm.runInContext(source, ctx);
-  const editor = ctx.initPlater({ tokenKey: 'live.test' });
+  const editor = ctx.initPlater({ tokenKey: 'live.test', ...(live === undefined ? {} : { live }) });
   return {
     editor, ctx, title, total, sources, intervals, retries,
     set server(v) { server = v; },
@@ -187,4 +187,21 @@ test('an HTML change reloads a clean page', async () => {
   await p.boot();
   p.sources[0].fire('reload', 'index.html');
   assert.ok(p.ctx.reloaded, 'clean page reloads on an HTML change');
+});
+
+test('live: false opens no stream and tells the injected dev client it is off', async () => {
+  const p = page({ live: false });
+  await p.boot();
+  assert.equal(p.sources.length, 0);
+  assert.equal(p.ctx.window.__platerCoreLive.off, true, 'the bridge is there even with no stream, so the dev client can see the opt-out');
+  assert.equal(typeof p.ctx.window.__platerCoreLive.dirty, 'function', 'and can still ask about unsaved edits');
+});
+
+test('a reload event for an image this tab just uploaded does not reload the tab', async () => {
+  const p = page();
+  await p.boot();
+  const bridge = p.ctx.window.__platerCoreLive;
+  assert.equal(bridge.mine('images/logo.png'), false, 'nothing uploaded yet');
+  p.sources[0].fire('reload', 'images/other.png');
+  assert.ok(p.ctx.reloaded, 'someone else\'s change still reloads');
 });

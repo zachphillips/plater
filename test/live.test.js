@@ -105,3 +105,35 @@ test('the editor ships live reload and the client parses', () => {
   }
   assert.doesNotThrow(() => new Function(LIVE_CLIENT));
 });
+
+test('every asset type a page loads reloads it, fonts and icons included', () => {
+  for (const f of ['favicon.ico', 'fonts/a.woff', 'fonts/a.ttf', 'fonts/a.otf', 'fonts/a.woff2', 'img/a.png']) {
+    assert.equal(classify(f, 'content/site.json'), 'reload', f);
+  }
+});
+
+// Run the injected client in a small fake browser.
+function runClient(core) {
+  const sources = [];
+  let reloaded = false;
+  class ES { constructor(u) { this.u = u; this.on = {}; sources.push(this); } addEventListener(t, f) { (this.on[t] ||= []).push(f); } fire(t, data) { for (const f of this.on[t] || []) f({ data }); } close() { this.closed = true; } }
+  const window = { __platerCoreLive: core };
+  const ctx = { window, EventSource: ES, navigator: {}, URLSearchParams, URL,
+    location: { search: '', href: 'http://127.0.0.1:4188/', origin: 'http://127.0.0.1:4188', reload() { reloaded = true; } },
+    document: { querySelectorAll: () => [], createElement: () => ({ style: {} }), body: { appendChild() {} } } };
+  new Function(...Object.keys(ctx), LIVE_CLIENT)(...Object.values(ctx));
+  return { sources, reloaded: () => reloaded };
+}
+
+test('the injected client stays off when the editor said live: false', () => {
+  const c = runClient({ off: true, pull() {}, dirty: () => false });
+  assert.equal(c.sources.length, 0);
+});
+
+test('the injected client skips the reload for a change this tab made, not for others', () => {
+  const c = runClient({ off: false, pull() {}, dirty: () => false, mine: (p) => p === 'images/up.png' });
+  c.sources[0].fire('reload', 'images/up.png');
+  assert.equal(c.reloaded(), false);
+  c.sources[0].fire('reload', 'images/other.png');
+  assert.equal(c.reloaded(), true);
+});

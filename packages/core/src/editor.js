@@ -1563,6 +1563,7 @@ export function initZMS(options = {}) {
     let dataBase64;
     try { dataBase64 = await readBase64(file); }
     catch (e) { console.warn('[plater] image read failed', e); setStatus(`Could not read “${name}” from your device — nothing was uploaded.`); return; }
+    liveUploads++;          // the watcher's reload for this file is this tab's own
     try {
       const r = await fetch(`${apiBase}/upload`, {
         method: 'POST',
@@ -1578,6 +1579,7 @@ export function initZMS(options = {}) {
       }
       // Same rule as every other re-render: collect what is typed before
       // render() throws the current DOM away.
+      liveOwn.set(livePath(out.url), Date.now() + 5000);   // the watcher's echo of this upload is ours
       collectEdits();
       setPath(CONTENT, path, out.url);
       render();
@@ -1589,6 +1591,8 @@ export function initZMS(options = {}) {
     } catch (e) {
       console.warn('[plater] upload error', e);
       setStatus('Could not reach the server — the image was not uploaded.');
+    } finally {
+      liveUploads--;
     }
   }
 
@@ -2127,7 +2131,6 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   function startLive() {
     if (liveStarted || !liveWanted() || typeof window === 'undefined' || typeof setInterval !== 'function') return;
     liveStarted = true;
-    window.__platerCoreLive = { pull: pullRemote, dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()) };
     if (window.__platerLive) return;                      // the injected dev client owns the stream
     window.__platerLive = 'core';
     if (typeof EventSource !== 'function') return;
@@ -2138,7 +2141,8 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       es.addEventListener('open', () => { if (opened) pullRemote(); opened = true; retryMs = 5000; });
       es.addEventListener('content', () => pullRemote());
       es.addEventListener('css', (ev) => swapCss(ev.data));
-      es.addEventListener('reload', () => {
+      es.addEventListener('reload', (ev) => {
+        if (liveMine(ev.data)) return;
         if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
         location.reload();
       });
@@ -2160,6 +2164,36 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       });
     };
     connect();
+  }
+
+  // The bridge to the live client plater dev injects into every page. It is
+  // registered when the editor starts, whether or not this editor opens a
+  // stream, so the injected client always knows three things: that live reload
+  // is off (initPlater({ live: false })), whether there are unsaved edits, and
+  // which changes this tab made itself.
+  let liveUploads = 0;                       // uploads in flight from this tab
+  const liveOwn = new Map();                 // path this tab wrote -> expiry
+  const livePath = (p) => {
+    try { return decodeURIComponent(new URL(String(p || ''), location.href).pathname).replace(/^\/+/, ''); }
+    catch { return String(p || '').replace(/^\/+/, '').split('?')[0]; }
+  };
+  // A reload event for an image this tab is uploading, or uploaded in the last
+  // few seconds, is this tab's own write: the page already shows it.
+  function liveMine(p) {
+    if (liveUploads > 0) return true;
+    const k = livePath(p), t = liveOwn.get(k);
+    if (t === undefined) return false;
+    liveOwn.delete(k);
+    return t > Date.now();
+  }
+  function liveRegisterBridge() {
+    if (typeof window === 'undefined') return;
+    window.__platerCoreLive = {
+      off: live === false,
+      pull: pullRemote,
+      dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()),
+      mine: liveMine,
+    };
   }
 
   // Is /api/live missing on this host for good? Only a 404 or 405 says so;
@@ -2277,6 +2311,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     if ($('#cms-cancel')) $('#cms-cancel').addEventListener('click', cancel);
   }
 
+  liveRegisterBridge();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

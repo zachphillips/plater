@@ -26,6 +26,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { ASSET_EXT } from '../packages/server-node/live.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG = path.resolve(HERE, '..', 'packages');
@@ -45,8 +46,8 @@ export function findWebRoot(dir) {
 }
 
 // In single-file mode: the page itself, and asset types a page loads. Never
-// another page, a data file or a document from the same folder.
-const ASSET_EXT = /\.(css|m?js|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i;
+// another page, a data file or a document from the same folder. ASSET_EXT is
+// the live hub's own list, so whatever is served here also streams changes.
 export function singleFileServes(pathname, entry) {
   let rel;
   try { rel = decodeURIComponent(pathname).replace(/^\/+/, ''); } catch { return false; }

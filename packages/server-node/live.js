@@ -27,8 +27,14 @@ export const DEBOUNCE_MS = 120;
 export const HEARTBEAT_MS = 25_000;
 export const MAX_DIRS = 2000;
 export const MAX_CLIENTS = 64;
+// The asset types a page loads: stylesheets, scripts, images and fonts. One
+// list, so what plater dev serves in single-file mode, what that mode streams
+// and what reloads a page can never drift apart.
+export const ASSET_EXT = /\.(css|m?js|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i;
 // Names that are plainly files: no need to stat them to see if a folder appeared.
 const FILE_EXT = /\.(html?|css|m?js|json|md|txt|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|map|swp|tmp)$|~$/i;
+// How many entries a folder that arrived whole is searched for changes.
+const ANNOUNCE_MAX = 500;
 const SKIP_DIR = (name) => name.startsWith('.') || name === 'node_modules';
 
 export function classify(rel, contentRel) {
@@ -46,7 +52,7 @@ export function classify(rel, contentRel) {
     : rel.startsWith(contentDir + path.sep) || rel.startsWith(contentDir + '/'));
   if (ext === '.json' && underContent) return 'content';
   if (ext === '.css') return 'css';
-  if (['.html', '.htm', '.js', '.mjs', '.json', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.woff2'].includes(ext)) return 'reload';
+  if (ext === '.html' || ext === '.htm' || ext === '.json' || ASSET_EXT.test(rel)) return 'reload';
   return null;
 }
 
@@ -57,7 +63,7 @@ export function classify(rel, contentRel) {
  *   the stream is public and draft names and uploads are nobody's business).
  * entry: single-file mode (`platercms dev invoice.html`). Watch only the file's
  *   own folder, not its subfolders, and stream only the page itself and the
- *   stylesheets and scripts beside it, so sibling pages never reload it.
+ *   assets beside it (ASSET_EXT), so sibling pages never reload it.
  * @returns {{ handle(req, res): void, close(): void, clients: () => number, watched: () => number, emit(type, data): void }}
  */
 export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, entry = null, log = console }) {
@@ -85,7 +91,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
 
   function changed(rel, type = classify(rel, contentRel)) {
     if (!rel || !type) return;
-    if (entry && rel !== entry && !/\.(css|m?js)$/i.test(rel)) return;
+    if (entry && rel !== entry && !ASSET_EXT.test(rel)) return;
     clearTimeout(pending.get(rel));
     pending.set(rel, setTimeout(() => { pending.delete(rel); emit(type, rel.split(path.sep).join('/')); }, debounceMs));
   }
@@ -112,7 +118,15 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
     try {
       const w = fs.watch(dir, (_evt, name) => {
-        if (!name) return;
+        // Node may give no file name on some platforms and filesystems. Then we
+        // cannot tell what changed, so re-arm the folder's subfolders and
+        // announce the whole folder, the same as one that arrived whole.
+        if (!name) {
+          let subs = [];
+          try { subs = fs.readdirSync(dir, { withFileTypes: true }); } catch {}
+          for (const d of subs) if (d.isDirectory() && !SKIP_DIR(d.name)) watchTree(path.join(dir, d.name));
+          return announce(dir);
+        }
         const abs = path.join(dir, String(name));
         changed(path.relative(webRoot, abs));
         // A new or replaced subfolder arrives already full (git checkout, a
@@ -132,15 +146,33 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     return true;
   }
 
-  // A folder that appeared whole: content if the content file lives in it,
-  // otherwise the classified type of the first page-relevant file it holds.
+  // A folder that appeared whole (or changed with no file name): its files fired
+  // no events of their own, so walk it, nested folders included, and announce
+  // what it holds. Content is pulled; one page-level change means one reload,
+  // which makes any stylesheet swap moot; otherwise every stylesheet is swapped.
   function announce(dir) {
-    const rel = path.relative(webRoot, dir);
-    if (contentRel === rel || contentRel.startsWith(rel + path.sep)) return changed(contentRel, 'content');
-    let names = [];
-    try { names = fs.readdirSync(dir); } catch {}
-    const hit = names.map((n) => path.join(rel, n)).find((r) => classify(r, contentRel));
-    if (hit) changed(hit);
+    const found = { content: null, reload: null, css: [] };
+    const stack = [dir];
+    let seen = 0;
+    while (stack.length && seen < ANNOUNCE_MAX) {
+      const d = stack.pop();
+      let names = [];
+      try { names = fs.readdirSync(d, { withFileTypes: true }); } catch {}
+      for (const n of names) {
+        if (++seen > ANNOUNCE_MAX) break;
+        if (SKIP_DIR(n.name)) continue;
+        const abs = path.join(d, n.name);
+        if (n.isDirectory()) { stack.push(abs); continue; }
+        const r = path.relative(webRoot, abs);
+        const type = classify(r, contentRel);
+        if (type === 'content') found.content ??= r;
+        else if (type === 'reload' && (!entry || r === entry || ASSET_EXT.test(r))) found.reload ??= r;
+        else if (type === 'css') found.css.push(r);
+      }
+    }
+    if (found.content) changed(found.content, 'content');
+    if (found.reload) changed(found.reload, 'reload');
+    else for (const r of found.css) changed(r, 'css');
   }
 
   watchTree(webRoot);
@@ -182,7 +214,11 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
       });
       res.write('retry: 1500\n: plater live\n\n');
       clients.add(res);
-      req.on('close', () => clients.delete(res));
+      // The response closing is what ends a stream; the request closing is kept
+      // as a second signal. Deleting twice is harmless.
+      const drop = () => clients.delete(res);
+      res.on?.('close', drop);
+      req.on('close', drop);
     },
     emit,
     clients: () => clients.size,
@@ -213,8 +249,14 @@ export const LIVE_CLIENT = `(() => {
   const q = new URLSearchParams(location.search);
   if (navigator.webdriver || q.has('shot') || q.has('print')) return;
   window.__platerLive = 'inject';
+  // The Plater editor, when it is on the page, registers this bridge as soon as
+  // it starts: off is initPlater({ live: false }), mine(path) is a change this
+  // tab made itself (an image it just uploaded).
   const core = () => window.__platerCoreLive;
+  const off = () => Boolean(core()?.off);
+  if (off()) return;
   const dirty = () => { try { return Boolean(core()?.dirty()); } catch { return false; } };
+  const mine = (p) => { try { return Boolean(core()?.mine?.(p)); } catch { return false; } };
   let held = false;
   const hold = () => {
     if (held) return; held = true;
@@ -223,11 +265,12 @@ export const LIVE_CLIENT = `(() => {
     n.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483647;background:#1a1a1a;color:#fff;font:13px/1.3 system-ui,sans-serif;padding:8px 14px;border-radius:6px';
     document.body.appendChild(n);
   };
-  const reload = () => (dirty() ? hold() : location.reload());
+  const reload = (ev) => (mine(ev?.data) ? undefined : dirty() ? hold() : location.reload());
   const es = new EventSource('/api/live');
-  es.addEventListener('content', () => (core() ? core().pull() : reload()));
-  es.addEventListener('reload', reload);
-  es.addEventListener('css', (ev) => {
+  const on = (type, fn) => es.addEventListener(type, (ev) => (off() ? es.close() : fn(ev)));
+  on('content', (ev) => (core() ? core().pull() : reload(ev)));
+  on('reload', reload);
+  on('css', (ev) => {
     // Match the changed path (relative to the web root, served at /) against
     // same-origin stylesheets; fall back to the file name only if none match.
     const rel = String(ev.data || '').replace(/^\\/+/, '');

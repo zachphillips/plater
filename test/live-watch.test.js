@@ -233,3 +233,29 @@ test('a client whose socket died is dropped, and the others still get the event'
   assert.ok(events().some((e) => e.type === 'content'), 'the live client still got it');
   hub.close();
 });
+
+test('single-file mode streams the images and fonts it serves', async () => {
+  const dir = tmp('single-img');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<img src="logo.png">');
+  fs.writeFileSync(path.join(dir, 'logo.png'), 'a');
+  const { hub, events } = hubOn(dir, { entry: 'invoice.html' });
+  fs.writeFileSync(path.join(dir, 'logo.png'), 'b');
+  assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'logo.png')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('a folder swapped in whole announces what is nested in it, and a script outranks a stylesheet', async () => {
+  const dir = site();
+  fs.mkdirSync(path.join(dir, 'assets'));
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const next = tmp('assets-next');
+  fs.mkdirSync(path.join(next, 'css'));
+  fs.mkdirSync(path.join(next, 'js'));
+  fs.writeFileSync(path.join(next, 'css', 'main.css'), 'a{}');
+  fs.writeFileSync(path.join(next, 'js', 'app.js'), '1');
+  fs.rmSync(path.join(dir, 'assets'), { recursive: true });
+  fs.renameSync(next, path.join(dir, 'assets'));
+  assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'assets/js/app.js')), JSON.stringify(events()));
+  hub.close();
+});

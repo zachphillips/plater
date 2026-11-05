@@ -162,6 +162,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     const found = { content: null, reload: null, css: [] };
     const stack = [dir];
     let seen = 0;
+    const holdsContent = !contentRel.startsWith('..') && (dir === webRoot || contentRel.startsWith(path.relative(webRoot, dir) + path.sep));
     while (stack.length && seen < ANNOUNCE_MAX) {
       const d = stack.pop();
       let names = [];
@@ -178,18 +179,29 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
         else if (type === 'css') found.css.push(r);
       }
     }
+    // Too big to read in full: what we did not read may hold the change, so
+    // assume it does. Pull content if the content file lives under it, and
+    // reload the page (in single-file mode, the page itself).
+    if (seen > ANNOUNCE_MAX || stack.length) {
+      if (holdsContent) found.content ??= contentRel;
+      found.reload ??= entry || path.relative(webRoot, dir) || '.';
+    }
     if (found.content) changed(found.content, 'content');
     if (found.reload) changed(found.reload, 'reload');
     else for (const r of found.css) changed(r, 'css');
   }
 
-  watchTree(webRoot);
-  // The web root itself can be replaced (a checkout that swaps the folder);
-  // nothing inside it can see that, so watch its parent for its name.
+  // plater serve streams content only, so it watches only the content file's
+  // folder: stylesheets and assets can never send an event there, and they
+  // must not use up the folder cap before the content folder is reached.
+  const top = contentOnly && !contentRel.startsWith('..') ? path.dirname(contentPath) : webRoot;
+  watchTree(top);
+  // That folder itself can be replaced (a checkout that swaps it); nothing
+  // inside it can see that, so watch its parent for its name.
   try {
-    const name = path.basename(webRoot);
-    const w = fs.watch(path.dirname(webRoot), (_evt, n) => {
-      if (n && String(n) === name && watchTree(webRoot)) { if (entry) changed(entry, 'reload'); else announce(webRoot); }
+    const name = path.basename(top);
+    const w = fs.watch(path.dirname(top), (_evt, n) => {
+      if (n && String(n) === name && watchTree(top)) { if (entry) changed(entry, 'reload'); else announce(top); }
     });
     w.on('error', () => {});
     extra.push(w);

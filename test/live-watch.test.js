@@ -303,3 +303,39 @@ test('plater serve mounts the content-only stream', async () => {
     process.chdir(prev);
   }
 });
+
+test('single-file mode sends / to the page, never to a sibling index.html', async () => {
+  const dir = tmp('scope-index');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i</p>');
+  fs.writeFileSync(path.join(dir, 'index.html'), '<p>someone else</p>');
+  const prev = process.cwd();
+  const { server, port } = await startDev(path.join(dir, 'invoice.html'), { port: 4770 });
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/`, { redirect: 'manual' });
+    assert.equal(r.status, 302);
+    assert.equal(r.headers.get('location'), '/invoice.html');
+    assert.equal((await fetch(`http://127.0.0.1:${port}/index.html`)).status, 404);
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});
+
+test('plater serve watches only the content folder', () => {
+  const dir = site();
+  for (let i = 0; i < 5; i++) fs.mkdirSync(path.join(dir, `assets${i}`));
+  const { hub } = hubOn(dir, { contentOnly: true });
+  assert.equal(hub.watched(), 1, 'just content/, so asset folders cannot use up the cap');
+  hub.close();
+});
+
+test('a folder too big to read in full still announces, conservatively', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const big = tmp('big');
+  for (let i = 0; i < 600; i++) fs.writeFileSync(path.join(big, `n${i}.txt`), '');
+  fs.renameSync(big, path.join(dir, 'big'));
+  assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'big')), JSON.stringify(events()));
+  hub.close();
+});

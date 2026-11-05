@@ -12,7 +12,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
   .replace('export const initPlater = initZMS;', '')
   .replace('export default initZMS;', 'globalThis.initPlater = initZMS;')
   .replace('getContent: () => CONTENT,', `getContent: () => CONTENT,
-    test: { boot, setEditable, isDirty, pullRemote },`);
+    test: { boot, setEditable, isDirty, pullRemote, upload: { begin() { liveUploads++; }, end(url) { liveUploads--; liveUploadSettled(url); } } },`);
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
@@ -202,6 +202,30 @@ test('a reload event for an image this tab just uploaded does not reload the tab
   await p.boot();
   const bridge = p.ctx.window.__platerCoreLive;
   assert.equal(bridge.mine('images/logo.png'), false, 'nothing uploaded yet');
+  p.editor.test.upload.begin();
+  p.editor.test.upload.end('/images/up.png');
+  p.sources[0].fire('reload', 'images/up.png');
+  assert.ok(!p.ctx.reloaded, 'the echo of our own upload, arriving after it, is skipped');
   p.sources[0].fire('reload', 'images/other.png');
   assert.ok(p.ctx.reloaded, 'someone else\'s change still reloads');
+});
+
+test('a change that lands mid-upload is held, not lost, and handled when the upload ends', async () => {
+  const p = page();
+  await p.boot();
+  p.editor.test.upload.begin();
+  p.sources[0].fire('reload', 'images/up.png');
+  p.sources[0].fire('reload', 'index.html');
+  assert.ok(!p.ctx.reloaded, 'nothing happens while the upload is in flight');
+  p.editor.test.upload.end('/images/up.png');
+  assert.ok(p.ctx.reloaded, 'the unrelated index.html change is acted on afterwards');
+});
+
+test('an upload whose only echo was itself reloads nothing', async () => {
+  const p = page();
+  await p.boot();
+  p.editor.test.upload.begin();
+  p.sources[0].fire('reload', 'images/up.png');
+  p.editor.test.upload.end('/images/up.png');
+  assert.ok(!p.ctx.reloaded);
 });

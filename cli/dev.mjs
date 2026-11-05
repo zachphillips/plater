@@ -355,7 +355,8 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       // Single-file mode serves that page and the assets it can load, not its
       // neighbours: `platercms dev ~/Downloads/invoice.html` must not publish
       // the rest of ~/Downloads.
-      if (entry && p !== '/' && !singleFileServes(p, entry)) {
+      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) }); return res.end(); }
+      if (entry && !singleFileServes(p, entry)) {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end('not part of this page');
       }

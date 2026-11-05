@@ -1564,6 +1564,7 @@ export function initZMS(options = {}) {
     try { dataBase64 = await readBase64(file); }
     catch (e) { console.warn('[plater] image read failed', e); setStatus(`Could not read “${name}” from your device — nothing was uploaded.`); return; }
     liveUploads++;          // the watcher's reload for this file is this tab's own
+    let uploadedUrl = null;
     try {
       const r = await fetch(`${apiBase}/upload`, {
         method: 'POST',
@@ -1579,7 +1580,7 @@ export function initZMS(options = {}) {
       }
       // Same rule as every other re-render: collect what is typed before
       // render() throws the current DOM away.
-      liveOwn.set(livePath(out.url), Date.now() + 5000);   // the watcher's echo of this upload is ours
+      uploadedUrl = out.url;                 // the watcher's echo of this upload is ours
       collectEdits();
       setPath(CONTENT, path, out.url);
       render();
@@ -1593,6 +1594,7 @@ export function initZMS(options = {}) {
       setStatus('Could not reach the server — the image was not uploaded.');
     } finally {
       liveUploads--;
+      liveUploadSettled(uploadedUrl);
     }
   }
 
@@ -2174,18 +2176,34 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   // which changes this tab made itself.
   let liveUploads = 0;                       // uploads in flight from this tab
   const liveOwn = new Map();                 // path this tab wrote -> expiry
+  const liveHeld = new Set();                // reload events that arrived mid-upload
   const livePath = (p) => {
     try { return decodeURIComponent(new URL(String(p || ''), location.href).pathname).replace(/^\/+/, ''); }
     catch { return String(p || '').replace(/^\/+/, '').split('?')[0]; }
   };
   // A reload event for an image this tab is uploading, or uploaded in the last
   // few seconds, is this tab's own write: the page already shows it.
+  // Mid-upload, the final file name is not known yet, so a reload event is held
+  // rather than dropped, and handled when the upload settles unless it was the
+  // upload itself.
   function liveMine(p) {
-    if (liveUploads > 0) return true;
     const k = livePath(p), t = liveOwn.get(k);
-    if (t === undefined) return false;
-    liveOwn.delete(k);
-    return t > Date.now();
+    if (t !== undefined) { liveOwn.delete(k); if (t > Date.now()) return true; }
+    if (liveUploads > 0) { liveHeld.add(k); return true; }
+    return false;
+  }
+  function liveUploadSettled(url) {
+    const now = Date.now();
+    for (const [k, t] of liveOwn) if (t <= now) liveOwn.delete(k);   // prune expired records
+    if (url) liveOwn.set(livePath(url), now + 5000);
+    if (liveUploads > 0) return;
+    const own = url ? livePath(url) : null;
+    const others = [...liveHeld].filter((k) => k !== own);
+    if (own && liveHeld.has(own)) liveOwn.delete(own);   // its echo already came; a later change is someone else's
+    liveHeld.clear();
+    if (!others.length || live === false) return;
+    if (window.__platerCoreLive?.dirty()) setStatus('This page changed on the server — save, then reload to see it.');
+    else location.reload();
   }
   function liveRegisterBridge() {
     if (typeof window === 'undefined') return;

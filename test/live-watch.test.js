@@ -339,3 +339,45 @@ test('a folder too big to read in full still announces, conservatively', async (
   assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'big')), JSON.stringify(events()));
   hub.close();
 });
+
+test('a watched folder moved out of the site still announces', async () => {
+  const dir = site();
+  fs.mkdirSync(path.join(dir, 'theme'));
+  fs.writeFileSync(path.join(dir, 'theme', 'main.css'), 'a{}');
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  fs.renameSync(path.join(dir, 'theme'), path.join(tmp('gone'), 'theme'));
+  assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'theme')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('a content folder swapped for an empty one pulls content', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const empty = tmp('empty');
+  fs.renameSync(path.join(dir, 'content'), path.join(tmp('old'), 'content'));
+  fs.renameSync(empty, path.join(dir, 'content'));
+  assert.ok(await until(() => events().some((e) => e.type === 'content')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('single-file mode serves no site APIs, and the stream takes GET only', async () => {
+  const dir = tmp('scope-api');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i</p>');
+  fs.mkdirSync(path.join(dir, 'content'));
+  fs.writeFileSync(path.join(dir, 'content', 'site.json'), '{"secret":1}');
+  const prev = process.cwd();
+  const { server, port } = await startDev(path.join(dir, 'invoice.html'), { port: 4775 });
+  try {
+    for (const p of ['/api/content', '/api/config', '/api/versions']) {
+      assert.equal((await fetch(`http://127.0.0.1:${port}${p}`)).status, 404, p);
+    }
+    const post = await fetch(`http://127.0.0.1:${port}/api/live`, { method: 'POST' });
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.get('allow'), 'GET');
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});

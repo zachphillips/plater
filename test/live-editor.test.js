@@ -16,7 +16,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, links = [], live } = {}) {
+function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, liveType = null, links = [], live } = {}) {
   let server = { title: 'Invoice', total: '$100' };
   const els = new Map();
   const node = (id = '') => ({
@@ -56,7 +56,7 @@ function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 
     console: { warn() {}, error() {} },
     fetch: async (url, opts = {}) => {
       if (url.endsWith('/config')) return json({ editable: true, devNoauth });
-      if (url.endsWith('/live')) return json({}, liveStatus);
+      if (url.endsWith('/live')) return new Response('{}', { status: liveStatus, headers: liveType ? { 'content-type': liveType } : {} });
       if (url.includes('/content')) return json(JSON.stringify(server));
       if (url.includes('/versions') || url.includes('/review')) return json({}, 404);
       if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content, updatedAt: new Date(0).toISOString(), updatedBy: 'dev' }; return json({ ok: true }); }
@@ -239,4 +239,33 @@ test('a selection the caret helper cannot read never costs the remote change', a
   p.sources[0].fire('content', 'content/site.json');
   await drain(); await new Promise((r) => setTimeout(r, 20)); await drain();
   assert.equal(p.title.textContent, 'Invoice 2');
+});
+
+test('a static host that answers /api/live with its HTML catch-all is a host with no stream', async () => {
+  const p = page({ stream: false, liveStatus: 200, liveType: 'text/html' });
+  await p.boot();
+  await drain();
+  assert.equal(p.retries.length, 0, 'a 200 that is not a stream is permanent: no retry');
+});
+
+test('a real stream that dropped is retried', async () => {
+  const p = page({ stream: false, liveStatus: 200, liveType: 'text/event-stream' });
+  await p.boot();
+  await drain();
+  assert.equal(p.retries.length, 1);
+});
+
+test('echoes of two uploads that overlapped are both this tab\'s own', async () => {
+  const p = page();
+  await p.boot();
+  const up = p.editor.test.upload;
+  up.begin();
+  up.begin();
+  p.sources[0].fire('reload', 'images/a.png');
+  up.end('/images/a.png');
+  p.sources[0].fire('reload', 'images/b.png');
+  up.end('/images/b.png');
+  assert.ok(!p.ctx.reloaded, 'neither upload reloads the tab');
+  p.sources[0].fire('reload', 'index.html');
+  assert.ok(p.ctx.reloaded, 'a change from someone else still does');
 });

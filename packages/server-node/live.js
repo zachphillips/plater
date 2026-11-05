@@ -134,13 +134,18 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
         }
         const abs = path.join(dir, String(name));
         changed(path.relative(webRoot, abs));
+        const was = dirs.has(abs);
         // A new or replaced subfolder arrives already full (git checkout, a
         // folder swapped in whole): its files fire no events of their own, so
         // announce what it brought.
         // A plain 'change' to a name that looks like a file skips the stat; a
         // 'rename' (something appeared or was swapped in) is always checked, so
         // a folder called theme.css is still re-armed.
-        if (!SKIP_DIR(String(name)) && (evt === 'rename' || !FILE_EXT.test(String(name))) && watchTree(abs)) announce(abs);
+        if (SKIP_DIR(String(name)) || (evt !== 'rename' && FILE_EXT.test(String(name)))) return;
+        if (watchTree(abs)) announce(abs, was);
+        // A watched folder that is gone took its files with it, and they fire
+        // no events of their own: assume what it held mattered.
+        else if (was && !dirs.has(abs)) whole(abs);
       });
       w.on('error', (e) => { dirs.delete(dir); try { w.close(); } catch {} if (e.code !== 'EPERM') warn(`stopped watching ${dir}`, e); });
       dirs.set(dir, { w, ino: st.ino, birth: st.birthtimeMs });
@@ -158,11 +163,19 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   // no events of their own, so walk it, nested folders included, and announce
   // what it holds. Content is pulled; one page-level change means one reload,
   // which makes any stylesheet swap moot; otherwise every stylesheet is swapped.
-  function announce(dir) {
+  // Something changed under dir that we cannot see file by file (a folder
+  // deleted, swapped for an empty one, or too big to read): pull content if
+  // the content file lives under it, and reload the page.
+  function whole(dir) {
+    const holdsContent = !contentRel.startsWith('..') && (dir === webRoot || contentRel.startsWith(path.relative(webRoot, dir) + path.sep));
+    if (holdsContent) changed(contentRel, 'content');
+    changed(entry || path.relative(webRoot, dir) || '.', 'reload');
+  }
+
+  function announce(dir, replaced = false) {
     const found = { content: null, reload: null, css: [] };
     const stack = [dir];
     let seen = 0;
-    const holdsContent = !contentRel.startsWith('..') && (dir === webRoot || contentRel.startsWith(path.relative(webRoot, dir) + path.sep));
     while (stack.length && seen < ANNOUNCE_MAX) {
       const d = stack.pop();
       let names = [];
@@ -182,10 +195,9 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     // Too big to read in full: what we did not read may hold the change, so
     // assume it does. Pull content if the content file lives under it, and
     // reload the page (in single-file mode, the page itself).
-    if (seen > ANNOUNCE_MAX || stack.length) {
-      if (holdsContent) found.content ??= contentRel;
-      found.reload ??= entry || path.relative(webRoot, dir) || '.';
-    }
+    // Too big to read in full, or a replacement that brought nothing (what it
+    // replaced is gone): assume the change mattered.
+    if (seen > ANNOUNCE_MAX || stack.length || (replaced && !found.content && !found.reload && !found.css.length)) return whole(dir);
     if (found.content) changed(found.content, 'content');
     if (found.reload) changed(found.reload, 'reload');
     else for (const r of found.css) changed(r, 'css');

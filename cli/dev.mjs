@@ -293,10 +293,23 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
     const url = new URL(req.url, 'http://localhost');
     const p = decodeURIComponent(url.pathname);
     try {
-      if (hub && p === '/api/live') return hub.handle(req, res);
+      if (hub && p === '/api/live') {
+        if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); return res.end(); }
+        return hub.handle(req, res);
+      }
       if (hub && p === '/__plater/live.js') {
         res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
         return res.end(handlers.live.LIVE_CLIENT);
+      }
+      // Single-file mode serves that page and the assets it can load, and
+      // nothing else: no neighbouring page or file, and none of the site APIs
+      // either, since the folder around a loose file (~/Downloads) is not a
+      // site. `platercms dev ~/Downloads/invoice.html` must not publish the
+      // rest of ~/Downloads. / is the page itself.
+      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) }); return res.end(); }
+      if (entry && !singleFileServes(p, entry)) {
+        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+        return res.end('not part of this page');
       }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
@@ -352,14 +365,6 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
-      // Single-file mode serves that page and the assets it can load, not its
-      // neighbours: `platercms dev ~/Downloads/invoice.html` must not publish
-      // the rest of ~/Downloads.
-      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) }); return res.end(); }
-      if (entry && !singleFileServes(p, entry)) {
-        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-        return res.end('not part of this page');
-      }
       if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? handlers.live.injectLiveClient : null, cacheControl: 'no-cache' })) return;
       // A loose folder or a single file has no index.html: open the file that
       // was asked for, or list the pages.

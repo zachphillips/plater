@@ -2204,9 +2204,12 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     for (const [k, t] of liveOwn) if (t <= now) liveOwn.delete(k);   // prune expired records
     if (url) liveOwn.set(livePath(url), now + 5000);
     if (liveUploads > 0) return;
-    const own = url ? livePath(url) : null;
-    const others = [...liveHeld].filter((k) => k !== own);
-    if (own && liveHeld.has(own)) liveOwn.delete(own);   // its echo already came; a later change is someone else's
+    // Every upload this tab made in the meantime is its own, not only the last.
+    const others = [];
+    for (const k of liveHeld) {
+      if (liveOwn.get(k) > now) liveOwn.delete(k);        // its echo already came; a later change is someone else's
+      else others.push(k);
+    }
     liveHeld.clear();
     if (!others.length || live === false) return;
     if (window.__platerCoreLive?.dirty()) setStatus('This page changed on the server — save, then reload to see it.');
@@ -2229,7 +2232,9 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     try {
       const r = await fetch(`${apiBase}/live`, { cache: 'no-store', signal: ctrl?.signal });
       ctrl?.abort();
-      return r.status === 404 || r.status === 405;
+      if (r.status === 404 || r.status === 405 || r.redirected) return true;
+      // A static host's catch-all answers 200 with an HTML page: no stream here.
+      return r.ok && !/text\/event-stream/i.test(r.headers.get('content-type') || '');
     } catch {
       return false;
     }

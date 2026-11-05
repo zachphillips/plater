@@ -75,6 +75,23 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   const dirs = new Map();          // absolute dir -> { w, ino, birth }
   const extra = [];
   let shallow = false;
+  // A folder's parent is watched to see the folder itself swapped. The web
+  // root and an outside content folder can share a parent, so one watcher per
+  // parent folder serves every name under it.
+  const parents = new Map();               // parent folder -> handlers
+  function onParent(dir, fn) {
+    let fns = parents.get(dir);
+    if (!fns) {
+      fns = [];
+      try {
+        const w = fs.watch(dir, (evt, n) => { for (const f of fns) f(evt, n); });
+        w.on('error', () => {});
+        extra.push(w);
+      } catch { return; }
+      parents.set(dir, fns);
+    }
+    fns.push(fn);
+  }
   // A generation that every change advances. plater dev stamps it into the
   // page it serves and greets each stream with the current one, so a page can
   // tell whether something changed between its load and its stream opening (or
@@ -253,14 +270,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     watchTree(top, 'walk');
     // That folder itself can be replaced (a checkout that swaps it); nothing
     // inside it can see that, so watch its parent for its name.
-    try {
-      const name = path.basename(top);
-      const w = fs.watch(path.dirname(top), (_evt, n) => {
-        if (n && String(n) === name && watchTree(top)) { if (entry) changed(entry, 'reload'); else announce(top); }
-      });
-      w.on('error', () => {});
-      extra.push(w);
-    } catch {}
+    const name = path.basename(top);
+    onParent(path.dirname(top), (_evt, n) => {
+      if (n && String(n) === name && watchTree(top)) { if (entry) changed(entry, 'reload'); else announce(top); }
+    });
   }
   // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere):
   // watch just that file's folder, through the same debounce, content only.
@@ -280,10 +293,12 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
           if (!name || /\.json$/i.test(String(name))) return changed(contentRel, 'content');
           if (level >= 2) return;
           const abs = path.join(dir, String(name));
+          const was = ext.has(abs);
           drop(abs);                          // gone or replaced: forget the old one
           let isDir = false;
           try { isDir = fs.statSync(abs).isDirectory(); } catch {}
           if (isDir && !SKIP_DIR(String(name))) { armExt(abs, level + 1); changed(contentRel, 'content'); }
+          else if (was) changed(contentRel, 'content');   // a draft folder deleted or moved away
         });
         w.on('error', () => { try { w.close(); } catch {} if (ext.get(dir) === w) ext.delete(dir); });
         ext.set(dir, w);
@@ -307,12 +322,8 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     };
     arm();
     extra.push({ close: () => drop(cdir) });
-    try {
-      const name = path.basename(cdir);
-      const pw = fs.watch(path.dirname(cdir), (_evt, n2) => { if (n2 && String(n2) === name && arm()) changed(contentRel, 'content'); });
-      pw.on('error', () => {});
-      extra.push(pw);
-    } catch {}
+    const cname = path.basename(cdir);
+    onParent(path.dirname(cdir), (_evt, n2) => { if (n2 && String(n2) === cname && arm()) changed(contentRel, 'content'); });
   }
 
   const beat = setInterval(() => send(': ping\n\n'), heartbeatMs);
@@ -342,6 +353,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     emit,
     clients: () => clients.size,
     watched: () => dirs.size,
+    parents: () => parents.size,
     gen,
     close() {
       closed = true;

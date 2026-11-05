@@ -511,3 +511,27 @@ test('a content folder outside the web root streams its alternates and draft ove
   assert.ok(await until(() => count() > before), 'a draft track created after start');
   hub.close();
 });
+
+test('deleting a draft folder beside an outside content file streams content', async () => {
+  const dir = site();
+  const ext = tmp('ext-del');
+  fs.mkdirSync(path.join(ext, 'versions', 'spring'), { recursive: true });
+  fs.writeFileSync(path.join(ext, 'versions', 'spring', 'site.json'), '{}');
+  fs.writeFileSync(path.join(ext, 'site.json'), '{}');
+  const { hub, events } = hubOn(dir, { contentPath: path.join(ext, 'site.json') });
+  await sleep(50);
+  fs.renameSync(path.join(ext, 'versions', 'spring'), path.join(tmp('gone'), 'spring'));
+  assert.ok(await until(() => events().some((e) => e.type === 'content')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('the web root and an outside content folder that share a parent share one parent watcher', () => {
+  const parent = tmp('shared-parent');
+  const web = path.join(parent, 'web');
+  fs.mkdirSync(web);
+  fs.mkdirSync(path.join(parent, 'content'));
+  fs.writeFileSync(path.join(parent, 'content', 'site.json'), '{}');
+  const { hub } = hubOn(web, { contentPath: path.join(parent, 'content', 'site.json') });
+  assert.equal(hub.parents(), 1);
+  hub.close();
+});

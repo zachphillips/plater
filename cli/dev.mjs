@@ -53,6 +53,7 @@ export function findWebRoot(dir) {
 export function singleFileServes(pathname, entry) {
   const rel = String(pathname).replace(/^\/+/, '');
   if (rel === entry) return true;
+  if (rel.startsWith('packages/')) return false;        // serveStatic maps /packages/ to Plater's own repo, not the page's folder
   const segs = rel.split('/');
   if (segs.some((seg) => seg.startsWith('.'))) return false;
   if (segs.length - 1 > SINGLE_DEPTH) return false;     // deeper than the watcher follows
@@ -377,7 +378,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
           res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' });
           const list = pages.map((n) => `<li><a href="/${encodeURIComponent(n)}">${esc(n)}</a></li>`).join('');
           const html = `<!doctype html><meta charset="utf-8"><title>${esc(path.basename(webRoot))}</title><body style="font:15px system-ui;margin:32px"><ul>${list}</ul></body>`;
-          return res.end(hub ? handlers.live.injectLiveClient(html) : html);
+          return res.end(hub ? handlers.live.injectLiveClient(html, hub.gen()) : html);
         }
       }
       const [rq, rs] = shim(req, res, url);

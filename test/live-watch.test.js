@@ -459,3 +459,32 @@ test('a client that stopped reading is dropped instead of buffered for', async (
   assert.ok(stalled.destroyed);
   hub.close();
 });
+
+test('single-file mode never serves Plater\'s own package files', () => {
+  assert.equal(singleFileServes('/packages/server-node/live.js', 'invoice.html'), false);
+});
+
+test('the content folder is watched first, so a big asset tree cannot use up the cap before it', async () => {
+  const dir = site();
+  for (let i = 0; i < 6; i++) fs.mkdirSync(path.join(dir, 'aaa', `d${i}`), { recursive: true });
+  const { hub, events } = hubOn(dir, { maxDirs: 3, log: { warn() {} } });
+  await sleep(50);
+  fs.writeFileSync(path.join(dir, 'content', 'site.json'), '{"n":1}');
+  assert.ok(await until(() => events().some((e) => e.type === 'content')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('the generated list of loose pages is stamped with the generation too', async () => {
+  const dir = tmp('listing');
+  fs.writeFileSync(path.join(dir, 'a.html'), '<p>a</p>');
+  fs.writeFileSync(path.join(dir, 'b.html'), '<p>b</p>');
+  const prev = process.cwd();
+  const { server, port } = await startDev(dir, { port: 4782 });
+  try {
+    const html = await (await fetch(`http://127.0.0.1:${port}/`)).text();
+    assert.match(html, /\/__plater\/live\.js\?v=/);
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});

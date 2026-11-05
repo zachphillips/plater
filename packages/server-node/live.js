@@ -69,7 +69,7 @@ export function classify(rel, contentRel) {
  *   assets beside it (ASSET_EXT), so sibling pages never reload it.
  * @returns {{ handle(req, res): void, close(): void, clients: () => number, watched: () => number, emit(type, data): void }}
  */
-export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, entry = null, log = console }) {
+export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, maxDirs = MAX_DIRS, entry = null, log = console }) {
   const clients = new Set();
   const pending = new Map();
   const dirs = new Map();          // absolute dir -> { w, ino, birth }
@@ -123,7 +123,11 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
 
   // Returns true when it armed a folder that was not being watched as it is now
   // (new, or replaced by git checkout / an atomic folder swap).
-  function watchTree(dir) {
+  // mode: 'deep' arms a folder and every folder under it (a new or replaced
+  // folder); 'self' arms just the folder; 'walk' is the first pass over the
+  // tree, which also descends into folders that were armed ahead of it.
+  let capWarned = false;
+  function watchTree(dir, mode = 'deep') {
     if (closed) return false;
     let st;
     try { st = fs.statSync(dir); } catch { unwatch(dir); return false; }
@@ -131,11 +135,18 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     const have = dirs.get(dir);
     // Inodes are reused quickly on some filesystems (a delete then recreate can
     // get the same number back), so the birth time has to match too.
-    if (have && have.ino === st.ino && have.birth === st.birthtimeMs) return false;
+    if (have && have.ino === st.ino && have.birth === st.birthtimeMs) {
+      if (mode === 'walk') descend(dir, mode);
+      return false;
+    }
     if (have) unwatch(dir);                 // the folder was replaced: re-arm it
     if (entry && depth(dir) > SINGLE_DEPTH) return false;   // single-file mode: the page's folder and its shallow asset folders
     if (shallow && dir !== webRoot) return false;            // serve, content file at the web root: that folder only
-    if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
+    if (dirs.size >= maxDirs) {
+      if (!capWarned) warn(`more than ${maxDirs} folders under ${webRoot}; live reload is watching only the first ${maxDirs}`);
+      capWarned = true;
+      return false;
+    }
     try {
       const w = fs.watch(dir, (evt, name) => {
         // Node may give no file name on some platforms and filesystems. Then we
@@ -168,10 +179,13 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
       warn(`cannot watch ${dir}`, e);
       return false;
     }
+    if (mode !== 'self') descend(dir, mode);
+    return true;
+  }
+  function descend(dir, mode) {
     let names = [];
     try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch {}
-    for (const d of names) if (d.isDirectory() && !SKIP_DIR(d.name)) watchTree(path.join(dir, d.name));
-    return true;
+    for (const d of names) if (d.isDirectory() && !SKIP_DIR(d.name)) watchTree(path.join(dir, d.name), mode);
   }
 
   // A folder that appeared whole (or changed with no file name): its files fired
@@ -227,7 +241,16 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
   const top = !contentOnly ? webRoot : contentRel.startsWith('..') ? null : path.dirname(contentPath);
   shallow = contentOnly && top === webRoot;
   if (top) {
-    watchTree(top);
+    // On a big site the folder cap could be spent on asset folders before the
+    // walk reaches content/, so the content folder (and the folders above it,
+    // which must be watched to see it swapped) is armed first.
+    if (top === webRoot && !entry && !contentRel.startsWith('..')) {
+      const chain = [];
+      for (let d = path.dirname(contentPath); d.startsWith(webRoot + path.sep); d = path.dirname(d)) chain.unshift(d);
+      watchTree(webRoot, 'self');
+      chain.forEach((d, i) => watchTree(d, i === chain.length - 1 ? 'deep' : 'self'));
+    }
+    watchTree(top, 'walk');
     // That folder itself can be replaced (a checkout that swaps it); nothing
     // inside it can see that, so watch its parent for its name.
     try {

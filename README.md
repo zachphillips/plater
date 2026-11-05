@@ -414,12 +414,16 @@ How it travels:
   coalesced) and injects a small client into **every HTML page it serves**, so
   pages with no Plater editor at all also get it: a deck, a mail piece, a
   one-file invoice. Run `platercms dev ./decks/my-deck`, a folder of loose HTML
-  pages, or a single `invoice.html`, and the open tab follows its files. The
-  client stays off under automation (`navigator.webdriver`, `?shot`, `?print`)
-  so headless screenshots and PDFs settle.
+  pages, or a single `invoice.html`, and the open tab follows its files. A
+  single file is served and watched on its own: the page plus the stylesheets,
+  scripts, images and fonts beside it, never the folder's other pages or
+  documents. The client stays off under automation (`navigator.webdriver`,
+  `?shot`, `?print`) so headless screenshots and PDFs settle.
 - **`platercms serve`** streams content changes only (no file names, at most
   64 open streams) and injects nothing. The editor subscribes on its own while
-  someone is editing.
+  someone is editing, including when they sign in after the page loaded. If the
+  stream is briefly unavailable (the cap, a restarting server) it retries with
+  backoff; only a 404 stops it.
 - **Vercel and other static hosts** have no long-lived process to watch from,
   so there is no live reload there. The editor does not poll instead: on
   Vercel `/api/content` serves the deployed snapshot, which lags each save

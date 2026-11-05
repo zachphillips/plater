@@ -34,7 +34,14 @@ export function classify(rel, contentRel) {
   if (parts.some((p) => p.startsWith('.') || p === 'node_modules')) return null;
   const ext = path.extname(rel).toLowerCase();
   const contentDir = path.dirname(contentRel);
-  const underContent = contentDir === '.' || rel === contentRel || rel.startsWith(contentDir + path.sep) || rel.startsWith(contentDir + '/');
+  const top = (r) => !/[\\/]/.test(r);
+  // Content lives in the content file's folder: the file, ?file= alternates
+  // beside it, and versions/<track>/ draft overlays. When that folder is the
+  // web root itself, only top-level .json and versions/ count; any other .json
+  // deeper in the site is an asset and reloads like one.
+  const underContent = rel === contentRel || (contentDir === '.'
+    ? top(rel) || /^versions[\\/]/.test(rel)
+    : rel.startsWith(contentDir + path.sep) || rel.startsWith(contentDir + '/'));
   if (ext === '.json' && underContent) return 'content';
   if (ext === '.css') return 'css';
   if (['.html', '.htm', '.js', '.mjs', '.json', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.woff2'].includes(ext)) return 'reload';
@@ -46,9 +53,12 @@ export function classify(rel, contentRel) {
  * outside the web root) and fan changes out to every connected /api/live client.
  * contentOnly: emit only `content` events and no file names (plater serve, where
  *   the stream is public and draft names and uploads are nobody's business).
+ * entry: single-file mode (`platercms dev invoice.html`). Watch only the file's
+ *   own folder, not its subfolders, and stream only the page itself and the
+ *   stylesheets and scripts beside it, so sibling pages never reload it.
  * @returns {{ handle(req, res): void, close(): void, clients: () => number, watched: () => number, emit(type, data): void }}
  */
-export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, log = console }) {
+export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, heartbeatMs = HEARTBEAT_MS, contentOnly = false, maxClients = MAX_CLIENTS, entry = null, log = console }) {
   const clients = new Set();
   const pending = new Map();
   const dirs = new Map();          // absolute dir -> { w, ino }
@@ -65,6 +75,7 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
 
   function changed(rel, type = classify(rel, contentRel)) {
     if (!rel || !type) return;
+    if (entry && rel !== entry && !/\.(css|m?js)$/i.test(rel)) return;
     clearTimeout(pending.get(rel));
     pending.set(rel, setTimeout(() => { pending.delete(rel); emit(type, rel.split(path.sep).join('/')); }, debounceMs));
   }
@@ -75,33 +86,62 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     }
   }
 
+  // Returns true when it armed a folder that was not being watched as it is now
+  // (new, or replaced by git checkout / an atomic folder swap).
   function watchTree(dir) {
-    if (closed) return;
+    if (closed) return false;
     let st;
-    try { st = fs.statSync(dir); } catch { return unwatch(dir); }
-    if (!st.isDirectory()) return;
+    try { st = fs.statSync(dir); } catch { unwatch(dir); return false; }
+    if (!st.isDirectory()) return false;
     const have = dirs.get(dir);
-    if (have && have.ino === st.ino) return;
+    if (have && have.ino === st.ino) return false;
     if (have) unwatch(dir);                 // the folder was replaced: re-arm it
-    if (dirs.size >= MAX_DIRS) return warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`);
+    if (entry && dir !== webRoot) return false;   // single-file mode: the page's own folder only
+    if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
     try {
       const w = fs.watch(dir, (_evt, name) => {
         if (!name) return;
         const abs = path.join(dir, String(name));
         changed(path.relative(webRoot, abs));
-        if (!SKIP_DIR(String(name))) watchTree(abs);   // a new or recreated subfolder
+        // A new or replaced subfolder arrives already full (git checkout, a
+        // folder swapped in whole): its files fire no events of their own, so
+        // announce what it brought.
+        if (!SKIP_DIR(String(name)) && watchTree(abs)) announce(abs);
       });
       w.on('error', (e) => { dirs.delete(dir); try { w.close(); } catch {} if (e.code !== 'EPERM') warn(`stopped watching ${dir}`, e); });
       dirs.set(dir, { w, ino: st.ino });
     } catch (e) {
-      return warn(`cannot watch ${dir}`, e);
+      warn(`cannot watch ${dir}`, e);
+      return false;
     }
     let names = [];
     try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch {}
     for (const d of names) if (d.isDirectory() && !SKIP_DIR(d.name)) watchTree(path.join(dir, d.name));
+    return true;
+  }
+
+  // A folder that appeared whole: content if the content file lives in it,
+  // otherwise the classified type of the first page-relevant file it holds.
+  function announce(dir) {
+    const rel = path.relative(webRoot, dir);
+    if (contentRel === rel || contentRel.startsWith(rel + path.sep)) return changed(contentRel, 'content');
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch {}
+    const hit = names.map((n) => path.join(rel, n)).find((r) => classify(r, contentRel));
+    if (hit) changed(hit);
   }
 
   watchTree(webRoot);
+  // The web root itself can be replaced (a checkout that swaps the folder);
+  // nothing inside it can see that, so watch its parent for its name.
+  try {
+    const name = path.basename(webRoot);
+    const w = fs.watch(path.dirname(webRoot), (_evt, n) => {
+      if (n && String(n) === name && watchTree(webRoot)) { if (entry) changed(entry, 'reload'); else announce(webRoot); }
+    });
+    w.on('error', () => {});
+    extra.push(w);
+  } catch {}
   // A content file outside the web root (GITHUB_EDIT_PATH pointing elsewhere):
   // watch just that file's folder, through the same debounce, content only.
   if (contentRel.startsWith('..')) {
@@ -176,15 +216,15 @@ export const LIVE_CLIENT = `(() => {
   es.addEventListener('content', () => (core() ? core().pull() : reload()));
   es.addEventListener('reload', reload);
   es.addEventListener('css', (ev) => {
-    const name = String(ev.data || '').split('/').pop();
-    let hit = false;
-    document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => {
-      const u = new URL(l.href, location.href);
-      if (name && u.pathname.split('/').pop() !== name) return;
-      u.searchParams.set('plater-live', Date.now().toString(36));
-      l.href = u.toString(); hit = true;
-    });
-    if (!hit) reload();
+    // Match the changed path (relative to the web root, served at /) against
+    // same-origin stylesheets; fall back to the file name only if none match.
+    const rel = String(ev.data || '').replace(/^\\/+/, '');
+    const links = [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .map((l) => ({ l, u: new URL(l.href, location.href) })).filter(({ u }) => u.origin === location.origin);
+    let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\\/+/, '') === rel);
+    if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
+    hits.forEach(({ l, u }) => { u.searchParams.set('plater-live', Date.now().toString(36)); l.href = u.toString(); });
+    if (!hits.length) reload();
   });
 })();
 `;

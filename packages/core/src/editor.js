@@ -217,6 +217,7 @@ export function initZMS(options = {}) {
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
   let EDITING = false;
+  let liveStarted = false;  // startLive runs once, from boot or from entering edit mode
   let googleReady = false;
   let googleButtonRendered = false;
   let googlePromptPromise = null;
@@ -631,6 +632,7 @@ export function initZMS(options = {}) {
   function setEditable(on) {
     const was = EDITING;
     EDITING = on;
+    if (on) startLive();      // signing in after boot turns live updates on too
     if (on !== was) TOUCHED = false;
     document.body.classList.toggle('cms-editing', on);
     setChrome(on);
@@ -2121,41 +2123,69 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     }
   }
 
+
   function startLive() {
-    if (!liveWanted() || typeof window === 'undefined' || typeof setInterval !== 'function') return;
+    if (liveStarted || !liveWanted() || typeof window === 'undefined' || typeof setInterval !== 'function') return;
+    liveStarted = true;
     window.__platerCoreLive = { pull: pullRemote, dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()) };
     if (window.__platerLive) return;                      // the injected dev client owns the stream
     window.__platerLive = 'core';
-    let opened = false;
     if (typeof EventSource !== 'function') return;
-    const es = new EventSource(`${apiBase}/live`);
-    // After a dropped stream reconnects, catch up on whatever changed meanwhile.
-    es.addEventListener('open', () => { if (opened) pullRemote(); opened = true; });
-    es.addEventListener('content', () => pullRemote());
-    es.addEventListener('css', (ev) => swapCss(ev.data));
-    es.addEventListener('reload', () => {
-      if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
-      location.reload();
-    });
-    // No stream here (a static or serverless host answers 404): stop. There is
-    // deliberately no polling fallback. On Vercel /api/content serves the
-    // deployed snapshot, which lags every save until the redeploy, so a poll
-    // would roll the page back to it and the next save would commit the revert.
-    // A stream that opened and dropped is left to EventSource's own reconnect.
-    es.addEventListener('error', () => { if (!opened) es.close(); });
+    let opened = false, retryMs = 5000;
+    const connect = () => {
+      const es = new EventSource(`${apiBase}/live`);
+      // After a dropped stream reconnects, catch up on whatever changed meanwhile.
+      es.addEventListener('open', () => { if (opened) pullRemote(); opened = true; retryMs = 5000; });
+      es.addEventListener('content', () => pullRemote());
+      es.addEventListener('css', (ev) => swapCss(ev.data));
+      es.addEventListener('reload', () => {
+        if (window.__platerCoreLive.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
+        location.reload();
+      });
+      // A stream that opened and dropped is left to EventSource's own reconnect.
+      // One that never opened is either a host with no stream (a static or
+      // serverless host answers 404: stop for good, and do NOT poll instead;
+      // on Vercel /api/content serves the deployed snapshot, which lags every
+      // save, so a poll would roll the page back and the next save would commit
+      // the revert) or a passing failure (the hub's 503 connection cap, a proxy
+      // hiccup, a restarting server): ask which, and retry with backoff.
+      es.addEventListener('error', () => {
+        if (opened) return;
+        es.close();
+        liveProbe().then((permanent) => {
+          if (permanent) return;
+          setTimeout(connect, retryMs);
+          retryMs = Math.min(retryMs * 2, 60000);
+        });
+      });
+    };
+    connect();
   }
 
+  // Is /api/live missing on this host for good? Only a 404 or 405 says so;
+  // anything else (a 503 cap, a network error) is worth another try.
+  async function liveProbe() {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    try {
+      const r = await fetch(`${apiBase}/live`, { cache: 'no-store', signal: ctrl?.signal });
+      ctrl?.abort();
+      return r.status === 404 || r.status === 405;
+    } catch {
+      return false;
+    }
+  }
+
+  // Cache-bust the stylesheet that changed. Match the changed path (relative
+  // to the web root, which plater serves at /) against same-origin stylesheet
+  // paths first; fall back to the file name only when no full path matches.
   function swapCss(changed) {
-    const name = String(changed || '').split('/').pop();
-    let hit = false;
-    $$('link[rel="stylesheet"]').forEach((l) => {
-      const u = new URL(l.href, location.href);
-      if (name && u.pathname.split('/').pop() !== name) return;
-      u.searchParams.set('plater-live', Date.now().toString(36));
-      l.href = u.toString();
-      hit = true;
-    });
-    if (!hit && !window.__platerCoreLive?.dirty()) location.reload();
+    const rel = String(changed || '').replace(/^\/+/, '');
+    const links = $$('link[rel="stylesheet"]').map((l) => ({ l, u: new URL(l.href, location.href) }))
+      .filter(({ u }) => u.origin === location.origin);
+    let hits = links.filter(({ u }) => decodeURIComponent(u.pathname).replace(/^\/+/, '') === rel);
+    if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
+    for (const { l, u } of hits) { u.searchParams.set('plater-live', Date.now().toString(36)); l.href = u.toString(); }
+    if (!hits.length && !window.__platerCoreLive?.dirty()) location.reload();
   }
 
   async function boot() {

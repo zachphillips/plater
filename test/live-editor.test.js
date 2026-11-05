@@ -16,7 +16,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function page({ search = '?edit', stream = true, devNoauth = true } = {}) {
+function page({ search = '?edit', stream = true, devNoauth = true, liveStatus = 404, links = [] } = {}) {
   let server = { title: 'Invoice', total: '$100' };
   const els = new Map();
   const node = (id = '') => ({
@@ -32,28 +32,31 @@ function page({ search = '?edit', stream = true, devNoauth = true } = {}) {
   const bound = [title, total];
   const sources = [];
   const intervals = [];
+  const retries = [];      // long timers (stream retry backoff), held instead of run
+  const timer = (fn, ms) => (ms >= 5000 ? (retries.push({ fn, ms }), 0) : setTimeout(fn, ms));
   class FakeEventSource {
     constructor(url) { this.url = url; this.on = {}; sources.push(this); queueMicrotask(() => (stream ? this.fire('open') : this.fire('error'))); }
     addEventListener(t, fn) { (this.on[t] ||= []).push(fn); }
     fire(t, data) { for (const fn of this.on[t] || []) fn({ data }); }
     close() { this.closed = true; }
   }
-  const window = { setTimeout, clearTimeout, addEventListener() {}, removeEventListener() {}, confirm: () => true, innerHeight: 800, getSelection: () => null };
+  const window = { setTimeout: timer, clearTimeout, addEventListener() {}, removeEventListener() {}, confirm: () => true, innerHeight: 800, getSelection: () => null };
   const ctx = vm.createContext({
     window, URLSearchParams, URL, atob, Response, queueMicrotask, CustomEvent: class { constructor(t, o) { this.type = t; this.detail = o?.detail; } },
     document: {
       readyState: 'complete', body: node(), head: node(), visibilityState: 'visible', activeElement: null,
       querySelector: (s) => (s.startsWith('#') ? els.get(s.slice(1)) || null : null),
-      querySelectorAll: (s) => (s === '[data-bind]' || s === '[data-path]' ? bound : []),
+      querySelectorAll: (s) => (s === '[data-bind]' || s === '[data-path]' ? bound : s === 'link[rel="stylesheet"]' ? links : []),
       getElementById: (id) => els.get(id) || null, createElement: () => node(), addEventListener() {}, dispatchEvent() {},
     },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
-    location: { search, pathname: '/', hostname: 'invoices.example.test', href: 'https://invoices.example.test/' + search, reload() { ctx.reloaded = true; } },
-    setTimeout, clearTimeout, setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },
+    location: { search, pathname: '/', origin: 'https://invoices.example.test', hostname: 'invoices.example.test', href: 'https://invoices.example.test/' + search, reload() { ctx.reloaded = true; } },
+    setTimeout: timer, clearTimeout, setInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },
     EventSource: FakeEventSource,
     console: { warn() {}, error() {} },
     fetch: async (url, opts = {}) => {
       if (url.endsWith('/config')) return json({ editable: true, devNoauth });
+      if (url.endsWith('/live')) return json({}, liveStatus);
       if (url.includes('/content')) return json(JSON.stringify(server));
       if (url.includes('/versions') || url.includes('/review')) return json({}, 404);
       if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content, updatedAt: new Date(0).toISOString(), updatedBy: 'dev' }; return json({ ok: true }); }
@@ -63,7 +66,7 @@ function page({ search = '?edit', stream = true, devNoauth = true } = {}) {
   vm.runInContext(source, ctx);
   const editor = ctx.initPlater({ tokenKey: 'live.test' });
   return {
-    editor, ctx, title, total, sources, intervals,
+    editor, ctx, title, total, sources, intervals, retries,
     set server(v) { server = v; },
     async boot() { await editor.test.boot(); await drain(); },
   };
@@ -102,8 +105,44 @@ test("this tab's unsaved field survives another editor's change to a different f
 test('a host with no stream (Vercel) closes it and does not poll a stale snapshot', async () => {
   const p = page({ stream: false });
   await p.boot();
+  await drain();
   assert.ok(p.sources[0].closed, 'the dead stream is closed');
   assert.equal(p.intervals.length, 0, 'no polling: on Vercel /api/content lags every save');
+  assert.equal(p.retries.length, 0, 'a 404 is permanent: no retry');
+});
+
+test('a passing failure (the 503 connection cap) retries with backoff instead of giving up', async () => {
+  const p = page({ stream: false, liveStatus: 503 });
+  await p.boot();
+  await drain();
+  assert.equal(p.retries.length, 1);
+  assert.equal(p.retries[0].ms, 5000);
+  p.retries[0].fn();
+  await drain();
+  assert.equal(p.sources.length, 2, 'it reconnected');
+  assert.equal(p.retries[1].ms, 10000, 'and backs off');
+});
+
+test('signing in after boot starts live updates', async () => {
+  const p = page({ search: '', devNoauth: false });
+  await p.boot();
+  assert.equal(p.sources.length, 0);
+  p.editor.setEditable(true);
+  assert.equal(p.sources.length, 1, 'entering edit mode opened the stream');
+  p.editor.setEditable(false);
+  p.editor.setEditable(true);
+  assert.equal(p.sources.length, 1, 'and only once');
+});
+
+test('a stylesheet change cache-busts that path only, not another file with the same name', async () => {
+  const link = (href) => ({ href: 'https://invoices.example.test' + href });
+  const mobile = link('/theme/mobile/main.css'), desktop = link('/theme/desktop/main.css');
+  const p = page({ links: [mobile, desktop] });
+  await p.boot();
+  p.sources[0].fire('css', 'theme/desktop/main.css');
+  assert.match(desktop.href, /plater-live=/);
+  assert.doesNotMatch(mobile.href, /plater-live=/);
+  assert.ok(!p.ctx.reloaded);
 });
 
 test('our own save echoing back with updatedAt/updatedBy stamps does not re-render', async () => {

@@ -129,3 +129,82 @@ test('plater dev lists a folder of loose pages with no index.html', async () => 
     process.chdir(prev);
   }
 });
+
+test('a content folder swapped in whole (already holding a new site.json) streams content', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const next = path.join(dir, 'content.next');
+  fs.mkdirSync(next);
+  fs.writeFileSync(path.join(next, 'site.json'), '{"swapped":true}');
+  fs.rmSync(path.join(dir, 'content'), { recursive: true });
+  fs.renameSync(next, path.join(dir, 'content'));
+  assert.ok(await until(() => events().some((e) => e.type === 'content' && e.data === 'content/site.json')), JSON.stringify(events()));
+  hub.close();
+});
+
+test('a replaced web root is re-armed and announced', async () => {
+  const parent = tmp('rootswap');
+  const dir = path.join(parent, 'site');
+  fs.mkdirSync(path.join(dir, 'content'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'content', 'site.json'), '{}');
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const next = path.join(parent, 'site.next');
+  fs.mkdirSync(path.join(next, 'content'), { recursive: true });
+  fs.writeFileSync(path.join(next, 'content', 'site.json'), '{"v":2}');
+  fs.rmSync(dir, { recursive: true });
+  fs.renameSync(next, dir);
+  assert.ok(await until(() => events().some((e) => e.type === 'content')), 'the swap itself was announced');
+  const before = events().length;
+  fs.writeFileSync(path.join(dir, 'content', 'site.json'), '{"v":3}');
+  assert.ok(await until(() => events().length > before), 'and later writes still stream');
+  hub.close();
+});
+
+test('single-file mode streams only the page and its stylesheets, never a sibling page', async () => {
+  const dir = tmp('single');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i</p>');
+  fs.writeFileSync(path.join(dir, 'other.html'), '<p>o</p>');
+  fs.writeFileSync(path.join(dir, 'page.css'), 'a{}');
+  fs.mkdirSync(path.join(dir, 'Projects', 'deep'), { recursive: true });
+  const { hub, events } = hubOn(dir, { entry: 'invoice.html' });
+  assert.equal(hub.watched(), 1, 'the folder only, not its subfolders');
+  fs.writeFileSync(path.join(dir, 'other.html'), '<p>o2</p>');
+  fs.writeFileSync(path.join(dir, 'page.css'), 'b{}');
+  assert.ok(await until(() => events().some((e) => e.type === 'css')));
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i2</p>');
+  assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'invoice.html')));
+  assert.ok(!events().some((e) => e.data === 'other.html'), JSON.stringify(events()));
+  hub.close();
+});
+
+test('single-file dev serves the page and its assets but not the rest of the folder', async () => {
+  const dir = tmp('scope');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<link rel="stylesheet" href="page.css"><p>i</p>');
+  fs.writeFileSync(path.join(dir, 'page.css'), 'a{}');
+  fs.writeFileSync(path.join(dir, 'other.html'), '<p>private</p>');
+  fs.writeFileSync(path.join(dir, 'bank.json'), '{}');
+  fs.writeFileSync(path.join(dir, 'statement.pdf'), '%PDF');
+  const prev = process.cwd();
+  const { server, port } = await startDev(path.join(dir, 'invoice.html'), { port: 4760 });
+  try {
+    const st = async (p) => (await fetch(`http://127.0.0.1:${port}${p}`)).status;
+    assert.equal(await st('/invoice.html'), 200);
+    assert.equal(await st('/page.css'), 200);
+    assert.equal(await st('/other.html'), 404);
+    assert.equal(await st('/bank.json'), 404);
+    assert.equal(await st('/statement.pdf'), 404);
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});
+
+test('a root-level content file does not turn every .json in the site into content', async () => {
+  const { classify } = await import('../packages/server-node/live.js');
+  assert.equal(classify('site.json', 'site.json'), 'content');
+  assert.equal(classify('alt.json', 'site.json'), 'content');
+  assert.equal(classify(path.join('versions', 'launch', 'site.json'), 'site.json'), 'content');
+  assert.equal(classify(path.join('data', 'prices.json'), 'site.json'), 'reload');
+});

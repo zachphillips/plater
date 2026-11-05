@@ -2108,6 +2108,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       if (EDITING && TOUCHED) collectEdits();
       // Replay this tab's unsaved fields — only the ones that still differ.
       const mine = changedPaths(JSON.parse(SAVED), CONTENT).filter(Boolean)
+        .filter((p) => !LIVE_STAMP.includes(p))      // the stamps are theirs now
         .filter((p) => JSON.stringify(getPath(fresh, p)) !== JSON.stringify(getPath(CONTENT, p)));
       for (const p of mine) setPath(fresh, p, getPath(CONTENT, p));
       const mark = caretMark();

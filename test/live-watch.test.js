@@ -9,7 +9,8 @@ import path from 'node:path';
 import http from 'node:http';
 import test from 'node:test';
 import { createLiveHub } from '../packages/server-node/live.js';
-import { startDev, serveStatic } from '../cli/dev.mjs';
+import { startDev, serveStatic, singleFileServes } from '../cli/dev.mjs';
+import { startServe } from '../cli/serve.mjs';
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `plater-${p}-`));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -167,9 +168,9 @@ test('single-file mode streams only the page and its stylesheets, never a siblin
   fs.writeFileSync(path.join(dir, 'invoice.html'), '<p>i</p>');
   fs.writeFileSync(path.join(dir, 'other.html'), '<p>o</p>');
   fs.writeFileSync(path.join(dir, 'page.css'), 'a{}');
-  fs.mkdirSync(path.join(dir, 'Projects', 'deep'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'Projects', 'a', 'b', 'c'), { recursive: true });
   const { hub, events } = hubOn(dir, { entry: 'invoice.html' });
-  assert.equal(hub.watched(), 1, 'the folder only, not its subfolders');
+  assert.equal(hub.watched(), 3, 'the folder and two levels of asset folders, not the deep tree');
   fs.writeFileSync(path.join(dir, 'other.html'), '<p>o2</p>');
   fs.writeFileSync(path.join(dir, 'page.css'), 'b{}');
   assert.ok(await until(() => events().some((e) => e.type === 'css')));
@@ -258,4 +259,47 @@ test('a folder swapped in whole announces what is nested in it, and a script out
   fs.renameSync(next, path.join(dir, 'assets'));
   assert.ok(await until(() => events().some((e) => e.type === 'reload' && e.data === 'assets/js/app.js')), JSON.stringify(events()));
   hub.close();
+});
+
+test('single-file mode serves and streams assets in shallow folders, nothing deeper', async () => {
+  const dir = tmp('single-nested');
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<link rel="stylesheet" href="css/main.css">');
+  fs.mkdirSync(path.join(dir, 'css'));
+  fs.writeFileSync(path.join(dir, 'css', 'main.css'), 'a{}');
+  const { hub, events } = hubOn(dir, { entry: 'invoice.html' });
+  fs.writeFileSync(path.join(dir, 'css', 'main.css'), 'b{}');
+  assert.ok(await until(() => events().some((e) => e.type === 'css' && e.data === 'css/main.css')), JSON.stringify(events()));
+  hub.close();
+  assert.equal(singleFileServes('/css/main.css', 'invoice.html'), true);
+  assert.equal(singleFileServes('/a/b/logo.png', 'invoice.html'), true);
+  assert.equal(singleFileServes('/a/b/c/logo.png', 'invoice.html'), false);
+});
+
+test('a folder whose name looks like a file is still re-armed when it is swapped in', async () => {
+  const dir = site();
+  const { hub, events } = hubOn(dir);
+  await sleep(50);
+  const next = tmp('themecss');
+  fs.writeFileSync(path.join(next, 'a.css'), 'a{}');
+  fs.renameSync(next, path.join(dir, 'theme.css'));
+  assert.ok(await until(() => events().some((e) => e.data === 'theme.css/a.css')), JSON.stringify(events()));
+  fs.writeFileSync(path.join(dir, 'theme.css', 'a.css'), 'b{}');
+  assert.ok(await until(() => events().filter((e) => e.data === 'theme.css/a.css').length >= 2), 'later writes inside it stream too');
+  hub.close();
+});
+
+test('plater serve mounts the content-only stream', async () => {
+  const dir = site();
+  const prev = process.cwd();
+  const { server, port } = await startServe(dir, { port: 4790 });
+  try {
+    const ctrl = new AbortController();
+    const r = await fetch(`http://127.0.0.1:${port}/api/live`, { signal: ctrl.signal });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type'), /text\/event-stream/);
+    ctrl.abort();
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
 });

@@ -30,9 +30,12 @@ export const MAX_CLIENTS = 64;
 // The asset types a page loads: stylesheets, scripts, images and fonts. One
 // list, so what plater dev serves in single-file mode, what that mode streams
 // and what reloads a page can never drift apart.
-export const ASSET_EXT = /\.(css|m?js|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf)$/i;
+export const ASSET_EXT = /\.(css|m?js|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf)$/i;
 // Names that are plainly files: no need to stat them to see if a folder appeared.
-const FILE_EXT = /\.(html?|css|m?js|json|md|txt|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|map|swp|tmp)$|~$/i;
+const FILE_EXT = /\.(html?|css|m?js|json|md|txt|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|map|swp|tmp)$|~$/i;
+// Single-file mode follows assets this many folders below the page (css/,
+// images/, assets/img/) and no deeper: what it serves, it also watches.
+export const SINGLE_DEPTH = 2;
 // How many entries a folder that arrived whole is searched for changes.
 const ANNOUNCE_MAX = 500;
 const SKIP_DIR = (name) => name.startsWith('.') || name === 'node_modules';
@@ -96,6 +99,8 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     pending.set(rel, setTimeout(() => { pending.delete(rel); emit(type, rel.split(path.sep).join('/')); }, debounceMs));
   }
 
+  const depth = (dir) => (dir === webRoot ? 0 : path.relative(webRoot, dir).split(path.sep).length);
+
   function unwatch(dir) {
     for (const [d, entry] of dirs) {
       if (d === dir || d.startsWith(dir + path.sep)) { try { entry.w.close(); } catch {} dirs.delete(d); }
@@ -114,10 +119,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
     // get the same number back), so the birth time has to match too.
     if (have && have.ino === st.ino && have.birth === st.birthtimeMs) return false;
     if (have) unwatch(dir);                 // the folder was replaced: re-arm it
-    if (entry && dir !== webRoot) return false;   // single-file mode: the page's own folder only
+    if (entry && depth(dir) > SINGLE_DEPTH) return false;   // single-file mode: the page's folder and its shallow asset folders
     if (dirs.size >= MAX_DIRS) { warn(`more than ${MAX_DIRS} folders under ${webRoot}; live reload is watching only the first ${MAX_DIRS}`); return false; }
     try {
-      const w = fs.watch(dir, (_evt, name) => {
+      const w = fs.watch(dir, (evt, name) => {
         // Node may give no file name on some platforms and filesystems. Then we
         // cannot tell what changed, so re-arm the folder's subfolders and
         // announce the whole folder, the same as one that arrived whole.
@@ -132,7 +137,10 @@ export function createLiveHub({ webRoot, contentPath, debounceMs = DEBOUNCE_MS, 
         // A new or replaced subfolder arrives already full (git checkout, a
         // folder swapped in whole): its files fire no events of their own, so
         // announce what it brought.
-        if (!SKIP_DIR(String(name)) && !FILE_EXT.test(String(name)) && watchTree(abs)) announce(abs);
+        // A plain 'change' to a name that looks like a file skips the stat; a
+        // 'rename' (something appeared or was swapped in) is always checked, so
+        // a folder called theme.css is still re-armed.
+        if (!SKIP_DIR(String(name)) && (evt === 'rename' || !FILE_EXT.test(String(name))) && watchTree(abs)) announce(abs);
       });
       w.on('error', (e) => { dirs.delete(dir); try { w.close(); } catch {} if (e.code !== 'EPERM') warn(`stopped watching ${dir}`, e); });
       dirs.set(dir, { w, ino: st.ino, birth: st.birthtimeMs });
@@ -268,6 +276,10 @@ export const LIVE_CLIENT = `(() => {
   const reload = (ev) => (mine(ev?.data) ? undefined : dirty() ? hold() : location.reload());
   const es = new EventSource('/api/live');
   const on = (type, fn) => es.addEventListener(type, (ev) => (off() ? es.close() : fn(ev)));
+  // Whatever changed while the stream was down (a dev server restart) sent no
+  // event, so a reconnect catches up: the editor pulls, a plain page reloads.
+  let opened = false;
+  on('open', () => { if (opened) { if (core()) core().pull(); else reload(); } opened = true; });
   on('content', (ev) => (core() ? core().pull() : reload(ev)));
   on('reload', reload);
   on('css', (ev) => {

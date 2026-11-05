@@ -416,8 +416,9 @@ How it travels:
   one-file invoice. Run `platercms dev ./decks/my-deck`, a folder of loose HTML
   pages, or a single `invoice.html`, and the open tab follows its files. A
   single file is served and watched on its own: the page plus the stylesheets,
-  scripts, images and fonts beside it, never the folder's other pages or
-  documents. The client stays off under automation (`navigator.webdriver`,
+  scripts, images and fonts beside it or up to two folders below it (`css/`,
+  `assets/img/`), never the folder's other pages or documents. A tab that
+  loses the stream catches up when it reconnects. The client stays off under automation (`navigator.webdriver`,
   `?shot`, `?print`) so headless screenshots and PDFs settle.
 - **`platercms serve`** streams content changes only (no file names, at most
   64 open streams) and injects nothing. The editor subscribes on its own while

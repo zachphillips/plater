@@ -137,3 +137,11 @@ test('the injected client skips the reload for a change this tab made, not for o
   c.sources[0].fire('reload', 'images/other.png');
   assert.equal(c.reloaded(), true);
 });
+
+test('a standalone page catches up when its stream reconnects', () => {
+  const c = runClient(undefined);
+  c.sources[0].fire('open');
+  assert.equal(c.reloaded(), false, 'the first open is just the connection');
+  c.sources[0].fire('open');
+  assert.equal(c.reloaded(), true, 'a reconnect reloads, since what changed meanwhile sent no event');
+});

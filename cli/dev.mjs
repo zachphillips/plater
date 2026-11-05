@@ -26,14 +26,14 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { ASSET_EXT } from '../packages/server-node/live.js';
+import { ASSET_EXT, SINGLE_DEPTH } from '../packages/server-node/live.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG = path.resolve(HERE, '..', 'packages');
 const REPO_ROOT = path.resolve(PKG, '..');
 const exec = promisify(execFile);
 
-export const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2' };
+export const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.avif': 'image/avif', '.woff': 'font/woff', '.ttf': 'font/ttf', '.otf': 'font/otf', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2' };
 
 export function findWebRoot(dir) {
   for (const w of ['web', 'public', '.']) {
@@ -52,7 +52,9 @@ export function singleFileServes(pathname, entry) {
   let rel;
   try { rel = decodeURIComponent(pathname).replace(/^\/+/, ''); } catch { return false; }
   if (rel === entry) return true;
-  if (rel.split('/').some((seg) => seg.startsWith('.'))) return false;
+  const segs = rel.split('/');
+  if (segs.some((seg) => seg.startsWith('.'))) return false;
+  if (segs.length - 1 > SINGLE_DEPTH) return false;     // deeper than the watcher follows
   return ASSET_EXT.test(rel);
 }
 

@@ -101,8 +101,9 @@ export function createServeServer({ webRoot, contentPath, handlers }) {
   };
 
   const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
-    const p = decodeURIComponent(url.pathname);
+    let url, p;
+    try { url = new URL(req.url, 'http://localhost'); p = decodeURIComponent(url.pathname); }
+    catch { return json(res, 400, { error: 'malformed URL' }); }
     try {
       if (hub && p === '/api/live' && req.method === 'GET') return hub.handle(req, res);
       // The vercel.json rewrites, served by hand so a Node host matches Vercel.

@@ -16,7 +16,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function page({ search = '?edit', stream = true, autoOpen = true, devNoauth = true, liveStatus = 404, liveType = null, links = [], live } = {}) {
+function page({ search = '?edit', stream = true, autoOpen = true, devNoauth = true, liveStatus = 404, liveType = null, missingDraft = false, links = [], live } = {}) {
   let server = { title: 'Invoice', total: '$100' };
   let contentFails = 0;
   const els = new Map();
@@ -36,6 +36,7 @@ function page({ search = '?edit', stream = true, autoOpen = true, devNoauth = tr
   const retries = [];      // long timers (stream retry backoff), held instead of run
   const timer = (fn, ms) => (ms >= 5000 ? (retries.push({ fn, ms }), 0) : setTimeout(fn, ms));
   class FakeEventSource {
+    static CLOSED = 2;
     constructor(url) { this.url = url; this.on = {}; sources.push(this); if (autoOpen) queueMicrotask(() => (stream ? this.fire('open') : this.fire('error'))); }
     addEventListener(t, fn) { (this.on[t] ||= []).push(fn); }
     fire(t, data) { for (const fn of this.on[t] || []) fn({ data }); }
@@ -58,6 +59,7 @@ function page({ search = '?edit', stream = true, autoOpen = true, devNoauth = tr
     fetch: async (url, opts = {}) => {
       if (url.endsWith('/config')) return json({ editable: true, devNoauth });
       if (url.endsWith('/live')) return new Response('{}', { status: liveStatus, headers: liveType ? { 'content-type': liveType } : {} });
+      if (missingDraft && url.includes('/content?track=')) return json({}, 404);
       if (url.includes('/content')) { if (contentFails > 0) { contentFails--; return json('{"half":', 200); } return json(JSON.stringify(server)); }
       if (url.includes('/versions') || url.includes('/review')) return json({}, 404);
       if (url.endsWith('/save')) { server = { ...JSON.parse(opts.body).content, updatedAt: new Date(0).toISOString(), updatedBy: 'dev' }; return json({ ok: true }); }
@@ -123,6 +125,35 @@ test('a passing failure (the 503 connection cap) retries with backoff instead of
   await drain();
   assert.equal(p.sources.length, 2, 'it reconnected');
   assert.equal(p.retries[1].ms, 10000, 'and backs off');
+});
+
+test('a draft with no saved overlay keeps following live content without losing local edits', async () => {
+  const p = page({ search: '?draft=new-track', missingDraft: true });
+  await p.boot();
+  p.editor.getContent().title = 'My unsaved title';
+  p.server = { title: 'Invoice', total: '$999' };
+  await p.editor.test.pullRemote();
+  await drain();
+  assert.equal(p.total.textContent, '$999');
+  assert.equal(p.editor.getContent().title, 'My unsaved title');
+  assert.ok(p.editor.test.isDirty());
+});
+
+test('a permanently closed stream retries after a previously successful open', async () => {
+  const p = page({ liveStatus: 503 });
+  await p.boot();
+  p.sources[0].readyState = 0; // native EventSource is still reconnecting
+  p.sources[0].fire('error');
+  await drain();
+  assert.equal(p.retries.length, 0);
+  p.sources[0].readyState = 2; // native EventSource has stopped reconnecting
+  p.sources[0].fire('error');
+  await drain();
+  assert.ok(p.sources[0].closed);
+  assert.equal(p.retries.length, 1);
+  p.retries[0].fn();
+  await drain();
+  assert.equal(p.sources.length, 2);
 });
 
 test('signing in after boot starts live updates', async () => {

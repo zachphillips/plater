@@ -443,7 +443,11 @@ export const LIVE_CLIENT = `(() => {
 
 // Add the client to an HTML document, just before </body> (or at the end).
 export function injectLiveClient(html, gen = null) {
-  if (html.includes('<script src="/__plater/live.js')) return html;
+  for (const [tag] of html.matchAll(/<script\b[^>]*>/gi)) {
+    const src = /\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag);
+    const value = src && (src[1] ?? src[2] ?? src[3]);
+    if (value && /^\/?__plater\/live\.js(?:[?#]|$)/.test(value)) return html;
+  }
   const tag = `<script src="/__plater/live.js${gen ? `?v=${encodeURIComponent(gen)}` : ''}" defer></script>`;
   const i = html.toLowerCase().lastIndexOf('</body>');
   return i === -1 ? html + tag : html.slice(0, i) + tag + html.slice(i);

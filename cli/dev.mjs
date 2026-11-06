@@ -133,6 +133,10 @@ export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO
   let stat = await fs.stat(file).catch(() => null);
   if (stat?.isDirectory()) { file = path.join(file, 'index.html'); stat = await fs.stat(file).catch(() => null); }
   if (!stat?.isFile()) return false;
+  // A permitted asset name must not become an escape through a symlink.
+  const realRoot = await fs.realpath(root);
+  const realFile = await fs.realpath(file);
+  if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) { res.writeHead(404); res.end(); return true; }
   const ext = path.extname(file).toLowerCase();
   res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', ...(cacheControl ? { 'cache-control': cacheControl } : {}) });
   if (transformHtml && (ext === '.html' || ext === '.htm')) return res.end(transformHtml(await fs.readFile(file, 'utf8'))), true;
@@ -286,14 +290,16 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
+  const loose = !entry && !fsSync.existsSync(path.join(webRoot, 'index.html')) && htmlPages(webRoot).length > 0;
   // Live reload: every page plater dev serves follows the files on disk.
   // An agent's write, a save from another tab, a CSS tweak — the open tab
   // updates without a refresh. PLATER_LIVE=0 turns it off.
   const hub = live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath, entry }) : null;
 
   const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
-    const p = decodeURIComponent(url.pathname);
+    let url, p;
+    try { url = new URL(req.url, 'http://localhost'); p = decodeURIComponent(url.pathname); }
+    catch { res.writeHead(400); return res.end('malformed URL'); }
     try {
       if (hub && p === '/api/live') {
         if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); return res.end(); }
@@ -367,6 +373,12 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
+      // A folder of loose pages is not an unrestricted document server. Keep
+      // its HTML and web assets reachable, without publishing neighboring data.
+      const dotted = p.split('/').some((seg) => seg.startsWith('.') && seg !== '.well-known');
+      if (dotted || (loose && p !== '/' && !/\.html?$/i.test(p) && !ASSET_EXT.test(p))) {
+        res.writeHead(404); return res.end('not a web asset');
+      }
       if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? (html) => handlers.live.injectLiveClient(html, hub.gen()) : null, cacheControl: 'no-cache' })) return;
       // A loose folder or a single file has no index.html: open the file that
       // was asked for, or list the pages.

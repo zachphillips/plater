@@ -2106,7 +2106,10 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     if (livePulling) { livePullAgain = true; return; }
     livePulling = true;
     try {
-      const r = await fetch(contentEndpoint(), { cache: 'no-store' });
+      let r = await fetch(contentEndpoint(), { cache: 'no-store' });
+      // A new document draft has no overlay until its first save. Match boot:
+      // follow the live content until an overlay exists, and retry other errors.
+      if (DRAFT_TRACK && r.status === 404) r = await fetch(`${apiBase}/content`, { cache: 'no-store' });
       if (!r.ok) { livePullRetry(); return; }
       const text = await r.text();
       if (text === LIVE_SEEN) { livePullFails = 0; return; }
@@ -2178,7 +2181,8 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       // the revert) or a passing failure (the hub's 503 connection cap, a proxy
       // hiccup, a restarting server): ask which, and retry with backoff.
       es.addEventListener('error', () => {
-        if (opened) return;
+        if (opened && es.readyState !== EventSource.CLOSED) return;
+        opened = false;
         es.close();
         liveProbe().then((permanent) => {
           if (permanent || run !== liveRun) return;

@@ -194,6 +194,10 @@ const normalizePagePath = (p) => {
  *                                                 used as a fallback when a [data-cards] element
  *                                                 lacks a nested <template> / data-card-template.
  * @param {function} [options.onSaved]             Called with (content, result) after a save.
+ * @param {boolean|'auto'} [options.live='auto']   Live reload: re-render when site.json changes on the
+ *                                                 server (an agent's turn, another editor's save) and
+ *                                                 hot-swap CSS, with no refresh. 'auto' = on whenever the
+ *                                                 edit UI is open, on localhost, or the URL has ?live.
  * @returns {{getContent:Function, setEditable:Function, save:Function, refresh:Function}}
  */
 export function initZMS(options = {}) {
@@ -203,14 +207,18 @@ export function initZMS(options = {}) {
     tokenKey = `zms.${slug(brand)}.editToken`,
     cardTemplates = {},
     onSaved = null,
+    live = 'auto',
   } = options;
 
   let CONTENT = {};
   let SAVED = '{}';
+  let SAVE_INFLIGHT = false;
   let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false };
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
   let EDITING = false;
+  let liveStarted = false;  // startLive runs from boot or from entering edit mode; stopLive undoes it
+  let liveES = null, liveTimer = 0, liveRun = 0;   // the editor's own stream, its retry, and which start it belongs to
   let googleReady = false;
   let googleButtonRendered = false;
   let googlePromptPromise = null;
@@ -625,6 +633,8 @@ export function initZMS(options = {}) {
   function setEditable(on) {
     const was = EDITING;
     EDITING = on;
+    if (on) startLive();      // signing in after boot turns live updates on too
+    else if (!liveWanted()) stopLive();   // and leaving edit mode gives the stream back
     if (on !== was) TOUCHED = false;
     document.body.classList.toggle('cms-editing', on);
     setChrome(on);
@@ -896,6 +906,7 @@ export function initZMS(options = {}) {
     if ($('#cms-status')) $('#cms-status').textContent = 'saving…';
     const headers = { 'content-type': 'application/json' };
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
+    SAVE_INFLIGHT = true;   // live reload waits: our own write is about to echo back
     try {
       const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json().catch(() => ({}));
@@ -950,6 +961,8 @@ export function initZMS(options = {}) {
     } catch (e) {
       console.warn('[plater] save error', e);
       setStatus('Could not reach the server — nothing was saved, your edits are still here.');
+    } finally {
+      SAVE_INFLIGHT = false;
     }
   }
 
@@ -1552,6 +1565,8 @@ export function initZMS(options = {}) {
     let dataBase64;
     try { dataBase64 = await readBase64(file); }
     catch (e) { console.warn('[plater] image read failed', e); setStatus(`Could not read “${name}” from your device — nothing was uploaded.`); return; }
+    liveUploads++;          // the watcher's reload for this file is this tab's own
+    let uploadedUrl = null;
     try {
       const r = await fetch(`${apiBase}/upload`, {
         method: 'POST',
@@ -1567,6 +1582,7 @@ export function initZMS(options = {}) {
       }
       // Same rule as every other re-render: collect what is typed before
       // render() throws the current DOM away.
+      uploadedUrl = out.url;                 // the watcher's echo of this upload is ours
       collectEdits();
       setPath(CONTENT, path, out.url);
       render();
@@ -1578,6 +1594,9 @@ export function initZMS(options = {}) {
     } catch (e) {
       console.warn('[plater] upload error', e);
       setStatus('Could not reach the server — the image was not uploaded.');
+    } finally {
+      liveUploads--;
+      liveUploadSettled(uploadedUrl);
     }
   }
 
@@ -2011,6 +2030,271 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     }, 2000);
   }
 
+  /* ---------------- live reload ---------------- */
+  // While Zach watches a page, an agent's turn or another editor's save changes
+  // site.json. The page should follow without a refresh. Servers that can stream
+  // (plater dev / plater serve) push events on /api/live; a host with no stream
+  // (Vercel) gets no live updates, on purpose (see the error handler below).
+  //
+  //   content  → refetch content, replay THIS tab's unsaved fields on top (the
+  //              same rule as a save conflict), re-render, keep the caret
+  //   css      → swap that stylesheet's href; no reload, scroll and caret stay
+  //   reload   → the HTML or a script changed: reload, unless edits are unsaved
+  //
+  // `plater dev` also injects a small standalone client into every HTML page it
+  // serves (decks, mail, invoices with no data-bind at all). When that client is
+  // on the page it owns the stream and hands content events to us, so one tab
+  // never holds two connections.
+  let LIVE_SEEN = '';        // last content text from the server, to skip no-op events
+  const LIVE_STAMP = ['updatedAt', 'updatedBy'];
+  const sansStamp = (o) => { const c = { ...o }; for (const k of LIVE_STAMP) delete c[k]; return JSON.stringify(c); };
+  let livePulling = false, livePullAgain = false;
+  let livePullFails = 0;     // a failed pull (a 5xx, a half-written file) is retried a few times
+  const livePullRetry = () => {
+    if (livePullFails < 4) { setTimeout(pullRemote, 500 * 2 ** livePullFails++); return; }
+    livePullFails = 0;        // the next change gets its own retries
+    setStatus('The latest content could not be read from the server. Reload to try again.');
+  };
+
+  function liveWanted() {
+    if (live === true) return true;
+    if (live === false) return false;
+    const q = new URLSearchParams(location.search);
+    if (globalThis.navigator?.webdriver || q.has('shot') || q.has('print')) return false;   // let headless capture settle
+    return q.has('live') || q.has('edit') || CONFIG.devNoauth || EDITING || Boolean(DRAFT_TRACK) ||
+      /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  }
+
+  // Remember which binding has the caret and where, so a re-render under a
+  // typing human puts it back instead of throwing it to the top of the page.
+  // Both are best-effort: an odd selection must never cost the remote change.
+  function caretMark() {
+    try { return caretMarkUnsafe(); } catch { return null; }
+  }
+  function caretMarkUnsafe() {
+    const el = document.activeElement?.closest?.('[data-path]');
+    const sel = window.getSelection?.();
+    if (!el || !sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0).cloneRange();
+    r.selectNodeContents(el);
+    r.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
+    return { path: el.dataset.path, offset: r.toString().length };
+  }
+  function caretRestore(mark) {
+    try { caretRestoreUnsafe(mark); } catch {}
+  }
+  function caretRestoreUnsafe(mark) {
+    if (!mark) return;
+    const el = $$('[data-path]').find((n) => n.dataset.path === mark.path);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let left = mark.offset, node;
+    while ((node = walker.nextNode())) {
+      if (left <= node.length) {
+        const r = document.createRange(); r.setStart(node, left); r.collapse(true);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        return;
+      }
+      left -= node.length;
+    }
+  }
+
+  async function pullRemote() {
+    // A save in flight will echo back as a change; pull once it has settled.
+    if (SAVE_INFLIGHT || autosaveInflight) { setTimeout(pullRemote, 400); return; }
+    if (livePulling) { livePullAgain = true; return; }
+    livePulling = true;
+    const base = SAVED;
+    try {
+      let r = await fetch(contentEndpoint(), { cache: 'no-store' });
+      // A new document draft has no overlay until its first save. Match boot:
+      // follow the live content until an overlay exists, and retry other errors.
+      if (DRAFT_TRACK && r.status === 404) r = await fetch(`${apiBase}/content`, { cache: 'no-store' });
+      if (!r.ok) { livePullRetry(); return; }
+      const text = await r.text();
+      // A save of ours started or landed while this read was out, so it may
+      // predate that save. Applied, it would put the saved fields back to their
+      // old values without marking them unsaved, and the next save would write
+      // the old values over ours. Read again once the save has settled.
+      if (SAVE_INFLIGHT || autosaveInflight || SAVED !== base) { livePullAgain = true; return; }
+      if (text === LIVE_SEEN) { livePullFails = 0; return; }
+      const fresh = JSON.parse(text);
+      if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) { livePullRetry(); return; }
+      livePullFails = 0;
+      LIVE_SEEN = text;
+      const theirs = JSON.stringify(fresh);
+      // Our own save coming back. The server stamps updatedAt/updatedBy on every
+      // save, so compare without them, take the stamps, and leave the DOM alone:
+      // re-rendering under someone typing would wipe their undo and selection.
+      if (theirs === SAVED || sansStamp(fresh) === sansStamp(JSON.parse(SAVED))) {
+        SAVED = theirs;
+        for (const k of LIVE_STAMP) { if (k in fresh) CONTENT[k] = fresh[k]; else delete CONTENT[k]; }
+        return;
+      }
+      if (EDITING && TOUCHED) collectEdits();
+      // Replay this tab's unsaved fields — only the ones that still differ.
+      const mine = changedPaths(JSON.parse(SAVED), CONTENT).filter(Boolean)
+        .filter((p) => !LIVE_STAMP.includes(p))      // the stamps are theirs now
+        .filter((p) => JSON.stringify(getPath(fresh, p)) !== JSON.stringify(getPath(CONTENT, p)));
+      for (const p of mine) setPath(fresh, p, getPath(CONTENT, p));
+      const mark = caretMark();
+      CONTENT = fresh;
+      SAVED = theirs;
+      render();
+      if (EDITING) applyEditable(true);
+      caretRestore(mark);
+      if (mine.length) { markDirty(); setStatus(`Updated live — your ${mine.length} unsaved change${mine.length === 1 ? ' is' : 's are'} still here.`); }
+      else if (EDITING) setStatus('Updated live.');
+      document.dispatchEvent(new CustomEvent('plater:live', { detail: { type: 'content', kept: mine.length } }));
+    } catch (e) {
+      console.warn('[plater] live update failed', e);
+      livePullRetry();
+    } finally {
+      livePulling = false;
+      if (livePullAgain) { livePullAgain = false; pullRemote(); }
+    }
+  }
+
+
+  function startLive() {
+    if (liveStarted || !liveWanted() || typeof window === 'undefined' || typeof setInterval !== 'function') return;
+    liveStarted = true;
+    if (window.__platerLive) return;                      // the injected dev client owns the stream
+    window.__platerLive = 'core';
+    if (typeof EventSource !== 'function') return;
+    const run = ++liveRun;
+    let opened = false, retryMs = 5000;
+    const connect = () => {
+      if (run !== liveRun) return;           // stopped meanwhile
+      const es = new EventSource(`${apiBase}/live`);
+      liveES = es;
+      // Catch up on every open, the first included: a change between this
+      // page's load and the stream opening, or while it was down, sent no event.
+      es.addEventListener('open', () => { pullRemote(); opened = true; retryMs = 5000; });
+      es.addEventListener('content', () => pullRemote());
+      es.addEventListener('css', (ev) => swapCss(ev.data));
+      es.addEventListener('reload', (ev) => {
+        if (liveMine(ev.data)) return;
+        if (window.__platerCoreLive?.dirty()) { setStatus('This page changed on the server — save, then reload to see it.'); return; }
+        location.reload();
+      });
+      // A stream that opened and dropped is left to EventSource's own reconnect.
+      // One that never opened is either a host with no stream (a static or
+      // serverless host answers 404: stop for good, and do NOT poll instead;
+      // on Vercel /api/content serves the deployed snapshot, which lags every
+      // save, so a poll would roll the page back and the next save would commit
+      // the revert) or a passing failure (the hub's 503 connection cap, a proxy
+      // hiccup, a restarting server): ask which, and retry with backoff.
+      es.addEventListener('error', () => {
+        if (opened && es.readyState !== EventSource.CLOSED) return;
+        opened = false;
+        es.close();
+        liveProbe().then((permanent) => {
+          if (permanent || run !== liveRun) return;
+          liveTimer = setTimeout(connect, retryMs);
+          retryMs = Math.min(retryMs * 2, 60000);
+        });
+      });
+    };
+    connect();
+  }
+
+  // Leaving edit mode on a deployed site gives the connection back, since
+  // serve allows only so many. Only the editor's own stream is closed; the
+  // dev client that plater dev injects is left alone.
+  function stopLive() {
+    if (!liveStarted || window.__platerLive !== 'core') return;
+    liveRun++;
+    liveStarted = false;
+    window.__platerLive = undefined;
+    clearTimeout(liveTimer);
+    liveES?.close();
+    liveES = null;
+  }
+
+  // The bridge to the live client plater dev injects into every page. It is
+  // registered when the editor starts, whether or not this editor opens a
+  // stream, so the injected client always knows three things: that live reload
+  // is off (initPlater({ live: false })), whether there are unsaved edits, and
+  // which changes this tab made itself.
+  let liveUploads = 0;                       // uploads in flight from this tab
+  const liveOwn = new Map();                 // path this tab wrote -> expiry
+  const liveHeld = new Set();                // reload events that arrived mid-upload
+  const livePath = (p) => {
+    try { return decodeURIComponent(new URL(String(p || ''), location.href).pathname).replace(/^\/+/, ''); }
+    catch { return String(p || '').replace(/^\/+/, '').split('?')[0]; }
+  };
+  // A reload event for an image this tab is uploading, or uploaded in the last
+  // few seconds, is this tab's own write: the page already shows it.
+  // Mid-upload, the final file name is not known yet, so a reload event is held
+  // rather than dropped, and handled when the upload settles unless it was the
+  // upload itself.
+  function liveMine(p) {
+    const k = livePath(p), t = liveOwn.get(k);
+    if (t !== undefined) { liveOwn.delete(k); if (t > Date.now()) return true; }
+    if (liveUploads > 0) { liveHeld.add(k); return true; }
+    return false;
+  }
+  function liveUploadSettled(url) {
+    const now = Date.now();
+    for (const [k, t] of liveOwn) if (t <= now) liveOwn.delete(k);   // prune expired records
+    if (url) liveOwn.set(livePath(url), now + 5000);
+    if (liveUploads > 0) return;
+    // Every upload this tab made in the meantime is its own, not only the last.
+    const others = [];
+    for (const k of liveHeld) {
+      if (liveOwn.get(k) > now) liveOwn.delete(k);        // its echo already came; a later change is someone else's
+      else others.push(k);
+    }
+    liveHeld.clear();
+    if (!others.length || live === false) return;
+    if (window.__platerCoreLive?.dirty()) setStatus('This page changed on the server — save, then reload to see it.');
+    else location.reload();
+  }
+  function liveRegisterBridge() {
+    if (typeof window === 'undefined') return;
+    window.__platerCoreLive = {
+      off: live === false,
+      pull: pullRemote,
+      dirty: () => EDITING && TOUCHED && (collectEdits(), isDirty()),
+      mine: liveMine,
+    };
+  }
+
+  // Is /api/live missing on this host for good? Only a 404 or 405 says so;
+  // anything else (a 503 cap, a network error) is worth another try.
+  async function liveProbe() {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    try {
+      const r = await fetch(`${apiBase}/live`, { cache: 'no-store', signal: ctrl?.signal });
+      ctrl?.abort();
+      if (r.status === 404 || r.status === 405 || r.redirected) return true;
+      // A static host's catch-all answers 200 with an HTML page: no stream here.
+      return r.ok && !/text\/event-stream/i.test(r.headers.get('content-type') || '');
+    } catch {
+      return false;
+    }
+  }
+
+  // Cache-bust the stylesheet that changed. Match the changed path (relative
+  // to the web root, which plater serves at /) against same-origin stylesheet
+  // paths first; fall back to the file name only when no full path matches.
+  function swapCss(changed) {
+    const rel = String(changed || '').replace(/^\/+/, '');
+    const links = $$('link[rel="stylesheet"]').map((l) => ({ l, u: new URL(l.href, location.href) }))
+      .filter(({ u }) => u.origin === location.origin);
+    const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };   // 100%.css has a literal %
+    let hits = links.filter(({ u }) => dec(u.pathname).replace(/^\/+/, '') === rel);
+    if (!hits.length && rel) { const name = rel.split('/').pop(); hits = links.filter(({ u }) => u.pathname.split('/').pop() === name); }
+    // No link matches (an @import, or a stylesheet another page uses): refresh
+    // every stylesheet, which re-reads their imports. Only a page with no
+    // stylesheet links at all has to reload.
+    if (!hits.length) hits = links;
+    for (const { l, u } of hits) { u.searchParams.set('plater-live', Date.now().toString(36)); l.href = u.toString(); }
+    if (!hits.length && !window.__platerCoreLive?.dirty()) location.reload();
+  }
+
   async function boot() {
     try {
       const contentUrl = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
@@ -2032,6 +2316,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     }
     SAVED = JSON.stringify(CONTENT);
     render();
+    startLive();
 
     // draft banner: shows in draft mode always, and on the live page whenever
     // overlay-capable tracks exist (so flipping is one click from ?edit)
@@ -2099,6 +2384,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     if ($('#cms-cancel')) $('#cms-cancel').addEventListener('click', cancel);
   }
 
+  liveRegisterBridge();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

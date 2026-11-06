@@ -21,7 +21,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shim, serveStatic, resolveSite, configureEnv, loadHandlers, listenWithAutopick } from './dev.mjs';
+import { shim, serveStatic, resolveSite, configureEnv, loadHandlers, listenWithAutopick, singleFileServes } from './dev.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG = path.resolve(HERE, '..', 'packages');
@@ -89,17 +89,38 @@ async function readCapped(req, res) {
 
 /* ---------------- the server ---------------- */
 
-export function createServeServer({ webRoot, handlers }) {
+// /api/live has no sign-in (EventSource cannot send the bearer token), and each
+// stream holds one of MAX_CLIENTS slots for as long as it stays open. So it is
+// local-only: a loopback peer with no proxy forwarding headers. Anything else,
+// including traffic relayed by a TLS proxy on the same box, gets the 404 a host
+// with no stream gives, and the editor stops asking.
+const LOOPBACK = /^(127\.\d+\.\d+\.\d+|::1|::ffff:127\.\d+\.\d+\.\d+)$/;
+export function liveAllowed(req) {
+  const h = req.headers || {};
+  return LOOPBACK.test(req.socket?.remoteAddress || '') && !h['x-forwarded-for'] && !h.forwarded && !h['x-real-ip'];
+}
+
+export function createServeServer({ webRoot, contentPath, handlers, entry = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload, config, save, history } = handlers;
+  // /api/live streams what changes on this host's disk (an agent working in
+  // the checkout, a git pull after a commit). No script is injected here: the
+  // Plater editor subscribes on its own while someone is editing.
+  const hub = contentPath && handlers.live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath, contentOnly: true }) : null;
   const API = {
     config, content, save, history, upload, review, versions, feed, sitemap, manifest,
     'agent-note': handlers['agent-note'], 'propose-post': handlers['propose-post'],
   };
 
-  return http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
-    const p = decodeURIComponent(url.pathname);
+  const server = http.createServer(async (req, res) => {
+    let url, p;
+    try { url = new URL(req.url, 'http://localhost'); p = decodeURIComponent(url.pathname); }
+    catch { return json(res, 400, { error: 'malformed URL' }); }
     try {
+      if (hub && p === '/api/live' && req.method === 'GET') return liveAllowed(req) ? hub.handle(req, res) : json(res, 404, { error: 'not found' });
+      // Single-file mode (`platercms serve invoice.html`): the page and the
+      // assets it loads, as in dev, never the rest of the folder around it.
+      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) + url.search }); return res.end(); }
+      if (entry && !singleFileServes(p, entry)) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); return res.end('not found'); }
       // The vercel.json rewrites, served by hand so a Node host matches Vercel.
       if (p === '/feed.xml') { const [rq, rs] = shim(req, res, new URL('/api/feed?format=rss', 'http://x')); return feed.default(rq, rs); }
       if (p === '/feed.json') { const [rq, rs] = shim(req, res, new URL('/api/feed?format=json', 'http://x')); return feed.default(rq, rs); }
@@ -150,6 +171,8 @@ export function createServeServer({ webRoot, handlers }) {
       res.end(JSON.stringify({ error: 'internal error' }));
     }
   });
+  if (hub) { const close = server.close.bind(server); server.close = (cb) => { hub.close(); return close(cb); }; }
+  return server;
 }
 
 // Resolve → .env → configure env → load handlers → build → listen (autopick).

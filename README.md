@@ -35,6 +35,7 @@ It ships on npm as **platercms** (`@platercms/core`, `@platercms/server-node`,
 - [Install](#install)
 - [Environment](#environment)
 - [Local → staging → prod](#local--staging--prod-the-environment-ladder)
+- [Live reload](#live-reload)
 - [Self-hosting: `platercms serve`](#self-hosting-platercms-serve)
 - [The agent loop](#the-agent-loop)
 - [Design-alternatives mode](#design-alternatives-mode)
@@ -392,6 +393,53 @@ Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
 upward from their port on `EADDRINUSE` and print the port they actually took, so
 a second site never fails to start. `PORT=<n>` picks the starting point; every
 port in the range being busy is one human line, not a stack trace.
+
+## Live reload
+
+An open tab follows the files. When an agent takes a turn on `site.json`, when
+someone saves from another tab or another person's laptop, or when you nudge a
+stylesheet, the page you are watching updates in place. Nobody presses reload.
+
+| What changed | What the open page does |
+|---|---|
+| a `.json` under the content directory (`site.json`, a `?file=` alternate, a `versions/<track>/` draft) | refetches content and re-renders the bindings. Fields **this tab** has typed but not saved are replayed on top, the same rule a save conflict uses, and the caret stays where it was. |
+| a `.css` file | swaps that stylesheet's `href`. No reload, so scroll position and the caret stay. |
+| HTML, a script, an image, any other `.json` | reloads, unless this tab has unsaved edits, in which case it says so and waits. |
+
+How it travels:
+
+- **`platercms dev`** streams changes on `GET /api/live` (Server-Sent Events,
+  one `fs.watch` per directory, skipping `.git`, dot-folders and `node_modules`,
+  re-armed when a save replaces a file or `git checkout` swaps a folder; bursts
+  coalesced) and injects a small client into **every HTML page it serves**, so
+  pages with no Plater editor at all also get it: a deck, a mail piece, a
+  one-file invoice. Run `platercms dev ./decks/my-deck`, a folder of loose HTML
+  pages, or a single `invoice.html`, and the open tab follows its files. A
+  single file is served and watched on its own: the page plus the stylesheets,
+  scripts, images and fonts beside it or up to two folders below it (`css/`,
+  `assets/img/`), never the folder's other pages or documents. A tab that
+  misses a change (before its stream opens, or while it is down) catches up as
+  soon as it connects. The client stays off under automation (`navigator.webdriver`,
+  `?shot`, `?print`) so headless screenshots and PDFs settle.
+- **`platercms serve`** streams content changes only (no file names, at most
+  64 open streams) and injects nothing. The stream has no sign-in, so it is
+  local-only: it answers a browser on the same machine (`127.0.0.1`, no proxy
+  `X-Forwarded-For`/`Forwarded` header) and gives everyone else the 404 a host
+  with no stream gives. The editor subscribes on its own while
+  someone is editing, including when they sign in after the page loaded. If the
+  stream is briefly unavailable (the cap, a restarting server) it retries with
+  backoff; only a 404 stops it. Given a single `.html` file, `serve` keeps the
+  same scope as `dev`: the page and its assets, never the rest of the folder.
+- **Vercel and other static hosts** have no long-lived process to watch from,
+  so there is no live reload there. The editor does not poll instead: on
+  Vercel `/api/content` serves the deployed snapshot, which lags each save
+  until the redeploy, and re-rendering from it would roll back the edit just
+  saved.
+
+The editor turns this on automatically when the edit UI is open, on
+`localhost`, or when the URL carries `?live`. Public visitors on a deployed site
+open no stream. `initPlater({ live: false })` turns it off; `live: true` forces
+it on. `PLATER_LIVE=0` turns the server side off.
 
 ## Self-hosting: `platercms serve`
 

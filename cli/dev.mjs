@@ -26,29 +26,59 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { ASSET_EXT, SINGLE_DEPTH } from '../packages/server-node/live.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG = path.resolve(HERE, '..', 'packages');
 const REPO_ROOT = path.resolve(PKG, '..');
 const exec = promisify(execFile);
 
-export const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2' };
+export const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.avif': 'image/avif', '.woff': 'font/woff', '.ttf': 'font/ttf', '.otf': 'font/otf', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8', '.woff2': 'font/woff2' };
 
 export function findWebRoot(dir) {
   for (const w of ['web', 'public', '.']) {
     try { fsSync.accessSync(path.join(dir, w, 'index.html')); return path.join(dir, w); } catch {}
   }
+  // A folder of loose pages with no index.html (generated proposals, an
+  // invoice saved from a browser): serve the folder itself.
+  try { if (fsSync.readdirSync(dir).some((n) => /\.html?$/i.test(n))) return dir; } catch {}
   return path.join(dir, 'web');
 }
 
-// A site dir → the three paths every leg of the server needs.
+// In single-file mode: the page itself, and asset types a page loads. Never
+// another page, a data file or a document from the same folder. ASSET_EXT is
+// the live hub's own list, so whatever is served here also streams changes.
+// pathname is already decoded by the caller; decoding it again would turn a
+// real file called 100%.html into an error.
+export function singleFileServes(pathname, entry) {
+  const rel = String(pathname).replace(/^\/+/, '');
+  if (rel === entry) return true;
+  if (rel.startsWith('packages/')) return false;        // serveStatic maps /packages/ to Plater's own repo, not the page's folder
+  const segs = rel.split('/');
+  if (segs.some((seg) => seg.startsWith('.'))) return false;
+  if (segs.length - 1 > SINGLE_DEPTH) return false;     // deeper than the watcher follows
+  return ASSET_EXT.test(rel);
+}
+
+// The .html pages directly in a folder, for the index of a loose folder.
+export function htmlPages(dir) {
+  try { return fsSync.readdirSync(dir).filter((n) => /\.html?$/i.test(n)).sort(); } catch { return []; }
+}
+
+// A site dir (or one .html file) → the paths every leg of the server needs.
+// Given a file, the site is its folder and `entry` is the page to open.
 export function resolveSite(argDir) {
-  const siteDir = path.resolve(argDir || '.');
-  const webRoot = findWebRoot(siteDir);
+  let siteDir = path.resolve(argDir || '.');
+  let entry = null;
+  if (/\.html?$/i.test(siteDir) && fsSync.statSync(siteDir, { throwIfNoEntry: false })?.isFile()) {
+    entry = path.basename(siteDir);
+    siteDir = path.dirname(siteDir);
+  }
+  const webRoot = entry ? siteDir : findWebRoot(siteDir);
   const contentPath = process.env.GITHUB_EDIT_PATH
     ? path.resolve(siteDir, process.env.GITHUB_EDIT_PATH)
     : path.join(webRoot, 'content', 'site.json');
-  return { siteDir, webRoot, contentPath };
+  return { siteDir, webRoot, contentPath, entry };
 }
 
 // The production handlers read env at IMPORT time — point them at this site
@@ -65,10 +95,10 @@ export function configureEnv({ siteDir, webRoot, contentPath }, { dev = true } =
 // Dynamic, because configureEnv() has to win the race with their module bodies.
 export async function loadHandlers() {
   const load = (n) => import(path.join(PKG, 'server-node', n));
-  const [content, review, feed, sitemap, route, manifest, versions, upload] = await Promise.all(
-    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js'].map(load),
+  const [content, review, feed, sitemap, route, manifest, versions, upload, live] = await Promise.all(
+    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js'].map(load),
   );
-  return { content, review, feed, sitemap, route, manifest, versions, upload };
+  return { content, review, feed, sitemap, route, manifest, versions, upload, live };
 }
 
 export async function readBody(req) {
@@ -92,7 +122,9 @@ export function shim(req, res, url, body) {
 
 // Static files from the web root, plus /packages/* from the repo so the browser
 // can import the un-vendored client modules. Returns true when it answered.
-export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT }) {
+// cacheControl: dev passes 'no-cache' so a reload always revalidates; serve
+// passes nothing and keeps the headers it had before live reload.
+export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO_ROOT, transformHtml = null, cacheControl = null }) {
   const fromPackages = pathname.startsWith('/packages/');
   const root = fromPackages ? repoRoot : webRoot;
   let file = path.join(root, pathname === '/' ? 'index.html' : pathname);
@@ -101,7 +133,13 @@ export async function serveStatic(req, res, pathname, { webRoot, repoRoot = REPO
   let stat = await fs.stat(file).catch(() => null);
   if (stat?.isDirectory()) { file = path.join(file, 'index.html'); stat = await fs.stat(file).catch(() => null); }
   if (!stat?.isFile()) return false;
-  res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+  // A permitted asset name must not become an escape through a symlink.
+  const realRoot = await fs.realpath(root);
+  const realFile = await fs.realpath(file);
+  if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) { res.writeHead(404); res.end(); return true; }
+  const ext = path.extname(file).toLowerCase();
+  res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream', ...(cacheControl ? { 'cache-control': cacheControl } : {}) });
+  if (transformHtml && (ext === '.html' || ext === '.htm')) return res.end(transformHtml(await fs.readFile(file, 'utf8'))), true;
   res.end(await fs.readFile(file));
   return true;
 }
@@ -249,14 +287,38 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 
 /* ---------------- the dev server ---------------- */
 
-export function createDevServer({ siteDir, webRoot, contentPath, handlers }) {
+export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
+  const loose = !entry && !fsSync.existsSync(path.join(webRoot, 'index.html')) && htmlPages(webRoot).length > 0;
+  // Live reload: every page plater dev serves follows the files on disk.
+  // An agent's write, a save from another tab, a CSS tweak — the open tab
+  // updates without a refresh. PLATER_LIVE=0 turns it off.
+  const hub = live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath, entry }) : null;
 
-  return http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
-    const p = decodeURIComponent(url.pathname);
+  const server = http.createServer(async (req, res) => {
+    let url, p;
+    try { url = new URL(req.url, 'http://localhost'); p = decodeURIComponent(url.pathname); }
+    catch { res.writeHead(400); return res.end('malformed URL'); }
     try {
+      if (hub && p === '/api/live') {
+        if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); return res.end(); }
+        return hub.handle(req, res);
+      }
+      if (hub && p === '/__plater/live.js') {
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
+        return res.end(handlers.live.LIVE_CLIENT);
+      }
+      // Single-file mode serves that page and the assets it can load, and
+      // nothing else: no neighbouring page or file, and none of the site APIs
+      // either, since the folder around a loose file (~/Downloads) is not a
+      // site. `platercms dev ~/Downloads/invoice.html` must not publish the
+      // rest of ~/Downloads. / is the page itself.
+      if (entry && p === '/') { res.writeHead(302, { location: '/' + encodeURIComponent(entry) + url.search }); return res.end(); }
+      if (entry && !singleFileServes(p, entry)) {
+        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+        return res.end('not part of this page');
+      }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
         return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
@@ -311,14 +373,38 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers }) {
 
       // static files (uploaded /images/* included — they live under the web
       // root), then the same content-editable 404 + redirects production serves
-      if (await serveStatic(req, res, p, { webRoot })) return;
+      // A folder of loose pages is not an unrestricted document server. Keep
+      // its HTML and web assets reachable, without publishing neighboring data.
+      const dotted = p.split('/').some((seg) => seg.startsWith('.') && seg !== '.well-known');
+      if (dotted || (loose && p !== '/' && !/\.html?$/i.test(p) && !ASSET_EXT.test(p))) {
+        res.writeHead(404); return res.end('not a web asset');
+      }
+      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? (html) => handlers.live.injectLiveClient(html, hub.gen()) : null, cacheControl: 'no-cache' })) return;
+      // A loose folder or a single file has no index.html: open the file that
+      // was asked for, or list the pages.
+      if (p === '/') {
+        const pages = htmlPages(webRoot);
+        if (entry || pages.length === 1) { res.writeHead(302, { location: '/' + encodeURIComponent(entry || pages[0]) + url.search }); return res.end(); }
+        if (pages.length) {
+          const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' });
+          const list = pages.map((n) => `<li><a href="/${encodeURIComponent(n)}">${esc(n)}</a></li>`).join('');
+          const html = `<!doctype html><meta charset="utf-8"><title>${esc(path.basename(webRoot))}</title><body style="font:15px system-ui;margin:32px"><ul>${list}</ul></body>`;
+          return res.end(hub ? handlers.live.injectLiveClient(html, hub.gen()) : html);
+        }
+      }
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
-      res.writeHead(500, { 'content-type': 'application/json' });
+      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });
+  // End the open streams first: server.close() waits for every connection, and
+  // an SSE stream never finishes on its own.
+  if (hub) { const close = server.close.bind(server); server.close = (cb) => { hub.close(); return close(cb); }; }
+  server.live = hub;
+  return server;
 }
 
 // Resolve → configure env → load handlers → build → listen (with autopick).
@@ -353,11 +439,18 @@ async function main() {
   const { siteDir, contentPath, webRoot, port } = out;
   console.log(`plater dev · ${path.basename(siteDir)}`);
   if (port !== wanted) console.log(`  port    ${wanted} was busy — serving on ${port}`);
+  if (out.entry) {
+    console.log(`  open    http://127.0.0.1:${port}/${encodeURIComponent(out.entry)}`);
+    console.log(`  scope   this page and its assets only; no editing, saves or feeds for a loose file`);
+    console.log(`  live    ${out.server.live ? 'on — the open tab follows the page and its assets on disk' : 'off (PLATER_LIVE=0)'}`);
+    return;
+  }
   console.log(`  edit    http://127.0.0.1:${port}/?edit   (devNoauth — no token needed)`);
   console.log(`  feeds   http://127.0.0.1:${port}/feed.xml · /feed.json · /sitemap.xml · /llms.txt`);
   console.log(`  saves   → ${path.relative(siteDir, contentPath)} on disk (commit when happy)`);
   console.log(`  history real git log of that file — Restore writes the old version back to disk`);
   console.log(`  images  drop a file on any bound <img> — uploads write to ${path.relative(siteDir, path.join(webRoot, 'images')) || 'images'}/`);
+  console.log(`  live    ${out.server.live ? 'on — open tabs follow edits on disk (agent turns, other tabs, CSS) with no refresh' : 'off (PLATER_LIVE=0)'}`);
   console.log(`  ladder  local (this) → staging (push branch → Vercel preview) → prod (merge to main)`);
 }
 

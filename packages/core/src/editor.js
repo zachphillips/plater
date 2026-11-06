@@ -2105,6 +2105,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
     if (SAVE_INFLIGHT || autosaveInflight) { setTimeout(pullRemote, 400); return; }
     if (livePulling) { livePullAgain = true; return; }
     livePulling = true;
+    const base = SAVED;
     try {
       let r = await fetch(contentEndpoint(), { cache: 'no-store' });
       // A new document draft has no overlay until its first save. Match boot:
@@ -2112,6 +2113,11 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       if (DRAFT_TRACK && r.status === 404) r = await fetch(`${apiBase}/content`, { cache: 'no-store' });
       if (!r.ok) { livePullRetry(); return; }
       const text = await r.text();
+      // A save of ours started or landed while this read was out, so it may
+      // predate that save. Applied, it would put the saved fields back to their
+      // old values without marking them unsaved, and the next save would write
+      // the old values over ours. Read again once the save has settled.
+      if (SAVE_INFLIGHT || autosaveInflight || SAVED !== base) { livePullAgain = true; return; }
       if (text === LIVE_SEEN) { livePullFails = 0; return; }
       const fresh = JSON.parse(text);
       if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) { livePullRetry(); return; }

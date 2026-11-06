@@ -63,7 +63,8 @@ export function classify(rel, contentRel) {
  * createLiveHub — watch a site's web root (and its content file, if it lives
  * outside the web root) and fan changes out to every connected /api/live client.
  * contentOnly: emit only `content` events and no file names (plater serve, where
- *   the stream is public and draft names and uploads are nobody's business).
+ *   the stream faces a production site and draft names and uploads are nobody's
+ *   business; serve.mjs also keeps it to local, unproxied clients).
  * entry: single-file mode (`platercms dev invoice.html`). Watch only the file's
  *   own folder, not its subfolders, and stream only the page itself and the
  *   assets beside it (ASSET_EXT), so sibling pages never reload it.

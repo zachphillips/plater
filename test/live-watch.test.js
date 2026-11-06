@@ -321,6 +321,46 @@ test('single-file mode sends / to the page, never to a sibling index.html', asyn
   }
 });
 
+test('plater serve given one .html file serves that page and its assets, nothing around it', async () => {
+  const outer = tmp('serve-one');
+  const dir = path.join(outer, 'site');
+  fs.mkdirSync(path.join(dir, 'css'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'invoice.html'), '<link rel="stylesheet" href="css/a.css"><p>i</p>');
+  fs.writeFileSync(path.join(dir, 'css', 'a.css'), 'a{}');
+  fs.writeFileSync(path.join(dir, 'other.html'), '<p>private</p>');
+  fs.writeFileSync(path.join(dir, 'bank.json'), '{}');
+  fs.writeFileSync(path.join(outer, 'secret.css'), 'a{}');
+  const prev = process.cwd();
+  const { server, port } = await startServe(path.join(dir, 'invoice.html'), { port: 4800 });
+  try {
+    const st = (p) => new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: p }, (r) => { r.resume(); resolve(r.statusCode); }).on('error', reject);
+    });
+    assert.equal(await st('/invoice.html'), 200);
+    assert.equal(await st('/css/a.css'), 200);
+    assert.equal(await st('/other.html'), 404);
+    assert.equal(await st('/bank.json'), 404);
+    assert.equal(await st('/..%2fsecret.css'), 404);
+    assert.equal(await st('/css/..%2f..%2fsecret.css'), 404);
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});
+
+test('plater serve keeps /api/live to local, unproxied clients', async () => {
+  const dir = site();
+  const prev = process.cwd();
+  const { server, port } = await startServe(dir, { port: 4810 });
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/live`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
+    assert.equal(r.status, 404, 'a request relayed by a proxy gets no stream slot');
+  } finally {
+    server.close();
+    process.chdir(prev);
+  }
+});
+
 test('plater serve watches only the content folder', () => {
   const dir = site();
   for (let i = 0; i < 5; i++) fs.mkdirSync(path.join(dir, `assets${i}`));

@@ -422,10 +422,14 @@ How it travels:
   soon as it connects. The client stays off under automation (`navigator.webdriver`,
   `?shot`, `?print`) so headless screenshots and PDFs settle.
 - **`platercms serve`** streams content changes only (no file names, at most
-  64 open streams) and injects nothing. The editor subscribes on its own while
+  64 open streams) and injects nothing. The stream has no sign-in, so it is
+  local-only: it answers a browser on the same machine (`127.0.0.1`, no proxy
+  `X-Forwarded-For`/`Forwarded` header) and gives everyone else the 404 a host
+  with no stream gives. The editor subscribes on its own while
   someone is editing, including when they sign in after the page loaded. If the
   stream is briefly unavailable (the cap, a restarting server) it retries with
-  backoff; only a 404 stops it.
+  backoff; only a 404 stops it. Given a single `.html` file, `serve` keeps the
+  same scope as `dev`: the page and its assets, never the rest of the folder.
 - **Vercel and other static hosts** have no long-lived process to watch from,
   so there is no live reload there. The editor does not poll instead: on
   Vercel `/api/content` serves the deployed snapshot, which lags each save

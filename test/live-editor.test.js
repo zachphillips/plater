@@ -12,7 +12,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
   .replace('export const initPlater = initZMS;', '')
   .replace('export default initZMS;', 'globalThis.initPlater = initZMS;')
   .replace('getContent: () => CONTENT,', `getContent: () => CONTENT,
-    test: { boot, setEditable, isDirty, pullRemote, upload: { begin() { liveUploads++; }, end(url) { liveUploads--; liveUploadSettled(url); } } },`);
+    test: { boot, setEditable, isDirty, pullRemote, save, upload: { begin() { liveUploads++; }, end(url) { liveUploads--; liveUploadSettled(url); } } },`);
 const json = (body, status = 200) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
 const drain = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
@@ -212,6 +212,32 @@ test('our own save echoing back with updatedAt/updatedBy stamps does not re-rend
   assert.equal(renders, 0, 'the DOM was left alone');
   assert.equal(p.editor.getContent().updatedAt, '2026-11-02T19:00:00Z', 'the stamps were taken');
   assert.ok(!p.editor.test.isDirty(), 'and the page is not dirty');
+});
+
+test('a pull that read the file before our own save landed is not applied over that save', async () => {
+  const p = page();
+  await p.boot();
+  p.editor.test.setEditable(true);
+  p.title.dataset.path = 'title';
+  p.total.dataset.path = 'total';
+  // The live read goes out first and comes back only after the save has landed.
+  const fetchNow = p.ctx.fetch;
+  let release, held = false;
+  const gate = new Promise((r) => { release = r; });
+  p.ctx.fetch = async (url, opts) => {
+    if (!held && url.includes('/content')) { held = true; const r = await fetchNow(url, opts); await gate; return r; }
+    return fetchNow(url, opts);
+  };
+  p.server = { title: 'Invoice', total: '$250' };    // an agent's change starts the pull
+  const pull = p.editor.test.pullRemote();
+  await drain();
+  p.title.textContent = 'Paid invoice';               // typed, then saved
+  await p.editor.test.save();
+  release();
+  await pull;
+  await drain();
+  assert.equal(p.editor.getContent().title, 'Paid invoice', 'the saved edit was not rolled back');
+  assert.equal(p.title.textContent, 'Paid invoice');
 });
 
 test('a reconnected stream catches up on what changed meanwhile', async () => {

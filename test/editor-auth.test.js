@@ -1,3 +1,4 @@
+// Restored guard (verification-migration retro audit, 2026-11-05). Class 2: editor auth lifecycle and autosave data-loss guards (in-flight edits stay dirty, a 401 keeps the writing and the unload guard, failed auth sends nothing).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

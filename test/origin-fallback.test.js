@@ -1,3 +1,4 @@
+// Restored guard (verification-migration retro audit, 2026-11-05). Class 2: feed ids never move and the sitemap never trusts a bad Host header.
 // The out-of-the-box origin. Neither CMS_SITE_URL nor site.json meta.url is set
 // on a fresh site, and both used to be fatal: /sitemap.xml 500'd on a link the
 // `plater dev` banner had just printed, and /feed.xml served <link></link> —

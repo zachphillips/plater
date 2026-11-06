@@ -1,3 +1,7 @@
+// CMS write gate. These are the invariant guards kept when the model-written
+// suite was replaced by verification (see verify/): a wrong answer here writes
+// to a live site or leaks a write path, and nothing on screen would show it.
+// Restored guard (verification-migration retro audit, 2026-11-05). The malformed-payload case is class 1 (it must 400, not 500).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';

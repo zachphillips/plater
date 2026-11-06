@@ -1,3 +1,4 @@
+// Restored guard (verification-migration retro audit, 2026-11-05). Class 2: slug and draft front-matter round-trips.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { slugForPage, pageForSlug, parseDraft, serializeDraft } from '../packages/server-node/versions.js';

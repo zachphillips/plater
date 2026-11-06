@@ -1,3 +1,4 @@
+// Restored guard (verification-migration retro audit, 2026-11-05). Restored cases are class 1 (non-object and malformed JSON must 400, not 500) and class 2 (the drafts/ path gate).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

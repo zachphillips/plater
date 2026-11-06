@@ -1,6 +1,7 @@
 # Pushing a `v*` tag publishes the public packages to npm with provenance.
-# Tests gate the publish; a version already on the registry is skipped, not
-# failed, so a re-run after a partial release finishes the job. `id-token:
+# The write-gate guards and both verify drives (verify:release, verify:ci)
+# gate the publish; a version already on the registry is skipped, not failed,
+# so a re-run after a partial release finishes the job. `id-token:
 # write` is what makes `--provenance` possible.
 #
 # `.` is the ROOT package — it is what carries the `platercms` bin, so without
@@ -25,8 +26,14 @@ jobs:
       # Nothing to install: Plater has zero runtime dependencies.
       - name: Syntax-check every source file
         run: npm run lint
-      - name: Test
+      - name: Guards (CMS write gate)
         run: npm test
+      - name: Verify release (doctor, publish, npm pack contents)
+        run: npm run verify:release
+      - name: Install a browser for verify:ci
+        run: npm i --no-save playwright@1.64.1 && npx playwright install --with-deps chromium
+      - name: Verify the editor saves (headless Chromium)
+        run: npm run verify:ci
       - name: Publish public workspaces
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

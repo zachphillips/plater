@@ -1,3 +1,4 @@
+// Restored guard (verification-migration retro audit, 2026-11-05). Class 2: external formats (RSS 2.0, JSON Feed 1.1, redirects, 404 escaping, llms.txt).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rssXml, jsonFeed } from '../packages/server-node/feed.js';

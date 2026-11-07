@@ -50,7 +50,8 @@
     "test": "node --test",
     "verify": "npm run verify:release && npm run verify:ci",
     "verify:release": "node verify/release.mjs",
-    "verify:ci": "node verify/editor.mjs"
+    "verify:ci": "node verify/editor.mjs",
+    "verify:chatgpt": "node verify/chatgpt-plan.mjs"
   },
   "license": "MIT"
 }

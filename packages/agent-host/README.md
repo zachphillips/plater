@@ -79,8 +79,27 @@ the limit was reached.
 generation, file search, code interpreter or hosted MCP. Design jobs (image
 generation) never use this engine.
 
-`npm run verify:chatgpt` checks sign-in and a real `codex app-server` turn
-against local fixtures. It does not sign in with OpenAI and uses no plan usage.
+**Drafts in `plater dev`.** The same switch works for a draft an agent built
+and serves locally. Start it with `PLATER_CHATGPT_PLAN=1` (for example
+`PLATER_CHATGPT_PLAN=1 node ~/Dev/plater/cli/plater.js dev <dir>`). Once the owner
+has signed in, every page gets a ✎ Note button. A note runs one turn in the
+draft's folder on the owner's plan, and live reload shows the change. There is
+no branch and no PR: like any dev save, it's a file edit, so commit when happy.
+Only this machine's own pages can send notes. Cross-site posts, other hosts and
+DNS rebinding are refused, and a single loose file (`plater dev x.html`) never
+runs notes.
+
+**Speed.** `settings.json` next to the credentials can set
+`{ "serviceTier": "ultrafast", "model": "gpt-6.1-sol" }` (or `"fast"`). The env
+variables `PLATER_CHATGPT_SERVICE_TIER` and `PLATER_CHATGPT_MODEL` override it.
+OpenAI's Codex docs put Fast at 2.5× the Standard rate against included limits,
+and Ultrafast (Pro $500 and eligible Enterprise/Edu; GPT-6 Astra and GPT-6.1 Sol)
+at 8×. The plan-usage docs don't say whether this route accepts a tier. If it
+refuses one, the note runs once at standard speed and says so.
+
+`npm run verify:chatgpt` checks sign-in, a real `codex app-server` turn
+against local fixtures, and a real `plater dev` draft in headless Chromium (when Playwright is
+installed). It does not sign in with OpenAI and uses no plan usage.
 
 ## Run it
 

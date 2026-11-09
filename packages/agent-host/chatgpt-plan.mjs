@@ -41,6 +41,14 @@
 // written atomically. Tokens never go in URLs, logs, the journal, or the job
 // status the browser polls.
 //
+// SPEED. settings.json in the same dir may set { "serviceTier": "fast" |
+// "ultrafast", "model": "<slug>" } (env PLATER_CHATGPT_SERVICE_TIER /
+// PLATER_CHATGPT_MODEL override it). OpenAI's Codex docs: Fast uses included
+// limits at 2.5x the Standard rate; Ultrafast (Pro $500 and eligible
+// Enterprise/Edu; GPT-6 Astra and GPT-6.1 Sol) at 8x. The SIWC docs do not say
+// whether the plan route accepts a tier, so a refused tier is retried once at
+// standard speed and the job says so; it never silently costs more.
+//
 // PREVIEW LIMITS this engine lives within: Responses API only, store:false,
 // stream:true (Codex app-server handles that); no hosted image generation,
 // file search, code interpreter or hosted MCP. Design jobs (image generation)
@@ -79,6 +87,19 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
 export const credentialsFile = (dir) => path.join(dir, 'credentials.json');
+export const settingsFile = (dir) => path.join(dir, 'settings.json');
+export function planSettings(dir, env = process.env) {
+  const s = readJson(settingsFile(dir)) || {};
+  const tier = env.PLATER_CHATGPT_SERVICE_TIER ?? s.serviceTier ?? null;
+  return {
+    serviceTier: tier && tier !== 'default' ? String(tier) : null,
+    model: env.PLATER_CHATGPT_MODEL || s.model || null,
+    sandbox: env.PLATER_CHATGPT_SANDBOX || s.sandbox || 'workspace-write',
+    // Verification only: a loopback fixture. Anything else is ignored, so a
+    // real plan token can never be pointed at another host.
+    apiBase: /^http:\/\/127\.0\.0\.1:\d+\/v1$/.test(env.PLATER_CHATGPT_API_BASE || '') ? env.PLATER_CHATGPT_API_BASE : null,
+  };
+}
 export const hostFile = (dir) => path.join(dir, 'host.json');
 export const loadRecord = (dir) => readJson(credentialsFile(dir));
 export const saveRecord = (dir, record) => writePrivate(credentialsFile(dir), record);
@@ -292,8 +313,8 @@ const LIMIT_CODES = ['subscription_sharing_usage_limit_exceeded', 'subscription_
 
 // Drives one turn over app-server's stdio JSON-RPC. Resolves
 // { ok, status, text, detail }. Only turn status "completed" is success.
-export function runPlanTurn({ prompt, cwd, accessToken, codexHome, model = process.env.PLATER_CHATGPT_MODEL || null,
-  sandbox = process.env.PLATER_CHATGPT_SANDBOX || 'workspace-write', timeoutMs = 8 * 60_000,
+export function runPlanTurn({ prompt, cwd, accessToken, codexHome, model = null, serviceTier = null,
+  sandbox = 'workspace-write', timeoutMs = 8 * 60_000,
   spawn = nodeSpawn, codexBin = 'codex', apiBase = RESOURCE, version = '0.1.0', onChild } = {}) {
   fs.mkdirSync(codexHome, { recursive: true, mode: 0o700 });
   return new Promise((resolve) => {
@@ -350,10 +371,29 @@ export function runPlanTurn({ prompt, cwd, accessToken, codexHome, model = proce
     (async () => {
       await request('initialize', { clientInfo: { name: APP_NAME, title: APP_NAME, version } });
       send({ method: 'initialized' });
-      const started = await request('thread/start', { cwd, approvalPolicy: 'never', sandbox, ephemeral: true, ...(model ? { model } : {}) });
+      const started = await request('thread/start', { cwd, approvalPolicy: 'never', sandbox, ephemeral: true,
+        ...(model ? { model } : {}), ...(serviceTier ? { serviceTier } : {}) });
       threadId = started?.thread?.id;
       if (!threadId) throw new Error('thread/start returned no thread id');
       await request('turn/start', { threadId, input: [{ type: 'text', text: prompt }] });
     })().catch((e) => finish({ ok: false, status: classify(e.message), detail: e.message }));
   });
+}
+
+// One note on the plan: fresh token, the owner's speed settings, and a single
+// standard-speed retry if the plan route refuses the requested tier.
+const TIER_REFUSED = /service[_ ]?tier|ultrafast|fast[_ ]mode|priority/i;
+export async function runPlanNote({ prompt, cwd, dir = planDir(), env = process.env, timeoutMs, onChild, fetch: fetchImpl,
+  turn = runPlanTurn, apiBase } = {}) {
+  const { serviceTier, model, sandbox, apiBase: fixtureBase } = planSettings(dir, env);
+  apiBase = apiBase || fixtureBase;
+  const accessToken = await freshAccessToken({ dir, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
+  const base = { prompt, cwd, accessToken, codexHome: path.join(dir, 'codex-home'), model, sandbox, onChild,
+    ...(timeoutMs ? { timeoutMs } : {}), ...(apiBase ? { apiBase } : {}) };
+  const out = await turn({ ...base, serviceTier });
+  if (!out.ok && serviceTier && out.status !== 'plan-limit' && TIER_REFUSED.test(String(out.detail || ''))) {
+    const again = await turn({ ...base, serviceTier: null });
+    return { ...again, serviceTier: null, tierNote: `${serviceTier} was refused on the plan route; ran at standard speed` };
+  }
+  return { ...out, serviceTier };
 }

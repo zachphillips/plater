@@ -12,6 +12,12 @@
 //           the plan token as the bearer, uses store:false + stream:true, keeps
 //           to the isolated CODEX_HOME, and that a usage-limit failure is
 //           reported as plan-limit, not success.
+//   draft   The real `plater dev` on a copy of examples/static-site with
+//           PLATER_CHATGPT_PLAN=1 and fixture credentials: /api/config turns
+//           agentRouting on, pages carry the ✎ Note overlay, cross-site posts are
+//           refused, and in headless Chromium (when Playwright is installed) a
+//           note picked on the headline runs a real codex turn in the draft
+//           folder and finishes as done. Screenshots: PLATER_EVIDENCE_DIR.
 //
 // Needs `codex` on PATH (skips the turn check with a notice if absent).
 import http from 'node:http';
@@ -21,7 +27,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { login } from '../packages/agent-host/chatgpt.mjs';
-import { runPlanTurn, planGate, loadRecord, credentialsFile, PLAN_SCOPE } from '../packages/agent-host/chatgpt-plan.mjs';
+import { runPlanTurn, planGate, loadRecord, saveRecord, credentialsFile, PLAN_SCOPE } from '../packages/agent-host/chatgpt-plan.mjs';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 let failures = 0;
 function check(ok, what, detail = '') {
@@ -79,6 +87,86 @@ async function verifyLogin() {
 }
 
 /* ---------------- one real codex app-server turn against a fixture API ------ */
+function fixtureApi(seen) {
+  return http.createServer(async (req, res) => {
+    const u = new URL(req.url, 'http://x');
+    const body = req.method === 'POST' ? await readBody(req) : '';
+    seen.push({ method: req.method, path: u.pathname, auth: req.headers.authorization || '', body });
+    if (u.pathname.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ models: [] })); }
+    if (!u.pathname.endsWith('/responses')) { res.writeHead(404); return res.end(); }
+    const id = `resp_${seen.length}`;
+    const item = { type: 'message', role: 'assistant', id: 'msg_1', content: [{ type: 'output_text', text: 'fixture turn done' }] };
+    sse(res, [
+      { type: 'response.created', response: { id } },
+      { type: 'response.output_item.done', output_index: 0, item },
+      { type: 'response.completed', response: { id, usage: { input_tokens: 1, input_tokens_details: null, output_tokens: 1, output_tokens_details: null, total_tokens: 2 } } },
+    ]);
+  });
+}
+
+async function verifyDraft() {
+  if (spawnSync('codex', ['--version']).status !== 0) { console.log('skip draft: codex not on PATH'); return; }
+  const seen = []; const api = fixtureApi(seen);
+  const apiPort = await listen(api);
+  const draft = path.join(scratch, 'draft'); fs.cpSync(path.join(ROOT, 'examples', 'static-site'), draft, { recursive: true });
+  // A typical agent-built draft loads only the editor, no capture of its own:
+  // the overlay under test must be the one plater dev injects.
+  const indexFile = path.join(draft, 'index.html');
+  const stripped = fs.readFileSync(indexFile, 'utf8').replace(/<script type="module">[\s\S]*?<\/script>/,
+    `<script type="module">import { initPlater } from '/packages/core/src/editor.js'; initPlater({ brand: 'Draft' });</script>`);
+  fs.writeFileSync(indexFile, stripped);
+  const dir = path.join(scratch, 'draft-cred', 'chatgpt');
+  saveRecord(dir, { client_id: 'oaiapp_fixture', access_token: 'fx-draft-token', refresh_token: 'r', scope: `openid ${PLAN_SCOPE}`, expires_at: Date.now() + 3600_000 });
+  Object.assign(process.env, { PLATER_CHATGPT_PLAN: '1', PLATER_CHATGPT_DIR: dir, PLATER_CHATGPT_API_BASE: `http://127.0.0.1:${apiPort}/v1`, PLATER_CHATGPT_MODEL: 'gpt-fixture' });
+  const { startDev } = await import('../cli/dev.mjs');
+  const dev = await startDev(draft, { port: 0 });
+  const base = `http://127.0.0.1:${dev.server.address().port}`;
+  try {
+    const conf = await (await fetch(`${base}/api/config`)).json();
+    check(conf.agentRouting === true, 'draft: plater dev reports agent routing on when the owner opted in', JSON.stringify(conf));
+    check((await (await fetch(`${base}/`)).text()).includes('/__plater/notes.js'), 'draft: pages carry the ✎ Note overlay');
+    check((await fetch(`${base}/__plater/capture.js`)).ok, 'draft: overlay module served from /__plater/');
+    const post = (headers) => fetch(`${base}/api/agent-note`, { method: 'POST', headers, body: JSON.stringify({ note: 'x' }) }).then((r) => r.status);
+    check(await post({ 'content-type': 'text/plain' }) === 403, 'draft: a cross-site form post is refused');
+    check(await post({ 'content-type': 'application/json', origin: 'https://evil.example' }) === 403, 'draft: a cross-site fetch is refused');
+    let chromium = null;
+    try { ({ chromium } = await import('playwright')); } catch { console.log('skip draft browser journey: Playwright not installed (npm i --no-save playwright@1.64.1)'); }
+    if (chromium) {
+      const shots = process.env.PLATER_EVIDENCE_DIR || null;
+      if (shots) fs.mkdirSync(shots, { recursive: true });
+      const browser = await chromium.launch();
+      try {
+        const page = await browser.newPage({ viewport: { width: 1180, height: 820 } });
+        await page.goto(`${base}/?edit`);
+        const launch = page.locator('button', { hasText: '✎ Note' });
+        await launch.waitFor({ timeout: 10_000 });
+        check(await page.locator('#cms-bar button', { hasText: '✎ Note' }).count() === 1, 'draft: ✎ Note sits in the editor bar');
+        if (shots) await page.screenshot({ path: path.join(shots, '1-edit-bar.png') });
+        await launch.click();
+        await page.locator('h1').first().click();
+        const ta = page.locator('.zmscap-pop textarea');
+        await ta.waitFor({ timeout: 5_000 });
+        await ta.fill('Make the headline shorter');
+        if (shots) { await page.waitForTimeout(600); await page.screenshot({ path: path.join(shots, '2-note.png') }); }
+        await page.locator('.zmscap-pop button', { hasText: /send/i }).first().click();
+        await page.waitForFunction(() => /queued · [a-f0-9]{12}/.test(document.querySelector('.zmscap-pop')?.textContent || ''), null, { timeout: 10_000 });
+        const id = (await page.locator('.zmscap-pop').textContent()).match(/queued · ([a-f0-9]{12})/)[1];
+        let status = 'queued';
+        for (let i = 0; i < 180 && !/^(done|failed)$/.test(status); i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          status = (await (await fetch(`${base}/api/agent-note`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'status', job: id }) })).json()).status;
+        }
+        check(status === 'done', 'draft: a note from the page runs a real codex turn and finishes done', status);
+        const calls = seen.filter((c) => c.path.endsWith('/responses'));
+        check(calls.length > 0 && calls.every((c) => c.auth === 'Bearer fx-draft-token'), 'draft: the turn used the owner\'s plan token');
+        check(calls.some((c) => (JSON.parse(c.body).input || []).some((i) => JSON.stringify(i).includes('Make the headline shorter'))), 'draft: the note reached the model with its element context');
+        if (shots) { await page.reload(); await launch.waitFor(); await page.locator('button', { hasText: /notes/i }).last().click().catch(() => {}); await page.screenshot({ path: path.join(shots, '3-tray.png') }); }
+      } finally { await browser.close(); }
+    }
+  } catch (e) { check(false, 'draft journey', e.stack || e.message); }
+  finally { await new Promise((r) => dev.server.close(r)); api.close(); }
+}
+
 function sse(res, events) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   for (const e of events) res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`);
@@ -134,6 +222,7 @@ async function verifyTurn() {
 
 await verifyLogin();
 await verifyTurn();
+await verifyDraft();
 fs.rmSync(scratch, { recursive: true, force: true });
 console.log(failures ? `\n${failures} check(s) failed` : '\nchatgpt plan engine verified (fixtures only; no OpenAI sign-in or plan usage)');
 process.exit(failures ? 1 : 0);

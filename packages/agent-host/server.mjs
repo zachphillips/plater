@@ -22,7 +22,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { planGate, planDir, freshAccessToken, runPlanTurn } from './chatgpt-plan.mjs';
+import { planGate, runPlanNote } from './chatgpt-plan.mjs';
 
 // PLATER_AGENT_* are the current names; ZMS_AGENT_* are the deprecated-but-
 // supported aliases. The TOKEN must match whatever the *site* sends, which
@@ -239,12 +239,11 @@ async function runner() {
     update({ status: 'agent-running', engine, output });
     let res;
     if (engine === 'chatgpt') {
-      const dir = planDir();
-      const turn = await runPlanTurn({
+      const turn = await runPlanNote({
         prompt: buildPrompt(job, site), cwd: repoPath, timeoutMs: JOB_TIMEOUT_MS,
-        accessToken: await freshAccessToken({ dir }), codexHome: path.join(dir, 'codex-home'),
         onChild: (ch) => { job._child = ch; },
       });
+      if (turn.tierNote) update({ tierNote: turn.tierNote });
       job._child = null;
       if (!turn.ok) {
         await run('git', ['-C', repoPath, 'checkout', '--', '.']);

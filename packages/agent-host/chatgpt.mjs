@@ -60,6 +60,9 @@ export function login({ dir = planDir(), authBase = AUTH_BASE, fetch: fetchImpl 
         end(null, record);
       } catch (e) {
         res.writeHead(400, { 'content-type': 'text/html; charset=utf-8' });
+        // A callback with the wrong state is not ours (a stray request, a prefetch,
+        // another site poking the port): refuse it and keep waiting for the real one.
+        if (/^state mismatch/.test(e.message)) { res.end(page('This sign-in link is not the one Plater is waiting for.')); return; }
         res.end(page('Sign-in did not complete. Return to the terminal for details.'));
         end(e);
       }

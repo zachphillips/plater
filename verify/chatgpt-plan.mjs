@@ -67,14 +67,19 @@ async function verifyLogin() {
   issuer = `http://127.0.0.1:${await listen(idp)}`;
   const dir = path.join(scratch, 'login', 'chatgpt');
   try {
-    let printed = '';
+    let printed = ''; let strayStatus = 0;
     const done = login({ dir, authBase: issuer, timeoutMs: 15_000, print: async (url) => {
       printed = url;
+      // a stray hit with the wrong state must not end the pending sign-in
+      const cb = new URL(new URL(url).searchParams.get('redirect_uri'));
+      cb.search = 'code=forged&state=wrong&client_id=oaiapp_forged';
+      strayStatus = (await fetch(cb)).status;
       // the "browser": follow the fixture's redirect back to the loopback callback
       const r = await fetch(url, { redirect: 'manual' });
       await fetch(r.headers.get('location'));
     } });
     const record = await done;
+    check(strayStatus === 400 && record.client_id === 'oaiapp_fixture', 'login: a callback with the wrong state is refused and the real sign-in still completes');
     check(new URL(printed).searchParams.get('client_id') === 'dynamic_agent_client', 'login: first sign-in uses the registration entrypoint');
     check(/^http:\/\/127\.0\.0\.1:\d+\/auth\/callback$/.test(authorizeQuery.get('redirect_uri')), 'login: loopback redirect on 127.0.0.1');
     check(tokenForm.client_id === 'oaiapp_fixture' && tokenForm.code_verifier && tokenForm.resource === 'https://api.openai.com/v1', 'login: code exchange uses the issued client id, PKCE verifier and resource', JSON.stringify(tokenForm));

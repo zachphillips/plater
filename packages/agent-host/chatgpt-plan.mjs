@@ -331,7 +331,9 @@ export function runPlanTurn({ prompt, cwd, accessToken, codexHome, model = null,
       resolve({ text, ...out });
     };
     const timer = setTimeout(() => finish({ ok: false, status: 'timeout', detail: 'plan turn timed out' }), timeoutMs);
-    const send = (msg) => { try { child.stdin.write(JSON.stringify(msg) + '\n'); } catch {} };
+    // EPIPE when Codex exits mid-write arrives as an async stream error; unhandled, it would take the host down.
+    child.stdin.on('error', (e) => finish({ ok: false, status: 'failed', detail: `codex stdin error: ${e.message}` }));
+    const send = (msg) => { if (done) return; try { child.stdin.write(JSON.stringify(msg) + '\n'); } catch {} };
     const request = (method, params) => new Promise((res, rej) => {
       const id = nextId++; pending.set(id, { res, rej }); send({ id, method, params });
     });

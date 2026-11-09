@@ -10,6 +10,11 @@
 //     live deploy, unless the site is explicitly configured output:"push".
 //   - Rate limited + concurrency-capped + append-only audit journal.
 //   - Intended to sit behind a Cloudflare Tunnel (agent.<your-domain>).
+//   - Optional `chatgpt` engine (chatgpt-plan.mjs): the owner's own ChatGPT
+//     plan via Sign in with ChatGPT + Codex app-server. Off unless
+//     PLATER_CHATGPT_PLAN=1, the site has "planUsage": true, and the owner
+//     signed in on this machine. A locked engine fails the job; it never falls
+//     back to another engine.
 import http from 'node:http';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -17,6 +22,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { planGate, runPlanNote } from './chatgpt-plan.mjs';
 
 // PLATER_AGENT_* are the current names; ZMS_AGENT_* are the deprecated-but-
 // supported aliases. The TOKEN must match whatever the *site* sends, which
@@ -215,7 +221,13 @@ async function runner() {
     if (job.kind === 'design') { await runDesignJob(job, update); return; }
     const repoPath = site.path;
     const branch = `zms/note-${job.id}`;
-    const engine = ENGINES[job.route.engine] ? job.route.engine : (site.defaultEngine || 'claude');
+    const known = (e) => !!ENGINES[e] || e === 'chatgpt';
+    const engine = known(job.route.engine) ? job.route.engine : (known(site.defaultEngine) ? site.defaultEngine : 'claude');
+    if (engine === 'chatgpt') {
+      // Check the locks before touching the checkout, so a refused job leaves no branch behind.
+      const gate = planGate(site);
+      if (!gate.ok) { update({ status: 'plan-unavailable', engine, detail: gate.reason }); return; }
+    }
     const output = job.route.output || site.defaultOutput || 'pr';
 
     // fresh branch from the site's base branch (default main)
@@ -224,10 +236,27 @@ async function runner() {
     await run('git', ['-C', repoPath, 'checkout', '-B', branch, `origin/${base}`, '--quiet']);
 
     // run the agent in the repo
-    const [cmd, args] = ENGINES[engine](buildPrompt(job, site));
     update({ status: 'agent-running', engine, output });
-    const res = await run(cmd, args, { cwd: repoPath, onChild: (ch) => { job._child = ch; } });
-    job._child = null;
+    let res;
+    if (engine === 'chatgpt') {
+      const turn = await runPlanNote({
+        prompt: buildPrompt(job, site), cwd: repoPath, timeoutMs: JOB_TIMEOUT_MS,
+        onChild: (ch) => { job._child = ch; },
+      });
+      if (turn.tierNote) update({ tierNote: turn.tierNote });
+      job._child = null;
+      if (!turn.ok) {
+        await run('git', ['-C', repoPath, 'checkout', '--', '.']);
+        await run('git', ['-C', repoPath, 'clean', '-fdq']);
+        update({ status: turn.status === 'plan-limit' ? 'plan-limit' : 'agent-failed', detail: String(turn.detail || '').slice(-500) });
+        return;
+      }
+      res = { stdout: turn.text, stderr: '' };
+    } else {
+      const [cmd, args] = ENGINES[engine](buildPrompt(job, site));
+      res = await run(cmd, args, { cwd: repoPath, onChild: (ch) => { job._child = ch; } });
+      job._child = null;
+    }
 
     // did anything change?
     const status = await run('git', ['-C', repoPath, 'status', '--porcelain']);

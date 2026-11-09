@@ -14,7 +14,11 @@
 //   prod     merge to main         Vercel production; CMS saves commit to main
 //
 // Dev-only: /api/agent-note echoes instead of contacting the agent host, so
-// a local session can never fire real agent jobs by accident.
+// a local session can never fire real agent jobs by accident. The one
+// exception is opt-in per process: PLATER_CHATGPT_PLAN=1 plus the owner's
+// ChatGPT sign-in on this machine turns on in-place notes on the owner's plan
+// (packages/agent-host/dev-notes.mjs). Pages get the ✎ Note overlay, a note
+// edits the draft's files, and live reload shows it.
 //
 // Everything here is also the reusable server kit for cli/serve.mjs: TYPES,
 // readBody, shim, serveStatic, findWebRoot, resolveSite, configureEnv,
@@ -287,7 +291,7 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 
 /* ---------------- the dev server ---------------- */
 
-export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null }) {
+export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null, notes = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
   const loose = !entry && !fsSync.existsSync(path.join(webRoot, 'index.html')) && htmlPages(webRoot).length > 0;
@@ -295,6 +299,11 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
   // An agent's write, a save from another tab, a CSS tweak — the open tab
   // updates without a refresh. PLATER_LIVE=0 turns it off.
   const hub = live && process.env.PLATER_LIVE !== '0' ? handlers.live.createLiveHub({ webRoot, contentPath, entry }) : null;
+  const notesOn = !!(notes && notes.enabled);
+  const pageHtml = (html) => {
+    const withLive = hub ? handlers.live.injectLiveClient(html, hub.gen()) : html;
+    return notesOn ? notes.inject(withLive) : withLive;
+  };
 
   const server = http.createServer(async (req, res) => {
     let url, p;
@@ -309,6 +318,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
         return res.end(handlers.live.LIVE_CLIENT);
       }
+      if (notesOn && await notes.serveAsset(p, res)) return;
       // Single-file mode serves that page and the assets it can load, and
       // nothing else: no neighbouring page or file, and none of the site APIs
       // either, since the folder around a loose file (~/Downloads) is not a
@@ -321,7 +331,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
-        return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: false }));
+        return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: notesOn }));
       }
       // The real handler, so ?track= overlays AND ?file= alternate content
       // files behave (and reject traversal) exactly as they do in production.
@@ -352,6 +362,13 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ ok: true, saved: true, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
       }
+      if (p === '/api/agent-note' && req.method === 'POST' && notesOn) {
+        let body;
+        try { body = JSON.parse(await readBody(req) || '{}'); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'invalid JSON body' })); }
+        const [code, out] = notes.handle(req, body);
+        res.writeHead(code, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify(out));
+      }
       if (p === '/api/agent-note' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req) || '{}');
         res.writeHead(202, { 'content-type': 'application/json' });
@@ -379,7 +396,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       if (dotted || (loose && p !== '/' && !/\.html?$/i.test(p) && !ASSET_EXT.test(p))) {
         res.writeHead(404); return res.end('not a web asset');
       }
-      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub ? (html) => handlers.live.injectLiveClient(html, hub.gen()) : null, cacheControl: 'no-cache' })) return;
+      if (await serveStatic(req, res, p, { webRoot, transformHtml: hub || notesOn ? pageHtml : null, cacheControl: 'no-cache' })) return;
       // A loose folder or a single file has no index.html: open the file that
       // was asked for, or list the pages.
       if (p === '/') {
@@ -390,7 +407,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
           res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache' });
           const list = pages.map((n) => `<li><a href="/${encodeURIComponent(n)}">${esc(n)}</a></li>`).join('');
           const html = `<!doctype html><meta charset="utf-8"><title>${esc(path.basename(webRoot))}</title><body style="font:15px system-ui;margin:32px"><ul>${list}</ul></body>`;
-          return res.end(hub ? handlers.live.injectLiveClient(html, hub.gen()) : html);
+          return res.end(pageHtml(html));
         }
       }
       const [rq, rs] = shim(req, res, url);
@@ -404,7 +421,19 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
   // an SSE stream never finishes on its own.
   if (hub) { const close = server.close.bind(server); server.close = (cb) => { hub.close(); return close(cb); }; }
   server.live = hub;
+  server.notes = notes;
   return server;
+}
+
+// In-place plan notes, only when this process asked for them. The agent-host
+// package is not in the npm tarball, so a missing module just means "off".
+async function loadDevNotes(site) {
+  if (process.env.PLATER_CHATGPT_PLAN !== '1') return null;
+  try {
+    const { createDevNotes, injectNotesClient } = await import(path.join(PKG, 'agent-host', 'dev-notes.mjs'));
+    const notes = createDevNotes(site);
+    return notes && { ...notes, inject: injectNotesClient };
+  } catch (e) { return { enabled: false, reason: `plan notes need a Plater checkout (${e.code || e.message})` }; }
 }
 
 // Resolve → configure env → load handlers → build → listen (with autopick).
@@ -412,7 +441,8 @@ export async function startDev(argDir, { port, host = '127.0.0.1' } = {}) {
   const site = resolveSite(argDir);
   configureEnv(site);
   const handlers = await loadHandlers();
-  const server = createDevServer({ ...site, handlers });
+  const notes = await loadDevNotes(site);
+  const server = createDevServer({ ...site, handlers, notes });
   const chosen = await listenWithAutopick(server, { port, host });
   return { ...site, server, port: chosen, host };
 }
@@ -451,6 +481,8 @@ async function main() {
   console.log(`  history real git log of that file — Restore writes the old version back to disk`);
   console.log(`  images  drop a file on any bound <img> — uploads write to ${path.relative(siteDir, path.join(webRoot, 'images')) || 'images'}/`);
   console.log(`  live    ${out.server.live ? 'on — open tabs follow edits on disk (agent turns, other tabs, CSS) with no refresh' : 'off (PLATER_LIVE=0)'}`);
+  const n = out.server.notes;
+  if (n) console.log(`  notes   ${n.enabled ? 'on — ✎ Note runs on your ChatGPT plan and edits this draft in place' : `off — ${n.reason}`}`);
   console.log(`  ladder  local (this) → staging (push branch → Vercel preview) → prod (merge to main)`);
 }
 

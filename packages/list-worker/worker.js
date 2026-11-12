@@ -5,22 +5,51 @@
 // Philosophy-fit: this is plumbing, not a marketing suite. It captures, it
 // exports, it deletes. No campaigns, no segments, no tracking pixels.
 //
+// A sign-up or inquiry is never only in the database (capture.js holds the
+// rule and its reasons). Each accepted submission is written to D1 AND emailed
+// to the owner through the RELAY send_email binding before the Worker answers.
+// "ok" means at least one of the two took it; when only one did, a gap record
+// goes to the GAPS KV namespace and the hourly scheduled run repairs it. A D1
+// refusal (for example the free plan's daily limit) is caught, logged, named
+// in the email, and never becomes a response the page cannot read: every
+// response carries the CORS headers.
+//
 // Endpoints:
 //   POST /subscribe          { site, email, note? }   → 200 { ok:true }
 //     - site must be in the SITES allowlist (env, comma-separated)
-//     - idempotent: re-subscribing the same email is a 200, not a dupe row
+//     - idempotent: re-subscribing the same email is a 200, not a dupe row; a
+//       new, different note is appended to the existing row's note, dated
+//     - the note is stored whole; past NOTE_MAX characters (50,000) the
+//       request is refused with a plain 413 message, never cut
 //     - honeypot: a non-empty `company` field silently succeeds w/o storing
+//     - 503 { error } when neither D1 nor the relay took it (the page's own
+//       fallback runs; the gap record still holds it for repair)
 //     - if the site has a SINK configured, the capture is also forwarded
-//       there (fire-and-forget; D1 remains the durable record either way)
+//       there afterwards (fire-and-forget)
 //   GET  /list?site=…        Bearer LIST_ADMIN_TOKEN  → { rows: […] }
 //   GET  /export?site=…&since=<iso>  Bearer LIST_ADMIN_TOKEN
 //     → { rows, cursor } — incremental drain for PULL consumers that can't
 //       receive webhooks (e.g. a local-only vault that binds 127.0.0.1 by
 //       design, so a bridge script on the owner's machine polls this and
 //       inserts locally; see elsewhere-bridge.mjs)
+//   GET  /gaps               Bearer LIST_ADMIN_TOKEN  → { gaps: […] } submissions
+//     that are missing from one place and waiting for the repair run
 //   POST /unsubscribe        { site, email }          → 200 (also Bearer-free:
 //     unsubscribing must never require credentials)
-//   GET  /health             → { ok, sites }
+//   GET  /health             → { ok, sites, relay, gaps } (never touches D1)
+//   scheduled (cron, hourly) → repair every gap record it can, then delete it
+//
+// Configuration (all optional except DB and SITES):
+//   SITES       "key=https://origin,key=https://another-origin,…" — a key may
+//               repeat, so one site can be posted from several addresses
+//   RELAY       send_email binding (Cloudflare Email Routing). On the free plan
+//               it sends only to a verified destination address on the account,
+//               from an address on a domain with Email Routing enabled.
+//   RELAY_FROM  sender address on that domain, e.g. list@example.com
+//   RELAY_TO    the owner's verified destination address
+//   GAPS        KV namespace for gap records
+//   LIST_ADMIN_TOKEN  secret for /list, /export, /gaps
+//   SINKS       see below
 //
 // SINKS (env, JSON): per-site "send captures to MY provider" — any provider
 // that accepts an HTTP POST (Buttondown, Mailchimp, ConvertKit, a personal
@@ -33,13 +62,16 @@
 // {{email}} / {{note}} / {{site}} / {{created_at}} are replaced in any string
 // value of `body` (defaults to {email, note, site, created_at} when omitted).
 //
-// D1 schema (auto-migrated on first request):
+// D1 schema (created the first time a write finds no table; not run on every
+// request, so a refusing database costs one failed statement, not two):
 //   CREATE TABLE subscribers (
 //     site TEXT NOT NULL, email TEXT NOT NULL, note TEXT,
 //     created_at TEXT NOT NULL, confirmed INTEGER DEFAULT 1,
 //     unsubscribed_at TEXT, PRIMARY KEY (site, email))
 //
-// CORS: allow-listed site origins only (SITES maps key→origin).
+// CORS: allow-listed site origins only (SITES maps key→origins).
+
+import { BODY_MAX, TOO_LONG, capture, readSubmission, relayMime } from './capture.js';
 
 const MIGRATION = `CREATE TABLE IF NOT EXISTS subscribers (
   site TEXT NOT NULL,
@@ -51,20 +83,38 @@ const MIGRATION = `CREATE TABLE IF NOT EXISTS subscribers (
   PRIMARY KEY (site, email)
 )`;
 
+// A repeat sign-up keeps the original row and date. A new message from the
+// same address is appended, dated, so a second inquiry is never dropped; the
+// same message sent twice is not appended again.
+const UPSERT = `INSERT INTO subscribers (site, email, note, created_at) VALUES (?1, ?2, ?3, ?4)
+  ON CONFLICT (site, email) DO UPDATE SET
+    unsubscribed_at = NULL,
+    note = CASE
+      WHEN excluded.note IS NULL OR excluded.note = '' THEN subscribers.note
+      WHEN subscribers.note IS NULL OR subscribers.note = '' THEN excluded.note
+      WHEN instr(subscribers.note, excluded.note) > 0 THEN subscribers.note
+      ELSE subscribers.note || char(10) || char(10) || '[' || excluded.created_at || '] ' || excluded.note
+    END
+  RETURNING created_at`;
+
 function parseSites(env) {
-  // SITES = "my-site=https://my-site.com,another=https://another.example"
+  // SITES = "my-site=https://my-site.com,my-site=https://www.my-site.com,another=https://another.example"
   const map = {};
   for (const pair of String(env.SITES || '').split(',')) {
-    const [k, v] = pair.split('=').map((s) => s && s.trim());
-    if (k && v) map[k] = v.replace(/\/$/, '');
+    const i = pair.indexOf('=');
+    if (i < 1) continue;
+    const k = pair.slice(0, i).trim();
+    const v = pair.slice(i + 1).trim().replace(/\/$/, '');
+    if (k && v) (map[k] ||= []).push(v);
   }
   return map;
 }
 
 function corsHeaders(origin, sites) {
-  const allowed = Object.values(sites).includes(origin) ? origin : '';
+  const allowed = origin && Object.values(sites).some((list) => list.includes(origin)) ? origin : '';
   return {
-    ...(allowed ? { 'access-control-allow-origin': allowed, vary: 'origin' } : {}),
+    ...(allowed ? { 'access-control-allow-origin': allowed } : {}),
+    vary: 'origin',
     'access-control-allow-methods': 'POST, GET, OPTIONS',
     'access-control-allow-headers': 'content-type, authorization',
   };
@@ -73,7 +123,7 @@ function corsHeaders(origin, sites) {
 const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...extra } });
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const errText = (e) => String((e && e.message) || e || 'unknown error').slice(0, 500);
 
 function parseSinks(env) {
   try { return JSON.parse(env.SINKS || '{}'); } catch { return {}; }
@@ -107,85 +157,195 @@ function timingSafeEqualStr(a, b) {
   return diff === 0;
 }
 
+const isAdmin = (req, env) => {
+  const auth = String(req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  return Boolean(env.LIST_ADMIN_TOKEN) && timingSafeEqualStr(auth, env.LIST_ADMIN_TOKEN);
+};
+
+// Run a D1 write; if the table does not exist yet (a new install), create it
+// and try once more. Any other refusal propagates to the caller.
+async function withTable(env, fn) {
+  try { return await fn(); } catch (e) {
+    if (!/no such table/i.test(errText(e))) throw e;
+    await env.DB.prepare(MIGRATION).run();
+    return fn();
+  }
+}
+
+async function saveToDb(env, sub) {
+  const row = await withTable(env, () =>
+    env.DB.prepare(UPSERT).bind(sub.site, sub.email, sub.note, sub.created_at).first());
+  return { fresh: !row || row.created_at === sub.created_at };
+}
+
+async function sendRelay(env, sub, db, delayed = false) {
+  const { EmailMessage } = await import('cloudflare:email');
+  const { raw } = relayMime({ from: env.RELAY_FROM, to: env.RELAY_TO, sub, db, delayed });
+  await env.RELAY.send(new EmailMessage(env.RELAY_FROM, env.RELAY_TO, raw));
+}
+
+async function recordGap(env, sub, missing, reasons) {
+  const key = `gap:${sub.created_at}:${sub.site}:${crypto.randomUUID().slice(0, 8)}`;
+  await env.GAPS.put(key, JSON.stringify({ sub, missing, reasons, recorded_at: new Date().toISOString() }));
+  return key;
+}
+
+function placesFor(env) {
+  const relayReady = Boolean(env.RELAY && env.RELAY_FROM && env.RELAY_TO);
+  return {
+    saveToDb: (sub) => saveToDb(env, sub),
+    relay: relayReady ? (sub, db) => sendRelay(env, sub, db) : undefined,
+    recordGap: env.GAPS ? (sub, missing, reasons) => recordGap(env, sub, missing, reasons) : undefined,
+  };
+}
+
+// Hourly: put every held submission into the place it missed. Reads D1 only
+// when there is something to repair. A record is rewritten only when what is
+// missing changes, so a long outage does not spend the KV write allowance.
+async function repairGaps(env) {
+  if (!env.GAPS) return { checked: 0, repaired: 0, waiting: 0 };
+  const places = placesFor(env);
+  let cursor, checked = 0, repaired = 0, waiting = 0;
+  do {
+    const page = await env.GAPS.list({ prefix: 'gap:', cursor });
+    for (const { name } of page.keys) {
+      const rec = await env.GAPS.get(name, 'json');
+      if (!rec || !rec.sub) continue;
+      checked++;
+      const still = [];
+      let db = { ok: !rec.missing.includes('db') };
+      if (rec.missing.includes('db')) {
+        try { db = { ok: true, ...(await places.saveToDb(rec.sub)) }; }
+        catch (e) { db = { ok: false, error: errText(e) }; still.push('db'); }
+      }
+      if (rec.missing.includes('relay')) {
+        if (!places.relay) still.push('relay');
+        else {
+          try { await sendRelay(env, rec.sub, db, true); }
+          catch { still.push('relay'); }
+        }
+      }
+      if (!still.length) { await env.GAPS.delete(name); repaired++; }
+      else {
+        waiting++;
+        if (still.length !== rec.missing.length) {
+          await env.GAPS.put(name, JSON.stringify({ ...rec, missing: still, last_repair_at: new Date().toISOString() }));
+        }
+        console.error(JSON.stringify({ event: 'gap_waiting', site: rec.sub.site, missing: still, db: db.error }));
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  console.log(JSON.stringify({ event: 'repair', checked, repaired, waiting }));
+  return { checked, repaired, waiting };
+}
+
+async function handle(req, env, ctx, sites, cors) {
+  const url = new URL(req.url);
+
+  if (url.pathname === '/health') {
+    return json({ ok: true, sites: Object.keys(sites), relay: Boolean(env.RELAY && env.RELAY_FROM && env.RELAY_TO), gaps: Boolean(env.GAPS) }, 200, cors);
+  }
+
+  if (url.pathname === '/subscribe' && req.method === 'POST') {
+    if (Number(req.headers.get('content-length') || 0) > BODY_MAX) return json({ error: TOO_LONG }, 413, cors);
+    const text = await req.text();
+    if (text.length > BODY_MAX) return json({ error: TOO_LONG }, 413, cors);
+    let body;
+    try { body = JSON.parse(text); } catch { return json({ error: 'json body required' }, 400, cors); }
+    if (!body || typeof body !== 'object') return json({ error: 'json body required' }, 400, cors);
+    const read = readSubmission(body, sites);
+    if (read.error) return json({ error: read.error }, read.status, cors);
+    // honeypot: bots fill every field; humans never see `company`
+    if (body.company) return json({ ok: true }, 200, cors);
+
+    const sub = read.sub;
+    const result = await capture(sub, placesFor(env));
+    // Logged without the address. A refusal is also named in the email itself.
+    const log = { event: 'capture', site: sub.site, db: result.db.ok ? 'saved' : result.db.error,
+      relay: result.relay.configured ? (result.relay.ok ? 'sent' : result.relay.error) : 'not configured',
+      gap: result.gap, missing: result.missing };
+    (result.missing.length ? console.error : console.log)(JSON.stringify(log));
+
+    if (!result.ok) {
+      return json({ error: 'The list could not save this just now. Please email it instead.' }, 503, cors);
+    }
+    // Per-site sink: forward to the owner's own provider, after the response
+    // (waitUntil). The visitor never waits on a third party.
+    const sink = parseSinks(env)[sub.site];
+    if (sink && sink.url) {
+      ctx.waitUntil(forwardToSink(sink, { email: sub.email, note: sub.note || '', site: sub.site, created_at: sub.created_at }).catch(() => {}));
+    }
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (url.pathname === '/unsubscribe' && req.method === 'POST') {
+    let body;
+    try { body = await req.json(); } catch { return json({ error: 'json body required' }, 400, cors); }
+    const site = String(body.site || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
+    await env.DB.prepare(
+      'UPDATE subscribers SET unsubscribed_at = ?3 WHERE site = ?1 AND email = ?2',
+    ).bind(site, email, new Date().toISOString()).run();
+    return json({ ok: true }, 200, cors);
+  }
+
+  // Incremental drain for PULL consumers (e.g. the Elsewhere vault bridge):
+  // rows strictly after `since` (ISO), oldest first, plus the next cursor.
+  if (url.pathname === '/export' && req.method === 'GET') {
+    if (!isAdmin(req, env)) return json({ error: 'unauthorized' }, 401, cors);
+    const site = String(url.searchParams.get('site') || '').trim();
+    if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
+    const since = String(url.searchParams.get('since') || '1970-01-01T00:00:00Z');
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM subscribers WHERE site = ?1 AND created_at > ?2 ORDER BY created_at ASC LIMIT 500',
+    ).bind(site, since).all();
+    const cursor = results.length ? results[results.length - 1].created_at : since;
+    return json({ rows: results, cursor }, 200, cors);
+  }
+
+  if (url.pathname === '/list' && req.method === 'GET') {
+    if (!isAdmin(req, env)) return json({ error: 'unauthorized' }, 401, cors);
+    const site = String(url.searchParams.get('site') || '').trim();
+    const rows = site
+      ? (await env.DB.prepare('SELECT * FROM subscribers WHERE site = ?1 ORDER BY created_at DESC').bind(site).all()).results
+      : (await env.DB.prepare('SELECT * FROM subscribers ORDER BY created_at DESC').all()).results;
+    return json({ rows }, 200, cors);
+  }
+
+  if (url.pathname === '/gaps' && req.method === 'GET') {
+    if (!isAdmin(req, env)) return json({ error: 'unauthorized' }, 401, cors);
+    if (!env.GAPS) return json({ gaps: [] }, 200, cors);
+    const gaps = [];
+    let cursor;
+    do {
+      const page = await env.GAPS.list({ prefix: 'gap:', cursor });
+      for (const { name } of page.keys) gaps.push({ key: name, ...(await env.GAPS.get(name, 'json')) });
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return json({ gaps }, 200, cors);
+  }
+
+  return json({ error: 'not found' }, 404, cors);
+}
+
 export default {
   async fetch(req, env, ctx) {
-    const url = new URL(req.url);
     const sites = parseSites(env);
     const cors = corsHeaders(req.headers.get('origin') || '', sites);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-
-    await env.DB.prepare(MIGRATION).run();
-
-    if (url.pathname === '/health') {
-      return json({ ok: true, sites: Object.keys(sites) }, 200, cors);
+    try {
+      return await handle(req, env, ctx, sites, cors);
+    } catch (e) {
+      // Whatever failed (a refused database on an admin read, an unsubscribe),
+      // the page still gets JSON it is allowed to read.
+      console.error(JSON.stringify({ event: 'error', path: new URL(req.url).pathname, error: errText(e) }));
+      return json({ error: 'The list is having trouble right now. Please try again later or email instead.' }, 503, cors);
     }
+  },
 
-    if (url.pathname === '/subscribe' && req.method === 'POST') {
-      let body;
-      try { body = await req.json(); } catch { return json({ error: 'json body required' }, 400, cors); }
-      const site = String(body.site || '').trim();
-      const email = String(body.email || '').trim().toLowerCase();
-      const note = String(body.note || '').slice(0, 500) || null;
-      if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
-      if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: 'that does not look like an email address' }, 400, cors);
-      // honeypot: bots fill every field; humans never see `company`
-      if (body.company) return json({ ok: true }, 200, cors);
-      const created_at = new Date().toISOString();
-      await env.DB.prepare(
-        `INSERT INTO subscribers (site, email, note, created_at) VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT (site, email) DO UPDATE SET unsubscribed_at = NULL`,
-      ).bind(site, email, note, created_at).run();
-      // Per-site sink: forward to the owner's own provider, after the response
-      // (waitUntil) — the visitor never waits on a third party, and D1 already
-      // holds the durable record if the sink is down.
-      const sink = parseSinks(env)[site];
-      if (sink && sink.url) {
-        ctx.waitUntil(forwardToSink(sink, { email, note: note || '', site, created_at }).catch(() => {}));
-      }
-      return json({ ok: true }, 200, cors);
-    }
-
-    if (url.pathname === '/unsubscribe' && req.method === 'POST') {
-      let body;
-      try { body = await req.json(); } catch { return json({ error: 'json body required' }, 400, cors); }
-      const site = String(body.site || '').trim();
-      const email = String(body.email || '').trim().toLowerCase();
-      if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
-      await env.DB.prepare(
-        'UPDATE subscribers SET unsubscribed_at = ?3 WHERE site = ?1 AND email = ?2',
-      ).bind(site, email, new Date().toISOString()).run();
-      return json({ ok: true }, 200, cors);
-    }
-
-    // Incremental drain for PULL consumers (e.g. the Elsewhere vault bridge):
-    // rows strictly after `since` (ISO), oldest first, plus the next cursor.
-    if (url.pathname === '/export' && req.method === 'GET') {
-      const auth = String(req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-      if (!env.LIST_ADMIN_TOKEN || !timingSafeEqualStr(auth, env.LIST_ADMIN_TOKEN)) {
-        return json({ error: 'unauthorized' }, 401, cors);
-      }
-      const site = String(url.searchParams.get('site') || '').trim();
-      if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
-      const since = String(url.searchParams.get('since') || '1970-01-01T00:00:00Z');
-      const { results } = await env.DB.prepare(
-        'SELECT * FROM subscribers WHERE site = ?1 AND created_at > ?2 ORDER BY created_at ASC LIMIT 500',
-      ).bind(site, since).all();
-      const cursor = results.length ? results[results.length - 1].created_at : since;
-      return json({ rows: results, cursor }, 200, cors);
-    }
-
-    if (url.pathname === '/list' && req.method === 'GET') {
-      const auth = String(req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-      if (!env.LIST_ADMIN_TOKEN || !timingSafeEqualStr(auth, env.LIST_ADMIN_TOKEN)) {
-        return json({ error: 'unauthorized' }, 401, cors);
-      }
-      const site = String(url.searchParams.get('site') || '').trim();
-      const rows = site
-        ? (await env.DB.prepare('SELECT * FROM subscribers WHERE site = ?1 ORDER BY created_at DESC').bind(site).all()).results
-        : (await env.DB.prepare('SELECT * FROM subscribers ORDER BY created_at DESC').all()).results;
-      return json({ rows }, 200, cors);
-    }
-
-    return json({ error: 'not found' }, 404, cors);
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(repairGaps(env));
   },
 };

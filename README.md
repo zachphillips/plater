@@ -248,7 +248,7 @@ job can't stall the rest and a network blip is never reported as a failure.
 | [`@platercms/capture`](packages/capture) | The click-to-note overlay: element picker, note popover, engine × output chooser, notes tray, and design mode. Imposes no fonts and no global styles on the host site. |
 | [`create-platercms`](packages/create-platercms) | `npm create platercms@latest my-site` — scaffolds a running site: the starter page, the vendored client modules, and the `api/` handlers. Its payload is refilled from this repo on `prepack`, so a published tarball can never carry a stale fork of the editor. |
 | [`@platercms/agent-host`](packages/agent-host) | The long-running service that runs the agents. Bearer-gated, rate-limited, concurrency-capped, append-only audit journal, server-side site→repo allowlist. Designed to sit behind a Cloudflare Tunnel. Deployed, not published. |
-| [`@platercms/list-worker`](packages/list-worker) | Optional. A Cloudflare Worker + D1 email-capture backend shared across sites, so a site can collect email addresses without relying on a `mailto:` link. Each capture is also emailed to you before the visitor hears "ok", so a refused database never loses one. Captures, exports, deletes — no campaigns, no segments, no pixels. Deployed with wrangler, not published. |
+| [`@platercms/list-worker`](packages/list-worker) | Optional. A Cloudflare Worker + D1 email-capture backend shared across sites. Each submission is journaled before database and owner-email delivery, so an interrupted request can be repaired. A visitor hears "ok" only once a delivery is confirmed and unfinished work is repairable. Captures, exports, deletes, with no campaigns, segments, or pixels. Deployed with wrangler, not published. |
 
 ## Install
 

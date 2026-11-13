@@ -8,8 +8,9 @@
 // A sign-up or inquiry is never only in the database (capture.js holds the
 // rule and its reasons). Each accepted submission is written to D1 AND emailed
 // to the owner through the RELAY send_email binding before the Worker answers.
-// "ok" means at least one of the two took it; when only one did, a gap record
-// goes to the GAPS KV namespace and the hourly scheduled run repairs it. A D1
+// The full submission goes to GAPS KV before delivery so a Worker restart is
+// repairable. "ok" means at least one place took it, with a journal for any
+// unfinished delivery. The hourly scheduled run repairs it. A D1
 // refusal (for example the free plan's daily limit) is caught, logged, named
 // in the email, and never becomes a response the page cannot read: every
 // response carries the CORS headers.
@@ -22,8 +23,8 @@
 //     - the note is stored whole; past NOTE_MAX characters (50,000) the
 //       request is refused with a plain 413 message, never cut
 //     - honeypot: a non-empty `company` field silently succeeds w/o storing
-//     - 503 { error } when neither D1 nor the relay took it (the page's own
-//       fallback runs; the gap record still holds it for repair)
+//     - 503 { error } when neither D1 nor the relay took it, or a lone copy
+//       has no repair journal (the page's own fallback runs)
 //     - if the site has a SINK configured, the capture is also forwarded
 //       there afterwards (fire-and-forget)
 //   GET  /list?site=…        Bearer LIST_ADMIN_TOKEN  → { rows: […] }
@@ -83,6 +84,13 @@ const MIGRATION = `CREATE TABLE IF NOT EXISTS subscribers (
   PRIMARY KEY (site, email)
 )`;
 
+// Exact submitted-message identities, committed atomically with the list row.
+// Looking for a substring in the accumulated note loses distinct inquiries.
+const NOTES_MIGRATION = `CREATE TABLE IF NOT EXISTS submission_notes (
+  site TEXT NOT NULL, email TEXT NOT NULL, note_hash TEXT NOT NULL,
+  PRIMARY KEY (site, email, note_hash)
+)`;
+
 // A repeat sign-up keeps the original row and date. A new message from the
 // same address is appended, dated, so a second inquiry is never dropped; the
 // same message sent twice is not appended again.
@@ -92,7 +100,8 @@ const UPSERT = `INSERT INTO subscribers (site, email, note, created_at) VALUES (
     note = CASE
       WHEN excluded.note IS NULL OR excluded.note = '' THEN subscribers.note
       WHEN subscribers.note IS NULL OR subscribers.note = '' THEN excluded.note
-      WHEN instr(subscribers.note, excluded.note) > 0 THEN subscribers.note
+      WHEN subscribers.note = excluded.note THEN subscribers.note
+      WHEN EXISTS (SELECT 1 FROM submission_notes WHERE site = excluded.site AND email = excluded.email AND note_hash = ?5) THEN subscribers.note
       ELSE subscribers.note || char(10) || char(10) || '[' || excluded.created_at || '] ' || excluded.note
     END
   RETURNING created_at`;
@@ -167,14 +176,19 @@ const isAdmin = (req, env) => {
 async function withTable(env, fn) {
   try { return await fn(); } catch (e) {
     if (!/no such table/i.test(errText(e))) throw e;
-    await env.DB.prepare(MIGRATION).run();
+    await env.DB.batch([env.DB.prepare(MIGRATION), env.DB.prepare(NOTES_MIGRATION)]);
     return fn();
   }
 }
 
 async function saveToDb(env, sub) {
-  const row = await withTable(env, () =>
-    env.DB.prepare(UPSERT).bind(sub.site, sub.email, sub.note, sub.created_at).first());
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sub.note || ''));
+  const hash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  const result = await withTable(env, () => env.DB.batch([
+    env.DB.prepare(UPSERT).bind(sub.site, sub.email, sub.note, sub.created_at, hash),
+    env.DB.prepare('INSERT OR IGNORE INTO submission_notes (site, email, note_hash) VALUES (?1, ?2, ?3)').bind(sub.site, sub.email, hash),
+  ]));
+  const row = result[0].results[0];
   return { fresh: !row || row.created_at === sub.created_at };
 }
 
@@ -190,12 +204,14 @@ async function recordGap(env, sub, missing, reasons) {
   return key;
 }
 
-function placesFor(env) {
+function placesFor(env, ctx) {
   const relayReady = Boolean(env.RELAY && env.RELAY_FROM && env.RELAY_TO);
   return {
     saveToDb: (sub) => saveToDb(env, sub),
     relay: relayReady ? (sub, db) => sendRelay(env, sub, db) : undefined,
     recordGap: env.GAPS ? (sub, missing, reasons) => recordGap(env, sub, missing, reasons) : undefined,
+    clearGap: env.GAPS ? (key) => env.GAPS.delete(key) : undefined,
+    waitUntil: ctx ? (work) => ctx.waitUntil(work) : undefined,
   };
 }
 
@@ -249,8 +265,24 @@ async function handle(req, env, ctx, sites, cors) {
 
   if (url.pathname === '/subscribe' && req.method === 'POST') {
     if (Number(req.headers.get('content-length') || 0) > BODY_MAX) return json({ error: TOO_LONG }, 413, cors);
-    const text = await req.text();
-    if (text.length > BODY_MAX) return json({ error: TOO_LONG }, 413, cors);
+    // Count actual bytes while streaming. Chunked requests have no trustworthy
+    // Content-Length; reading req.text() first would allow unbounded allocation.
+    const reader = req.body?.getReader();
+    const chunks = [];
+    let bytes = 0;
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.byteLength;
+        if (bytes > BODY_MAX) { reader.cancel().catch(() => {}); return json({ error: TOO_LONG }, 413, cors); }
+        chunks.push(value);
+      }
+    }
+    const all = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.byteLength; }
+    const text = new TextDecoder().decode(all);
     let body;
     try { body = JSON.parse(text); } catch { return json({ error: 'json body required' }, 400, cors); }
     if (!body || typeof body !== 'object') return json({ error: 'json body required' }, 400, cors);
@@ -260,15 +292,15 @@ async function handle(req, env, ctx, sites, cors) {
     if (body.company) return json({ ok: true }, 200, cors);
 
     const sub = read.sub;
-    const result = await capture(sub, placesFor(env));
+    const result = await capture(sub, placesFor(env, ctx));
     // Logged without the address. A refusal is also named in the email itself.
     const log = { event: 'capture', site: sub.site, db: result.db.ok ? 'saved' : result.db.error,
       relay: result.relay.configured ? (result.relay.ok ? 'sent' : result.relay.error) : 'not configured',
-      gap: result.gap, missing: result.missing };
+      gap: result.gap, gapError: result.gapError, missing: result.missing };
     (result.missing.length ? console.error : console.log)(JSON.stringify(log));
 
     if (!result.ok) {
-      return json({ error: 'The list could not save this just now. Please email it instead.' }, 503, cors);
+      return json({ error: 'We could not confirm that your message was safely received. Please email it instead.' }, 503, cors);
     }
     // Per-site sink: forward to the owner's own provider, after the response
     // (waitUntil). The visitor never waits on a third party.

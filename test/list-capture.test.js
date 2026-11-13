@@ -13,12 +13,26 @@ const refuse = async () => { throw new Error('refused'); };
 for (const [db, relay, accepted] of [[ok, ok, true], [ok, refuse, true], [refuse, ok, true], [refuse, refuse, false]]) {
   test(`db ${db === ok ? 'takes' : 'refuses'}, relay ${relay === ok ? 'takes' : 'refuses'} → ${accepted ? 'ok' : 'not ok'}`, async () => {
     const gaps = [];
-    const r = await capture(sub, { saveToDb: db, relay, recordGap: async (s, missing) => { gaps.push(missing); } });
+    let cleared = false;
+    const r = await capture(sub, {
+      saveToDb: async (s) => { assert.deepEqual(gaps, [['db', 'relay']], 'journal exists before D1'); return db(s); },
+      relay,
+      recordGap: async (s, missing) => { gaps.push(missing); return 'journal-key'; },
+      clearGap: async (key) => { assert.equal(key, 'journal-key'); cleared = true; },
+    });
     assert.equal(r.ok, accepted);
     const missing = [db === refuse && 'db', relay === refuse && 'relay'].filter(Boolean);
-    assert.deepEqual(gaps, missing.length ? [missing] : [], 'a missing place is recorded, nothing else is');
+    assert.equal(cleared, missing.length === 0, 'only fully delivered submissions leave the journal');
   });
 }
+
+test('a lone primary copy with no repair journal is not acknowledged as safely received', async () => {
+  for (const [saveToDb, relay] of [[ok, refuse], [refuse, ok]]) {
+    const r = await capture(sub, { saveToDb, relay, recordGap: refuse });
+    assert.equal(r.ok, false);
+    assert.equal(r.gap, 'unrecorded');
+  }
+});
 
 test('no relay configured: the database alone decides', async () => {
   assert.equal((await capture(sub, { saveToDb: ok })).ok, true);

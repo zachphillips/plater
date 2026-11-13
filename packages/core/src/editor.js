@@ -158,6 +158,12 @@ function injectEditStyles() {
   .${EDNS}-imgchip[hidden]{display:none}
   .${EDNS}-imgfile{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0}
   body.cms-editing img.${EDNS}-imgover{outline:2px dashed #c9a96e;outline-offset:3px}
+  /* Failure/recovery status must remain visible alongside phone controls. */
+  @media(max-width:700px){
+    #cms-bar{flex-wrap:wrap}
+    #cms-bar>button{flex-shrink:0}
+    #cms-bar>#cms-status{flex:1 0 100%;min-width:0;margin-left:0;overflow-wrap:anywhere}
+  }
   `;
   const s = document.createElement('style'); s.id = `${EDNS}-style`; s.textContent = css;
   document.head.appendChild(s);

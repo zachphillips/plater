@@ -88,13 +88,19 @@ export function resolveSite(argDir) {
 
 // The production handlers read env at IMPORT time — point them at this site
 // before loadHandlers(). This is the whole trick: same code, local backing store.
-// `dev` also drops GITHUB_TOKEN so a local session can never commit.
+// `dev` also drops both GitHub token names and the review webhook so the
+// shared review handler cannot turn an unauthenticated local mark into a
+// remote commit or notification.
 export function configureEnv({ siteDir, webRoot, contentPath }, { dev = true } = {}) {
   process.env.PLATER_WEB_ROOT = webRoot;
   process.env.GITHUB_EDIT_PATH = path.relative(process.cwd(), contentPath);
   process.env.PLATER_REVIEW_PATH = process.env.PLATER_REVIEW_PATH || path.join(siteDir, '.plater-review.json');
   process.env.CMS_SITE_NAME = process.env.CMS_SITE_NAME || path.basename(siteDir);
-  if (dev) delete process.env.GITHUB_TOKEN; // belt & braces: dev must never commit
+  if (dev) {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.CMS_GITHUB_TOKEN;
+    delete process.env.PLATER_REVIEW_WEBHOOK;
+  }
 }
 
 // Dynamic, because configureEnv() has to win the race with their module bodies.

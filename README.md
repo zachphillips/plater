@@ -394,6 +394,10 @@ store changes, so what you see locally is what deploys.
 so feed curation and redirect edits are previewable before a single commit
 exists. `/api/history` there reads real `git log` of the content file, and
 Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
+Dev clears both `GITHUB_TOKEN` and its `CMS_GITHUB_TOKEN` alias, plus
+`PLATER_REVIEW_WEBHOOK`, before loading handlers. Review marks stay local even
+when the shell also holds production settings. `platercms serve` keeps its
+authenticated GitHub and webhook behavior.
 
 Dev writes require `application/json` and, for browser requests, the exact
 server origin. Local addresses and `*.ts.net` hosts are accepted; arbitrary

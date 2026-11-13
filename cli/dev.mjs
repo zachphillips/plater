@@ -99,10 +99,10 @@ export function configureEnv({ siteDir, webRoot, contentPath }, { dev = true } =
 // Dynamic, because configureEnv() has to win the race with their module bodies.
 export async function loadHandlers() {
   const load = (n) => import(path.join(PKG, 'server-node', n));
-  const [content, review, feed, sitemap, route, manifest, versions, upload, live] = await Promise.all(
-    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js'].map(load),
+  const [content, review, feed, sitemap, route, manifest, versions, upload, live, save] = await Promise.all(
+    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js', 'save.js'].map(load),
   );
-  return { content, review, feed, sitemap, route, manifest, versions, upload, live };
+  return { content, review, feed, sitemap, route, manifest, versions, upload, live, save };
 }
 
 export async function readBody(req) {
@@ -294,6 +294,9 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null, notes = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
+  // Each disk save must read the result of the previous one. Two concurrent
+  // requests must not both merge against the same stale on-disk copy.
+  let saveQueue = Promise.resolve();
   const loose = !entry && !fsSync.existsSync(path.join(webRoot, 'index.html')) && htmlPages(webRoot).length > 0;
   // Live reload: every page plater dev serves follows the files on disk.
   // An agent's write, a save from another tab, a CSS tweak — the open tab
@@ -340,27 +343,39 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       if (p === '/api/upload' && req.method === 'POST') return handleUpload(req, res, ctx, upload.safeName);
       if (p === '/api/save' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req) || '{}');
-        if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
-        if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
+        if (!body || !body.content || typeof body.content !== 'object' || Array.isArray(body.content)) { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
+        if (body.base != null && (typeof body.base !== 'object' || Array.isArray(body.base))) { res.writeHead(400); return res.end('{"error":"base must be the loaded content object"}'); }
+        const save = async () => {
+          if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
+            const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+            const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
+            delete next._track_note;
+            await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
+          }
+          if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
+            const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
+            await fs.mkdir(path.dirname(overlayPath), { recursive: true });
+            const current = JSON.parse(await fs.readFile(overlayPath, 'utf8').catch(() => '{}'));
+            const merged = body.base ? handlers.save.mergeContent(body.base, body.content, current, { allowMissing: true }) : { content: body.content };
+            if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: handlers.save.mergeContent(body.base, body.base, current, { allowMissing: true }).content })); }
+            const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
+            await fs.writeFile(overlayPath, JSON.stringify(next, null, 2) + '\n');
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify({ ok: true, saved: true, content: next, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
+          }
           const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
-          const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
-          delete next._track_note;
+          const merged = body.base ? handlers.save.mergeContent(body.base, body.content, base) : { content: { ...base, ...body.content } };
+          if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: base })); }
+          const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
           await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
           res.writeHead(200, { 'content-type': 'application/json' });
-          return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
-        }
-        if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
-          const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
-          await fs.mkdir(path.dirname(overlayPath), { recursive: true });
-          await fs.writeFile(overlayPath, JSON.stringify({ ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' }, null, 2) + '\n');
-          res.writeHead(200, { 'content-type': 'application/json' });
-          return res.end(JSON.stringify({ ok: true, saved: true, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
-        }
-        const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
-        const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
-        await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
-        res.writeHead(200, { 'content-type': 'application/json' });
-        return res.end(JSON.stringify({ ok: true, saved: true, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
+          return res.end(JSON.stringify({ ok: true, saved: true, content: next, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
+        };
+        const pending = saveQueue.then(save);
+        saveQueue = pending.catch(() => {});
+        return await pending;
       }
       if (p === '/api/agent-note' && req.method === 'POST' && notesOn) {
         let body;

@@ -856,11 +856,14 @@ export function initZMS(options = {}) {
 
   // Returns how many of the user's fields were replayed. Throws if the fresh
   // base can't be fetched — the caller then tells the truth instead of guessing.
-  async function mergeAfterConflict() {
+  async function mergeAfterConflict(committed) {
     const url = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) throw new Error('content refetch ' + r.status);
-    const fresh = await r.json();
+    let fresh = committed;
+    if (!fresh) {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error('content refetch ' + r.status);
+      fresh = await r.json();
+    }
     if (!fresh || typeof fresh !== 'object' || Array.isArray(fresh)) throw new Error('unusable content response');
     const theirs = JSON.stringify(fresh);   // captured before the overlay mutates it
     const mine = changedPaths(JSON.parse(SAVED), CONTENT).filter(Boolean);
@@ -871,6 +874,24 @@ export function initZMS(options = {}) {
     applyEditable(EDITING);
     markDirty();
     return mine.length;
+  }
+
+  // A successful save can merge newer GitHub fields that this deployed page
+  // had never loaded. Adopt the committed response immediately, replaying only
+  // typing that happened while the request was in flight.
+  function acceptSavedContent(snapshot, out) {
+    collectEdits();
+    const fresh = out.content && typeof out.content === 'object' && !Array.isArray(out.content)
+      ? out.content : JSON.parse(snapshot);
+    const theirs = JSON.stringify(fresh);
+    const newer = changedPaths(JSON.parse(snapshot), CONTENT).filter(Boolean);
+    for (const p of newer) setPath(fresh, p, getPath(CONTENT, p));
+    const mark = caretMark();
+    CONTENT = fresh;
+    SAVED = theirs;
+    render();
+    if (EDITING) applyEditable(true);
+    caretRestore(mark);
   }
 
   const setStatus = (msg) => { const s = $('#cms-status'); if (s) s.textContent = msg; };
@@ -908,7 +929,7 @@ export function initZMS(options = {}) {
     if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
     SAVE_INFLIGHT = true;   // live reload waits: our own write is about to echo back
     try {
-      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
+      const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), base: JSON.parse(SAVED), ...(DRAFT_TRACK ? { track: DRAFT_TRACK } : {}) }) });
       const out = await r.json().catch(() => ({}));
       if (r.status === 401) clearBearer();
       if (!r.ok || out.error) {
@@ -918,7 +939,7 @@ export function initZMS(options = {}) {
         if (r.status === 409 && out.error === 'conflict') {
           console.warn('[plater] save conflict', out.message || '');
           try {
-            const n = await mergeAfterConflict();
+            const n = await mergeAfterConflict(out.content);
             setStatus(CONFLICT_KEPT(n));
           } catch (mergeErr) {
             console.warn('[plater] conflict merge failed', mergeErr);
@@ -940,8 +961,7 @@ export function initZMS(options = {}) {
         setStatus(humanSaveError(r.status, out));
         return;
       }
-      SAVED = savedSnapshot;
-      collectEdits(); // include typing that happened while the request was in flight
+      acceptSavedContent(savedSnapshot, out);
       if (isDirty()) {
         scheduleBufferWrite();
         setStatus('Saved — newer edits are still unsaved.');
@@ -1994,14 +2014,14 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         if (chip) chip.textContent = 'saving…';
         const headers = { 'content-type': 'application/json' };
         if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
-        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), track: DRAFT_TRACK }) });
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ content: JSON.parse(savedSnapshot), base: JSON.parse(SAVED), track: DRAFT_TRACK }) });
         const out = await r.json().catch(() => ({}));
         if (r.status === 401) clearBearer();
         // Same race as the manual Save path — merge rather than lose a keystroke.
         if (r.status === 409 && out.error === 'conflict') {
           console.warn('[plater] draft autosave conflict', out.message || '');
           try {
-            const n = await mergeAfterConflict();
+            const n = await mergeAfterConflict(out.content);
             if (chip) chip.textContent = 'someone else edited this draft — merged, saving again';
             setStatus(CONFLICT_KEPT(n));
           } catch (mergeErr) {
@@ -2012,8 +2032,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
           return;
         }
         if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
-        SAVED = savedSnapshot;
-        collectEdits();
+        acceptSavedContent(savedSnapshot, out);
         if (isDirty()) {
           scheduleBufferWrite();
           scheduleDraftAutosave();

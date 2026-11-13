@@ -8,8 +8,6 @@
 // we refetch the sha AND the current file, re-apply the client's patch over
 // that fresh base, and retry ONCE. A second conflict is reported honestly as
 // 409 { error: 'conflict' } rather than resolved by clobbering someone.
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import crypto from 'node:crypto';
 
 const ADMIN_EMAIL = (process.env.CMS_ADMIN_EMAIL || '').toLowerCase();
@@ -53,12 +51,37 @@ function stableJson(value) {
   return JSON.stringify(value, null, 2) + '\n';
 }
 
-async function readBaseContent() {
-  try {
-    return JSON.parse(await fs.readFile(path.join(process.cwd(), GITHUB_EDIT_PATH), 'utf8'));
-  } catch {
-    return {};
+// Apply only the fields changed since the editor's loaded snapshot. GitHub
+// can be ahead of the deployed disk and another editor can change a sibling
+// field without racing this PUT. Arrays remain atomic. If both editors changed
+// the same field differently, refuse the write rather than choose a winner.
+export function mergeContent(base, proposed, current, { allowMissing = false } = {}) {
+  const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const same = (a, b) => {
+    if ((a === null || typeof a !== 'object') && (b === null || typeof b !== 'object')) return String(a ?? '') === String(b ?? '');
+    return JSON.stringify(a) === JSON.stringify(b);
+  };
+  let conflict = false;
+  function merge(old, next, now) {
+    if (same(old, next) && !(plain(old) && plain(next))) return now;
+    if (plain(old) && plain(next)) {
+      if (!plain(now) && !(allowMissing && now === undefined)) { conflict = true; return now; }
+      // A new file or sparse draft overlay inherits the editor's rendered
+      // baseline for fields that the target file has never contained.
+      const out = { ...(allowMissing ? old : {}), ...now };
+      for (const key of new Set([...Object.keys(old), ...Object.keys(next)])) {
+        const unchanged = same(old[key], next[key]) && Object.hasOwn(old, key) === Object.hasOwn(next, key);
+        if (unchanged && !(allowMissing && plain(old[key]) && plain(next[key]) && (plain(now?.[key]) || now?.[key] === undefined))) continue;
+        const value = merge(old[key], next[key], now?.[key]);
+        if (!Object.hasOwn(next, key)) delete out[key];
+        else Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+      }
+      return out;
+    }
+    if (!same(now, old) && !same(now, next) && !(allowMissing && now === undefined)) conflict = true;
+    return next;
   }
+  return { content: merge(base, proposed, current), conflict };
 }
 
 // GitHub rejects a write whose `sha` is no longer HEAD: 409 outright, or 422
@@ -122,8 +145,13 @@ async function commitToGitHub(content, who, track, rebuild) {
   const current = await readCurrent();
   if (current.error) return { ok: false, status: 502, error: current.error };
 
-  const first = await put(content, current.sha);
-  if (first.ok) return { ok: true, sha: (await first.json()).commit?.sha };
+  const usable = (base) => base && typeof base === 'object' && !Array.isArray(base);
+  const conflict = (base) => ({ ok: false, status: 409, conflict: true, error: 'conflict', ...(usable(base) ? { content: base } : {}) });
+  if (!usable(current.base)) return { ok: false, status: 409, conflict: true, error: 'conflict' };
+  const initial = rebuild ? rebuild(current.base, { newFile: !current.sha }) : content;
+  if (!initial) return conflict(current.base);
+  const first = await put(initial, current.sha);
+  if (first.ok) return { ok: true, sha: (await first.json()).commit?.sha, content: initial };
   const firstText = await first.text();
   if (!isConflict(first.status, firstText)) {
     return { ok: false, status: 502, error: `github write ${first.status}: ${firstText.slice(0, 300)}` };
@@ -135,19 +163,21 @@ async function commitToGitHub(content, who, track, rebuild) {
   if (fresh.error) return { ok: false, status: 502, error: fresh.error };
   // No usable fresh base (>1 MB inline-less response, or unparseable JSON) means
   // we cannot merge — report the conflict instead of overwriting the other save.
-  const mergeable = fresh.base && typeof fresh.base === 'object' && !Array.isArray(fresh.base);
+  const mergeable = usable(fresh.base);
   if (!mergeable) return { ok: false, status: 409, conflict: true, error: 'conflict' };
-  const second = await put(rebuild ? rebuild(fresh.base) : content, fresh.sha);
-  if (second.ok) return { ok: true, sha: (await second.json()).commit?.sha };
+  const retried = rebuild ? rebuild(fresh.base, { newFile: !fresh.sha }) : content;
+  if (!retried) return conflict(fresh.base);
+  const second = await put(retried, fresh.sha);
+  if (second.ok) return { ok: true, sha: (await second.json()).commit?.sha, content: retried };
   const secondText = await second.text();
-  if (isConflict(second.status, secondText)) return { ok: false, status: 409, conflict: true, error: 'conflict' };
+  if (isConflict(second.status, secondText)) return conflict(fresh.base);
   return { ok: false, status: 502, error: `github write ${second.status}: ${secondText.slice(0, 300)}` };
 }
 
 const CONFLICT_MESSAGE = 'Someone else saved this content a moment ago — reload to see the latest before saving again.';
 
 function failed(res, gh) {
-  if (gh.conflict) return res.status(409).json({ error: 'conflict', message: CONFLICT_MESSAGE });
+  if (gh.conflict) return res.status(409).json({ error: 'conflict', message: CONFLICT_MESSAGE, ...(gh.content ? { content: gh.content } : {}) });
   return res.status(gh.status || 500).json({ error: gh.error });
 }
 
@@ -177,6 +207,7 @@ export default async function handler(req, res) {
   try { payload = req.body && typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); }
   catch { return res.status(400).json({ error: 'invalid JSON body' }); }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return res.status(400).json({ error: 'expected { content: {...} }' });
+  if (payload.base != null && (typeof payload.base !== 'object' || Array.isArray(payload.base))) return res.status(400).json({ error: 'base must be the loaded content object' });
   const TRACK_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
   if (payload.track != null && payload.track !== '' && (typeof payload.track !== 'string' || !TRACK_RE.test(payload.track))) {
     return res.status(400).json({ error: 'Invalid track name' });
@@ -200,14 +231,14 @@ export default async function handler(req, res) {
       out.promotedFrom = payload.promote;
       return out;
     };
-    const gh = await commitToGitHub(promoted(await readBaseContent()), verifiedEmail, null, promoted);
+    const gh = await commitToGitHub(null, verifiedEmail, null, promoted);
     if (!gh.ok) return failed(res, gh);
     const hook = process.env.CMS_DEPLOY_HOOK;
     if (hook) { try { await fetch(hook, { method: 'POST' }); } catch {} }
     return res.status(200).json({ ok: true, promoted: payload.promote, git: { committed: true, commit: gh.sha } });
   }
 
-  if (!payload || typeof payload.content !== 'object') return res.status(400).json({ error: 'expected { content: {...} }' });
+  if (!payload.content || typeof payload.content !== 'object' || Array.isArray(payload.content)) return res.status(400).json({ error: 'expected { content: {...} }' });
   // { track: "opus" } routes the save to that track's overlay file — the live
   // page is untouched. The posted content IS the full overlay (the editor sent
   // us everything it rendered), so no merge with the live base here.
@@ -216,14 +247,19 @@ export default async function handler(req, res) {
   // The client's patch as a function of a base, so a conflict retry can re-apply
   // it over GitHub's fresher bytes. On retry the base is whatever file we are
   // writing (live content, or that track's own overlay), never the other one.
-  const apply = (base) => {
-    const out = { ...base, ...payload.content };
+  const apply = (base, { newFile = false } = {}) => {
+    const merged = payload.base ? mergeContent(payload.base, payload.content, base, { allowMissing: Boolean(track) || newFile }) : { content: { ...base, ...payload.content } };
+    if (merged.conflict) return null;
+    const out = merged.content;
     out.updatedAt = new Date().toISOString();
     out.updatedBy = verifiedEmail;
     return out;
   };
-  const gh = await commitToGitHub(apply(track ? {} : await readBaseContent()), verifiedEmail, track, apply);
-  if (!gh.ok) return failed(res, gh);
+  const gh = await commitToGitHub(null, verifiedEmail, track, apply);
+  if (!gh.ok) {
+    if (track && payload.base && gh.content) gh.content = mergeContent(payload.base, payload.base, gh.content, { allowMissing: true }).content;
+    return failed(res, gh);
+  }
 
   const hook = track ? null : process.env.CMS_DEPLOY_HOOK;
   let deployTriggered = false;
@@ -231,5 +267,5 @@ export default async function handler(req, res) {
     try { deployTriggered = (await fetch(hook, { method: 'POST' })).ok; } catch {}
   }
 
-  res.status(200).json({ ok: true, saved: true, git: { committed: true, commit: gh.sha }, deployTriggered });
+  res.status(200).json({ ok: true, saved: true, content: gh.content, git: { committed: true, commit: gh.sha }, deployTriggered });
 }

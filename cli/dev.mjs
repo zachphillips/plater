@@ -108,8 +108,8 @@ export async function loadHandlers() {
 }
 
 // Bound the actual bytes even when a chunked client omits Content-Length.
-// Keep the socket alive long enough to deliver the explicit refusal; the
-// request handler closes it after the response instead of resetting it.
+// Drain refused bytes without retaining them, so the client can receive the
+// explicit response even when it is still writing the body.
 export async function readBody(req, limit = 2_000_000) {
   const tooLarge = () => {
     req.resume();
@@ -486,7 +486,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
-      if (!res.headersSent) res.writeHead(e.status === 413 ? 413 : 500, { 'content-type': 'application/json', ...(e.status === 413 ? { connection: 'close' } : {}) });
+      if (!res.headersSent) res.writeHead(e.status === 413 ? 413 : 500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });

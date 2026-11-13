@@ -15,7 +15,7 @@ export async function journey({ page, step, expect, note }) {
       res.on('end', () => { if (!settled) { settled = true; clearTimeout(timer); resolve({ status: res.statusCode, reply: reply.slice(0, 200), bodyBytes: Buffer.byteLength(body) }); req.destroy(); } });
     });
     const timer = setTimeout(() => { if (!settled) { settled = true; req.destroy(); resolve({ status: null, waitingForUnboundedBody: true, bodyBytes: Buffer.byteLength(body) }); } }, leaveOpen ? 1800 : 10000);
-    req.on('error', (e) => { if (!settled) { settled = true; clearTimeout(timer); reject(e); } });
+    req.on('error', (e) => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`${route}, ${Buffer.byteLength(body)} bytes, Content-Length=${length}: ${e.message}`)); } });
     if (leaveOpen) req.write(body); else req.end(body);
   });
   for (const length of [false, true]) {

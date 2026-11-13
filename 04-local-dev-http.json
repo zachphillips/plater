@@ -1,0 +1,265 @@
+{
+  "stale": {
+    "status": 409,
+    "out": {
+      "error": "conflict",
+      "content": {
+        "meta": {
+          "title": "Plater Demo"
+        },
+        "hero": {
+          "headline": "Edit this page in the browser.",
+          "subhead": "A newer local live paragraph"
+        },
+        "features": [
+          "Inline contenteditable copy editing",
+          "Google SSO or shared edit-token auth",
+          "Durable save via a GitHub commit"
+        ],
+        "tools": [
+          {
+            "name": "@platercms/core",
+            "desc": "the in-browser editor"
+          },
+          {
+            "name": "@platercms/server-node",
+            "desc": "the server handlers that save as git commits"
+          },
+          {
+            "name": "@platercms/capture",
+            "desc": "click an element, leave a note, get a pull request"
+          }
+        ],
+        "about": {
+          "headline": "About this demo",
+          "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+        },
+        "work": {
+          "headline": "Work",
+          "subhead": "A nested page — grouped under work/ in the sitemap.",
+          "projects": [
+            "A portfolio site",
+            "A launch page",
+            "A club newsletter",
+            "A one-page shop"
+          ]
+        }
+      }
+    }
+  },
+  "missing": {
+    "status": 409,
+    "out": {
+      "error": "conflict",
+      "content": {
+        "meta": {
+          "title": "Plater Demo"
+        },
+        "hero": {
+          "headline": "Edit this page in the browser.",
+          "subhead": "A newer local live paragraph"
+        },
+        "features": [
+          "Inline contenteditable copy editing",
+          "Google SSO or shared edit-token auth",
+          "Durable save via a GitHub commit"
+        ],
+        "tools": [
+          {
+            "name": "@platercms/core",
+            "desc": "the in-browser editor"
+          },
+          {
+            "name": "@platercms/server-node",
+            "desc": "the server handlers that save as git commits"
+          },
+          {
+            "name": "@platercms/capture",
+            "desc": "click an element, leave a note, get a pull request"
+          }
+        ],
+        "about": {
+          "headline": "About this demo",
+          "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+        },
+        "work": {
+          "headline": "Work",
+          "subhead": "A nested page — grouped under work/ in the sitemap.",
+          "projects": [
+            "A portfolio site",
+            "A launch page",
+            "A club newsletter",
+            "A one-page shop"
+          ]
+        }
+      }
+    }
+  },
+  "empty": {
+    "status": 409,
+    "out": {
+      "error": "conflict",
+      "content": {
+        "meta": {
+          "title": "Plater Demo"
+        },
+        "hero": {
+          "headline": "Edit this page in the browser.",
+          "subhead": "A newer local live paragraph"
+        },
+        "features": [
+          "Inline contenteditable copy editing",
+          "Google SSO or shared edit-token auth",
+          "Durable save via a GitHub commit"
+        ],
+        "tools": [
+          {
+            "name": "@platercms/core",
+            "desc": "the in-browser editor"
+          },
+          {
+            "name": "@platercms/server-node",
+            "desc": "the server handlers that save as git commits"
+          },
+          {
+            "name": "@platercms/capture",
+            "desc": "click an element, leave a note, get a pull request"
+          }
+        ],
+        "about": {
+          "headline": "About this demo",
+          "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+        },
+        "work": {
+          "headline": "Work",
+          "subhead": "A nested page — grouped under work/ in the sitemap.",
+          "projects": [
+            "A portfolio site",
+            "A launch page",
+            "A club newsletter",
+            "A one-page shop"
+          ]
+        }
+      }
+    }
+  },
+  "arr": {
+    "status": 409,
+    "out": {
+      "error": "conflict",
+      "content": {
+        "meta": {
+          "title": "Plater Demo"
+        },
+        "hero": {
+          "headline": "Edit this page in the browser.",
+          "subhead": "A newer local live paragraph"
+        },
+        "features": [
+          "Inline contenteditable copy editing",
+          "Google SSO or shared edit-token auth",
+          "Durable save via a GitHub commit"
+        ],
+        "tools": [
+          {
+            "name": "@platercms/core",
+            "desc": "the in-browser editor"
+          },
+          {
+            "name": "@platercms/server-node",
+            "desc": "the server handlers that save as git commits"
+          },
+          {
+            "name": "@platercms/capture",
+            "desc": "click an element, leave a note, get a pull request"
+          }
+        ],
+        "about": {
+          "headline": "About this demo",
+          "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+        },
+        "work": {
+          "headline": "Work",
+          "subhead": "A nested page — grouped under work/ in the sitemap.",
+          "projects": [
+            "A portfolio site",
+            "A launch page",
+            "A club newsletter",
+            "A one-page shop"
+          ]
+        }
+      }
+    }
+  },
+  "refusedDisk": true,
+  "fresh": {
+    "status": 200,
+    "out": {
+      "ok": true,
+      "promoted": "audit",
+      "git": {
+        "committed": false,
+        "dev": "live content replaced on disk"
+      }
+    }
+  },
+  "stored": {
+    "headline": "Local promoted draft headline",
+    "subhead": "A newer local live paragraph"
+  },
+  "twice": {
+    "status": 409,
+    "out": {
+      "error": "conflict",
+      "content": {
+        "meta": {
+          "title": "Plater Demo"
+        },
+        "hero": {
+          "headline": "Local promoted draft headline",
+          "subhead": "A newer local live paragraph"
+        },
+        "features": [
+          "Inline contenteditable copy editing",
+          "Google SSO or shared edit-token auth",
+          "Durable save via a GitHub commit"
+        ],
+        "tools": [
+          {
+            "name": "@platercms/core",
+            "desc": "the in-browser editor"
+          },
+          {
+            "name": "@platercms/server-node",
+            "desc": "the server handlers that save as git commits"
+          },
+          {
+            "name": "@platercms/capture",
+            "desc": "click an element, leave a note, get a pull request"
+          }
+        ],
+        "about": {
+          "headline": "About this demo",
+          "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+        },
+        "work": {
+          "headline": "Work",
+          "subhead": "A nested page — grouped under work/ in the sitemap.",
+          "projects": [
+            "A portfolio site",
+            "A launch page",
+            "A club newsletter",
+            "A one-page shop"
+          ]
+        },
+        "updatedAt": "2026-11-13T22:53:06.248Z",
+        "updatedBy": "dev",
+        "promotedFrom": "audit"
+      }
+    }
+  },
+  "twiceHeadline": {
+    "headline": "Local promoted draft headline",
+    "subhead": "A newer local live paragraph"
+  }
+}

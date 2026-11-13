@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "failed": [],
+  "log": [
+    "ok   h1 contains \"Draft headline intentionally changed\" (got \"Draft headline intentionally changed\")",
+    "step draft is open while another editor commits a newer live paragraph -> 01-before-01-draft-is-open-while-another-editor-commits-a-newer-live-paragraph.png",
+    "ok   repro: promotion acknowledges success while overwriting the unrelated newer paragraph",
+    "ok   top-level unknown fields survive, unlike nested siblings",
+    "note Actual promotion response and local git read-back {\"status\":200,\"out\":{\"ok\":true,\"promoted\":\"audit\",\"git\":{\"committed\":true,\"commit\":\"d009c31749409d4101fb9eabd6a8865ef55a3fd0\"}},\"remoteSha\":\"eb75cf632a5bebda3db029f6ba615e4387a8b58f\",\"head\":\"d009c31749409d4101fb9eabd6a8865ef55a3fd0\",\"beforeParagraph\":\"New live paragraph committed while the draft is open\",\"afterParagraph\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\",\"draftHeadline\":\"Draft headline intentionally changed\",\"newTopLevelFieldKept\":true}",
+    "step promotion says live but replaces the newer paragraph -> 01-before-02-promotion-says-live-but-replaces-the-newer-paragraph.png",
+    "journey finished"
+  ]
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "h1 contains \"Draft headline intentionally changed\" (got \"Draft headline intentionally changed\")"
+  },
+  {
+    "type": "step",
+    "name": "draft is open while another editor commits a newer live paragraph",
+    "file": "02-after-01-draft-is-open-while-another-editor-commits-a-newer-live-paragraph.png"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "stale promotion refuses without changing the newer live commit"
+  },
+  {
+    "type": "note",
+    "title": "Stale promotion refused",
+    "data": {
+      "status": 409,
+      "out": {
+        "error": "conflict",
+        "message": "Someone else saved this content a moment ago — reload to see the latest before saving again.",
+        "content": {
+          "meta": {
+            "title": "Plater Demo"
+          },
+          "hero": {
+            "headline": "Edit this page in the browser.",
+            "subhead": "New live paragraph committed while the draft is open"
+          },
+          "features": [
+            "Inline contenteditable copy editing",
+            "Google SSO or shared edit-token auth",
+            "Durable save via a GitHub commit"
+          ],
+          "tools": [
+            {
+              "name": "@platercms/core",
+              "desc": "the in-browser editor"
+            },
+            {
+              "name": "@platercms/server-node",
+              "desc": "the server handlers that save as git commits"
+            },
+            {
+              "name": "@platercms/capture",
+              "desc": "click an element, leave a note, get a pull request"
+            }
+          ],
+          "about": {
+            "headline": "About this demo",
+            "body": "This page exists so the Plater sitemap has multiple pages to outline and review."
+          },
+          "work": {
+            "headline": "Work",
+            "subhead": "A nested page — grouped under work/ in the sitemap.",
+            "projects": [
+              "A portfolio site",
+              "A launch page",
+              "A club newsletter",
+              "A one-page shop"
+            ]
+          },
+          "remoteOnly": "A wholly new live field"
+        }
+      },
+      "remoteSha": "90ed3b2bd7865f2662f0dd52c74eecd09bcc750e",
+      "head": "90ed3b2bd7865f2662f0dd52c74eecd09bcc750e",
+      "newerParagraph": "New live paragraph committed while the draft is open"
+    }
+  },
+  {
+    "type": "step",
+    "name": "stale promotion refuses and keeps the draft and live commit",
+    "file": "02-after-02-stale-promotion-refuses-and-keeps-the-draft-and-live-commit.png"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "old clients without a live baseline also fail closed"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "[data-bind=\"hero.subhead\"] contains \"New live paragraph committed while the draft is open\" (got \"New live paragraph committed while the draft is open\")"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "reviewed fresh promotion preserves the newer live paragraph and promotes the draft headline"
+  },
+  {
+    "type": "note",
+    "title": "Fresh reviewed promotion accepted",
+    "data": {
+      "status": 200,
+      "head": "3b446f5db6918b46b8143d6888d2b72d7641d3e5",
+      "content": {
+        "headline": "Draft headline intentionally changed",
+        "subhead": "New live paragraph committed while the draft is open"
+      },
+      "legacyStatus": 409
+    }
+  }
+]

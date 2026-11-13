@@ -1,0 +1,9 @@
+{
+  "head": "3b446f5db6918b46b8143d6888d2b72d7641d3e5",
+  "log": "3b446f5 content(bench-site): edit via CMS by\n90ed3b2 Synthetic newer live paragraph\n19a83be Synthetic sparse draft\n40cced6 bench: initial site",
+  "hero": {
+    "headline": "Draft headline intentionally changed",
+    "subhead": "New live paragraph committed while the draft is open"
+  },
+  "remoteOnly": "A wholly new live field"
+}

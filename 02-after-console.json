@@ -1,0 +1,18 @@
+{
+  "errors": [
+    "console Failed to load resource: the server responded with a status of 409 (Conflict)"
+  ],
+  "failed": [],
+  "log": [
+    "ok   h1 contains \"Draft headline intentionally changed\" (got \"Draft headline intentionally changed\")",
+    "step draft is open while another editor commits a newer live paragraph -> 02-after-01-draft-is-open-while-another-editor-commits-a-newer-live-paragraph.png",
+    "ok   stale promotion refuses without changing the newer live commit",
+    "note Stale promotion refused {\"status\":409,\"out\":{\"error\":\"conflict\",\"message\":\"Someone else saved this content a moment ago — reload to see the latest before saving again.\",\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Edit this page in the browser.\",\"subhead\":\"New live paragraph committed while the draft is open\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"name\":\"@platercms/capture\",\"desc\":\"click an element, leave a note, get a pull request\"}],\"about\":{\"headline\":\"About this demo\",\"body\":\"This page exists so the Plater sitemap has multiple pages to outline and review.\"},\"work\":{\"headline\":\"Work\",\"subhead\":\"A nested page — grouped under work/ in the sitemap.\",\"projects\":[\"A portfolio site\",\"A launch page\",\"A club newsletter\",\"A one-page shop\"]},\"remoteOnly\":\"A wholly new live field\"}},\"remoteSha\":\"90ed3b2bd7865f2662f0dd52c74eecd09bcc750e\",\"head\":\"90ed3b2bd7865f2662f0dd52c74eecd09bcc750e\",\"newerParagraph\":\"New live paragraph committed while the draft is open\"}",
+    "step stale promotion refuses and keeps the draft and live commit -> 02-after-02-stale-promotion-refuses-and-keeps-the-draft-and-live-commit.png",
+    "ok   old clients without a live baseline also fail closed",
+    "ok   [data-bind=\"hero.subhead\"] contains \"New live paragraph committed while the draft is open\" (got \"New live paragraph committed while the draft is open\")",
+    "ok   reviewed fresh promotion preserves the newer live paragraph and promotes the draft headline",
+    "note Fresh reviewed promotion accepted {\"status\":200,\"head\":\"3b446f5db6918b46b8143d6888d2b72d7641d3e5\",\"content\":{\"headline\":\"Draft headline intentionally changed\",\"subhead\":\"New live paragraph committed while the draft is open\"},\"legacyStatus\":409}",
+    "journey threw: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'LIVE ✓' }) to be visible\n\n    at Module.journey (/agent/repos/plater/verify/promotion-proof.mjs:43:50)\n    at async file:///tmp/verify-promotion/drive.mjs:63:3"
+  ]
+}

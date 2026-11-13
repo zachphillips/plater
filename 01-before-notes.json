@@ -1,0 +1,48 @@
+[
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "h1 contains \"Draft headline intentionally changed\" (got \"Draft headline intentionally changed\")"
+  },
+  {
+    "type": "step",
+    "name": "draft is open while another editor commits a newer live paragraph",
+    "file": "01-before-01-draft-is-open-while-another-editor-commits-a-newer-live-paragraph.png"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "repro: promotion acknowledges success while overwriting the unrelated newer paragraph"
+  },
+  {
+    "type": "expect",
+    "ok": true,
+    "what": "top-level unknown fields survive, unlike nested siblings"
+  },
+  {
+    "type": "note",
+    "title": "Actual promotion response and local git read-back",
+    "data": {
+      "status": 200,
+      "out": {
+        "ok": true,
+        "promoted": "audit",
+        "git": {
+          "committed": true,
+          "commit": "d009c31749409d4101fb9eabd6a8865ef55a3fd0"
+        }
+      },
+      "remoteSha": "eb75cf632a5bebda3db029f6ba615e4387a8b58f",
+      "head": "d009c31749409d4101fb9eabd6a8865ef55a3fd0",
+      "beforeParagraph": "New live paragraph committed while the draft is open",
+      "afterParagraph": "No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.",
+      "draftHeadline": "Draft headline intentionally changed",
+      "newTopLevelFieldKept": true
+    }
+  },
+  {
+    "type": "step",
+    "name": "promotion says live but replaces the newer paragraph",
+    "file": "01-before-02-promotion-says-live-but-replaces-the-newer-paragraph.png"
+  }
+]

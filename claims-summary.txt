@@ -1,0 +1,36 @@
+Verification of zachphillips/plater#29 at 9ebff07705f324f75402e2add865fd215ae997fb
+Base compared: 2f45cde (sol/1113-preserve-upload-assets)
+
+CLAIMS
+1. Before this change, Make this live can return success while replacing another editor's newer paragraph.
+   Proven. Baseline bench at 2f45cde: POST /api/save promotion returned 200, git HEAD moved, hero.subhead reverted to the old deployed paragraph.
+   Artifacts: 01-before-02-promotion-says-live-but-replaces-the-newer-paragraph.png, 01-before-live-commit.json, 01-before-notes.json, 01-before-journey.webm
+
+2. After this change, a stale Make this live is refused with 409. The draft stays. The newer live commit is unchanged.
+   Proven. Head bench: status 409, remoteSha == HEAD (90ed3b2). Status bar: "Live content changed or its baseline is unavailable. Your draft is kept. Reload and review before making it live." Make this live button remains.
+   Artifacts: 02-after-02-stale-promotion-refuses-and-keeps-the-draft-and-live-commit.png, 02-after-notes.json, 02-after-git-log.txt
+
+3. An older client that posts promotion without liveBase is also refused, and live git is unchanged.
+   Proven. fetch({promote:'audit', content:original}) -> 409, HEAD still 90ed3b2.
+   Artifact: 02-after-notes.json (legacyStatus 409 in the later note; expect log in 02-after-console.json)
+
+4. After reloading the updated live snapshot, Make this live keeps the draft headline and the newer paragraph.
+   Proven. Promotion 200, git hero.headline = "Draft headline intentionally changed", hero.subhead = "New live paragraph committed while the draft is open". Reader page shows both.
+   Artifacts: 03-after-live-page-reader-1440.png, 03-after-live-page-reader-390.png, 02-after-live-commit.json
+
+5. Local plater dev refuses stale, missing, empty, and array liveBase without changing disk, and accepts a matching liveBase.
+   Proven. HTTP 409/409/409/409 with refusedDisk=true, then 200 with both fields. Browser 409 on 1440 and 390.
+   Artifacts: 04-local-dev-http.json, 05-local-stale-promotion-refused-1440.png, 05-local-stale-promotion-refused-390.png
+
+NEARBY
+- Draft autosave after a 409 still writes the overlay (chip "saved ✓ (draft only)"). 06-draft-autosave-after-409-1440.png
+- Typing in the stale draft after 409 bakes the on-screen (old) subhead into the overlay. A later matching-baseline promote then publishes that old subhead. Promotion is whole-snapshot replacement, as the PR states. 08-local-live-after-fresh-promotion-1440.png
+- Second promote with the previous liveBase after a successful promote is 409; disk unchanged. 04-local-dev-http.json twice
+- The author's proof script timed out waiting for the brief LIVE ✓ button after a successful promote (page redirects to live after 900ms). The commit itself was already 200 with the right bytes. 02-after-error.png
+- Browser logs "Failed to load resource: 409 Conflict" for the refused promote. That is the expected HTTP 409, not a dropped request.
+
+NOT TESTED
+- A real GitHub Contents API write-conflict retry (first PUT 409, refetch, canPromote on the fresher base). Only the local GitHub stand-in was used; the retry branch was not raced.
+- Production GitHub, Google auth, or any live URL.
+
+npm test at HEAD: 137 pass, 0 fail.

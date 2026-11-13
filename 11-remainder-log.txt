@@ -1,0 +1,6 @@
+reader1440 h1=Draft headline intentionally changed sub=New live paragraph committed while the draft is open
+stale 409 disk=Local live paragraph written while draft is open
+autosave overlay={"headline":"Autosave still works after the 409","subhead":"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit."} chip=saved ✓ (draft only)
+phone statusCode=409 cms=Live content changed or its baseline is unavailable. Your draft is kept. Reload and review before making it live. disk=Phone-sized live paragraph written after the draft opened
+fresh 200 headline=Autosave still works after the 409 sub=No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.
+errors 1

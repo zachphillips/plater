@@ -557,6 +557,12 @@ Two ways to use a draft:
   normal commit. **+ New draft** starts a track by naming it; there is no registry
   to register with.
 
+Promotion includes `liveBase`, the live snapshot read when the draft opened.
+Both local and GitHub saves refuse promotion with HTTP 409 if live content has
+changed, or if an older client sends no baseline. The draft stays intact.
+Reload the updated site and review before promoting again. A GitHub retry also
+checks the baseline, so it cannot overwrite a commit that wins the write race.
+
 ## Review state and the Pages rail (multi-page sites)
 
 In `?edit` mode on a site with more than one page, the editor shows a collapsible

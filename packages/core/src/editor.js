@@ -212,6 +212,7 @@ export function initZMS(options = {}) {
 
   let CONTENT = {};
   let SAVED = '{}';
+  let PROMOTION_BASE = null;
   let SAVE_INFLIGHT = false;
   let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false };
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
@@ -1973,7 +1974,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         collectEdits();
         const headers = { 'content-type': 'application/json' };
         if (ID_TOKEN) headers.authorization = 'Bearer ' + ID_TOKEN;
-        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ promote: DRAFT_TRACK, content: CONTENT }) });
+        const r = await fetch(`${apiBase}/save`, { method: 'POST', headers, body: JSON.stringify({ promote: DRAFT_TRACK, content: CONTENT, liveBase: PROMOTION_BASE }) });
         const out = await r.json().catch(() => ({}));
         if (r.status === 401) clearBearer();
         if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
@@ -1983,7 +1984,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         golive.disabled = false; golive.textContent = '⬆ Make this live';
         console.warn('[plater] go-live failed', e);
         setStatus(/conflict/i.test(e.message)
-          ? 'Someone else saved the live page just now — reload, then make this draft live again.'
+          ? 'Live content changed or its baseline is unavailable. Your draft is kept. Reload and review before making it live.'
           : 'Could not make this draft live — the live page is unchanged. Try again.');
       }
     };
@@ -2317,11 +2318,13 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   async function boot() {
     try {
       const contentUrl = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
-      const [cfg, contentRes] = await Promise.all([
+      const [cfg, contentRes, liveBase] = await Promise.all([
         fetch(`${apiBase}/config`).then((r) => r.json()).catch(() => CONFIG),
         fetch(contentUrl),
+        DRAFT_TRACK ? fetch(`${apiBase}/content`, { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).catch(() => null) : null,
       ]);
       CONFIG = { ...CONFIG, ...cfg };
+      PROMOTION_BASE = liveBase;
       if (DRAFT_TRACK && contentRes.status === 404) {
         // no overlay for this track yet — fall back to live and say so
         CONTENT = await fetch(`${apiBase}/content`).then((r) => r.json());

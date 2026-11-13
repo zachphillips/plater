@@ -414,6 +414,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         const save = async () => {
           if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
             const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+            if (!handlers.save.canPromote(base, body.liveBase)) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: base })); }
             const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
             delete next._track_note;
             await writeLocalContent(contentPath, JSON.stringify(next, null, 2) + '\n');

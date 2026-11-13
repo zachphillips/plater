@@ -62,6 +62,7 @@ export async function journey({ page, step, expect, note }) {
     }
   }
   note('Real kernel EFBIG response and disk read-back (64 KiB file-size ceiling in bench child)', results);
+  if (!weak) await page.goto(bench.url);
   await page.evaluate((rows) => { const p = document.createElement('pre'); p.style.whiteSpace = 'pre-wrap'; p.textContent = rows.map((r) => `${r.name}: HTTP ${r.status} EFBIG, old content preserved=${r.previousContentPreserved}, valid JSON=${r.validJSON}, ${r.bytesAfter} bytes remain`).join('\n'); document.querySelector('main').prepend(p); }, results);
   await step(weak ? 'a refused disk write destroys the last saved JSON' : 'refused disk writes preserve complete live and draft content');
 }

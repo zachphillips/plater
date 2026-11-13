@@ -151,7 +151,8 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
 
 1. Authenticate the caller (below).
 2. `GET` the current `site.json` from the GitHub Contents API, with its blob sha.
-3. Merge the posted top-level keys into it.
+3. Apply the fields changed since the editor's loaded snapshot to that current
+   GitHub content. Older clients without a snapshot still merge top-level keys.
 4. `PUT` it back with a commit message like `content(<site>): edit via CMS by <you>`.
 
 That commit triggers your host's normal deploy. There is no separate publish
@@ -159,15 +160,20 @@ step, no cache to bust, no CMS database that can drift from the repo. `git log`
 is the edit history. `git revert` is the undo button. If you delete Plater
 entirely, your site keeps working — it's still just HTML plus a JSON file.
 
-**Conflicts are merged, never lost.** Two people (or a person and an agent) can
-commit between your load and your Save. The handler refetches and retries once
-server-side; a second collision is reported honestly as `409 { error: 'conflict' }`
-rather than resolved by clobbering someone. The editor answers that 409 by
-fetching the winner's file, replaying **only the fields this session changed** on
-top of it, and handing the page back still in edit mode with a plain-English
+**Concurrent edits are kept.** GitHub can be ahead of the deployed page before
+you start saving. The editor sends its loaded snapshot as `base`, and the
+handler starts from GitHub's current file on the first write and on its one
+refetch-and-retry. Newer unrelated fields survive, including siblings inside
+one object. If both editors changed the same field differently, or a second
+write race occurs, the handler returns `409 { error: 'conflict', content }`
+and keeps the existing commit. The editor replays **only the fields this
+session changed** on that returned content and stays in edit mode with a plain-English
 line: *"Someone else saved while you were editing — reloaded the latest, your
 edits are kept (3 fields). Review and Save again."* Arrays are replayed whole
-rather than reconciled item by item, because guessing there silently eats work.
+rather than reconciled item by item. Successful responses include the committed
+content too, so the editor immediately shows a merged paragraph and preserves
+typing that happened during the request. The local disk leg uses the same
+merge rule and serializes its writes.
 
 **History, and one-click restore.** Every save being a commit means undo already
 exists; the **⟲ History** button in the edit bar is the editor's window onto it.

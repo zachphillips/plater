@@ -13,7 +13,7 @@ const source = fs.readFileSync(new URL('../packages/core/src/editor.js', import.
   .replace('export default initZMS;', 'globalThis.initPlater = initZMS;')
   .replace('getContent: () => CONTENT,', `getContent: () => CONTENT,
     test: { boot, ensureAuthFresh, useEditToken, useBearer, clearBearer, initSignIn,
-      markReviewed, scheduleDraftAutosave, draftBanner, isDirty },`);
+      markReviewed, scheduleAutosave, draftBanner, isDirty },`);
 const jwt = (exp, extra = {}) => 'header.' + Buffer.from(JSON.stringify({ exp, ...extra })).toString('base64url') + '.signature';
 const NOW = 1_800_000_000_000;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -176,11 +176,13 @@ test('async Google callback enters draft editing; refresh requests are deduplica
   assert.equal(b.storage.get('test.token.kind'), 'google');
 });
 
-test('clearBearer restores Google UI without leaving view mode editable', async () => {
-  const b = browser(); await b.boot(); b.editor.test.useEditToken('token');
+test('clearBearer offers sign-in without making view mode editable', async () => {
+  const b = browser(); b.google(); await b.boot(); b.editor.test.useEditToken('token');
   b.editor.test.clearBearer();
   assert.equal(b.elements.get('cms-signin').hidden, false);
-  assert.equal(b.elements.get('cms-edit').hidden, true);
+  assert.equal(b.elements.get('cms-edit').hidden, false);
+  await b.elements.get('cms-edit').click();
+  assert.equal(b.binding.contenteditable, undefined);
   assert.equal(b.editor.getToken(), null);
   assert.equal(b.storage.has('test.token.kind'), false);
 });
@@ -207,7 +209,7 @@ test('all save paths and review refresh stale auth before sending requests', asy
     b.editor.setEditable(true); b.binding.textContent = 'new writing';
     if (action === 'save') await b.editor.save();
     if (action === 'review') await assert.rejects(b.editor.test.markReviewed('/', true)); // test endpoint returns 404
-    if (action === 'autosave') { b.editor.test.scheduleDraftAutosave(); await b.timer(2000); }
+    if (action === 'autosave') { b.editor.test.scheduleAutosave(); await b.timer(2000); }
     if (action === 'promote') await b.elements.get('plater-golive').onclick();
     const post = b.calls.find((c) => c.method === 'POST');
     assert.ok(post, action);
@@ -220,7 +222,7 @@ test('failed authentication prevents save, promotion, autosave and review reques
   await b.editor.save();
   await assert.rejects(b.editor.test.markReviewed('/', true), /sign in/);
   b.editor.setEditable(true); // the autosave guard is exercised during editing
-  b.editor.test.scheduleDraftAutosave(); await b.timer(2000);
+  b.editor.test.scheduleAutosave(); await b.timer(2000);
   await b.elements.get('plater-golive').onclick();
   assert.equal(b.calls.filter((c) => c.method === 'POST').length, 0);
 });
@@ -228,7 +230,7 @@ test('failed authentication prevents save, promotion, autosave and review reques
 test('draft autosave 401 restores sign-in and keeps unload protection armed', async () => {
   const b = browser({ draft: true, fetch: (url, opts) => opts.method === 'POST' ? new Response('', { status: 401 }) : null });
   b.google(); await b.boot(); b.editor.test.useEditToken('token');
-  b.binding.textContent = 'unsaved'; b.editor.test.scheduleDraftAutosave(); await b.timer(2000);
+  b.binding.textContent = 'unsaved'; b.editor.test.scheduleAutosave(); await b.timer(2000);
   assert.equal(b.editor.getToken(), null);
   assert.equal(b.elements.get('cms-signin').hidden, false);
   assert.equal(b.unload(), true);
@@ -243,7 +245,7 @@ test('autosave snapshots submitted content; in-flight edits remain dirty and sav
     return json({ ok: true });
   } });
   b.google(); await b.boot(); b.editor.test.useEditToken('token');
-  b.binding.textContent = 'first edit'; b.editor.test.scheduleDraftAutosave();
+  b.binding.textContent = 'first edit'; b.editor.test.scheduleAutosave();
   const saving = b.timer(2000); await drain();
   assert.ok(release);
   b.binding.textContent = 'second edit';
@@ -268,7 +270,7 @@ test('manual save also keeps in-flight edits dirty and in edit mode', async () =
   b.binding.textContent = 'second'; b.editor.getContent().title = 'second'; release(); await saving;
   assert.equal(b.editor.test.isDirty(), true);
   assert.equal(b.unload(), true);
-  assert.equal(b.elements.get('cms-save').hidden, false);
+  assert.equal(b.elements.get('cms-save').hidden, true);
 });
 
 test('restricted localStorage never prevents sign-in or clearing credentials', async () => {

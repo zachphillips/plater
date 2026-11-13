@@ -649,6 +649,7 @@ export function initZMS(options = {}) {
     if ($('#cms-status')) $('#cms-status').textContent = on
       ? (DRAFT_TRACK ? `editing the “${DRAFT_TRACK}” draft — every change autosaves` : 'editing — your changes are local until you Save')
       : 'signed in';
+    positionBufferBanner(); // buttons/status can change the toolbar's height
   }
 
   // every edit in draft mode schedules an autosave (input covers typing;
@@ -734,6 +735,7 @@ export function initZMS(options = {}) {
   // Lazy: DRAFT_TRACK is declared further down (const → TDZ at this point).
   const bufKey = () => `plater.buf.${slug(brand)}.${normalizePagePath(location.pathname)}${DRAFT_TRACK ? '.' + DRAFT_TRACK : ''}`;
   let bufBanner = null;
+  let bufBarObserver = null;
 
   function writeBuffer() {
     if (!EDITING || !TOUCHED) return false;
@@ -770,7 +772,10 @@ export function initZMS(options = {}) {
 
   function hideBufferBanner() {
     if (bufBanner) { bufBanner.remove(); bufBanner = null; }
+    bufBarObserver?.disconnect(); bufBarObserver = null;
     window.removeEventListener('resize', positionBufferBanner);
+    window.visualViewport?.removeEventListener('resize', positionBufferBanner);
+    window.visualViewport?.removeEventListener('scroll', positionBufferBanner);
   }
 
   // The banner is fixed top-right and the edit bar is sticky at top:0, so with
@@ -783,7 +788,18 @@ export function initZMS(options = {}) {
   function positionBufferBanner() {
     if (!bufBanner) return;
     const bar = $('#cms-bar');
-    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    const view = window.visualViewport;
+    const vh = view?.height || window.innerHeight || document.documentElement.clientHeight || 0;
+    const vw = view?.width || document.documentElement?.clientWidth || window.innerWidth;
+    // A mobile page with an overflowing toolbar can have a layout viewport
+    // wider than the visible screen. Keep Restore inside the visible area.
+    if (vw) {
+      bufBanner.style.boxSizing = 'border-box';
+      bufBanner.style.right = 'auto';
+      bufBanner.style.left = `${(view?.offsetLeft || 0) + 12}px`;
+      bufBanner.style.maxWidth = `${Math.min(430, Math.max(0, vw - 24))}px`;
+      bufBanner.style.left = `${(view?.offsetLeft || 0) + vw - 12 - bufBanner.getBoundingClientRect().width}px`;
+    }
     if (!bar || bar.hidden) { bufBanner.style.top = '12px'; bufBanner.style.bottom = ''; return; }
     const r = bar.getBoundingClientRect();
     if (r.top > vh / 2) {   // bottom-pill bar: stack the banner above it
@@ -831,6 +847,13 @@ export function initZMS(options = {}) {
     document.body.appendChild(bufBanner);
     positionBufferBanner();
     window.addEventListener('resize', positionBufferBanner);
+    window.visualViewport?.addEventListener('resize', positionBufferBanner);
+    window.visualViewport?.addEventListener('scroll', positionBufferBanner);
+    if (typeof ResizeObserver === 'function') {
+      bufBarObserver = new ResizeObserver(positionBufferBanner);
+      const bar = $('#cms-bar');
+      if (bar) bufBarObserver.observe(bar);
+    }
   }
 
   /* ---------------- save conflicts ---------------- */

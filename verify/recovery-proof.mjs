@@ -27,6 +27,11 @@ export async function journey({ page, step, expect, note }) {
   if (weak) {
     expect(!(await restore.isVisible()), 'baseline navigation lost the last keystroke');
   } else {
+    await restore.waitFor();
+    const rect = await restore.boundingBox();
+    const view = await page.evaluate(() => ({ left: visualViewport.offsetLeft, width: visualViewport.width, barBottom: document.querySelector('#cms-bar').getBoundingClientRect().bottom }));
+    expect(rect.x >= view.left && rect.x + rect.width <= view.left + view.width && rect.y >= view.barBottom, 'Restore is reachable inside the visible viewport below the toolbar');
+    note('Restore placement', { rect, view });
     await restore.click();
     await expect.text('h1', text);
     expect((await buffers()).some((b) => b.value.content.hero.headline === text), 'restore keeps the recovery copy immediately');

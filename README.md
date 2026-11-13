@@ -100,6 +100,10 @@ The HTML you author is the fallback: if `site.json` is missing a key, the page
 still renders what's in the markup. That means the site is never blank, never
 dependent on a fetch, and fully indexable before any JavaScript runs.
 
+Local dev limits JSON request bodies to 2,000,000 bytes while reading the
+stream. Image uploads have a separate allowance for a 4 MiB image encoded as
+base64. Oversized bodies receive HTTP 413 before any local content is changed.
+
 The five binding attributes:
 
 | Attribute | Binds |

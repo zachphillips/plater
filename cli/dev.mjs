@@ -107,9 +107,22 @@ export async function loadHandlers() {
   return { content, review, feed, sitemap, route, manifest, versions, upload, live, save };
 }
 
-export async function readBody(req) {
+// Bound the actual bytes even when a chunked client omits Content-Length.
+// Keep the socket alive long enough to deliver the explicit refusal; the
+// request handler closes it after the response instead of resetting it.
+export async function readBody(req, limit = 2_000_000) {
+  const tooLarge = () => {
+    req.resume();
+    return Object.assign(new Error('payload too large'), { status: 413 });
+  };
+  if (Number(req.headers['content-length'] || 0) > limit) throw tooLarge();
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let seen = 0;
+  for await (const c of req.iterator({ destroyOnReturn: false })) {
+    seen += c.length;
+    if (seen > limit) throw tooLarge();
+    chunks.push(c);
+  }
   return Buffer.concat(chunks).toString('utf8');
 }
 
@@ -297,11 +310,9 @@ const MAX_UPLOAD_BODY = Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 64 * 1024;
 
 async function handleUpload(req, res, { webRoot }, safeName) {
   const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-  if (Number(req.headers['content-length'] || 0) > MAX_UPLOAD_BODY) return json(413, { error: 'image too large (4 MB max)' });
-
   let payload;
-  try { payload = JSON.parse(await readBody(req) || '{}'); }
-  catch { return json(400, { error: 'expected JSON { filename, dataBase64 }' }); }
+  try { payload = JSON.parse(await readBody(req, MAX_UPLOAD_BODY) || '{}'); }
+  catch (e) { if (e.status === 413) throw e; return json(400, { error: 'expected JSON { filename, dataBase64 }' }); }
   if (typeof payload.filename !== 'string' || typeof payload.dataBase64 !== 'string') {
     return json(400, { error: 'expected { filename, dataBase64 }' });
   }
@@ -425,7 +436,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       }
       if (p === '/api/agent-note' && req.method === 'POST' && notesOn) {
         let body;
-        try { body = JSON.parse(await readBody(req) || '{}'); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'invalid JSON body' })); }
+        try { body = JSON.parse(await readBody(req) || '{}'); } catch (e) { if (e.status === 413) throw e; res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'invalid JSON body' })); }
         const [code, out] = notes.handle(req, body);
         res.writeHead(code, { 'content-type': 'application/json' });
         return res.end(JSON.stringify(out));
@@ -475,7 +486,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
-      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
+      if (!res.headersSent) res.writeHead(e.status === 413 ? 413 : 500, { 'content-type': 'application/json', ...(e.status === 413 ? { connection: 'close' } : {}) });
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });

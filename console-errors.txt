@@ -1,0 +1,7 @@
+Chromium console on the foreign attacker pages:
+- Access to fetch at http://127.0.0.1:24211/subscribe from origin http://127.0.0.1:25051 blocked by CORS (base)
+- Access to fetch at http://127.0.0.1:24201/subscribe from origin http://127.0.0.1:25050 blocked by CORS (head)
+- Failed to load resource: net::ERR_FAILED for those two POSTs (browser hid the response)
+
+These are the expected CORS failures. The write still happened on the base worker (stored=true) and did not happen on the head worker (stored=false). See probe-summary.json and 06-owner-view-foreign-signup-did-or-did-not-land-1440.png.
+No other console errors. npm test: 143 pass.

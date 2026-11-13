@@ -1,0 +1,12 @@
+{
+  "note": "Nearby cases on HEAD after the maintained journey. Unsigned no-Origin unsubscribe is documented as remaining possible.",
+  "cases": [
+    ["json-charset", 200, "application/json; charset=utf-8 still accepted"],
+    ["array-body", 400, "array JSON refused"],
+    ["worker-own-origin", 200, "Origin http://127.0.0.1:24201 is a configured demo origin"],
+    ["unsigned-unsub-no-origin", 200, "documented: a no-Origin client can still unsubscribe"],
+    ["kitchen-origin-as-demo", 403, "thekitchen origin cannot post site=demo"],
+    ["missing-content-type", 415, "no Content-Type refused"],
+    ["form-urlencoded", 415, "simple form content type refused"]
+  ]
+}

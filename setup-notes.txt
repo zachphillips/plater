@@ -1,0 +1,27 @@
+HEAD: 1a784d1400eb455db6db11487205892a33bbbc8f (sol/1113-list-request-guards)
+BASE: d163653f4ef98ea4311cf323b34c1915e8eb2e1a (origin/fix/list-never-lose-a-signup)
+
+cd /tmp/tools && npm i --no-save wrangler@4.45.3 playwright@1.64.1 && npx playwright install chromium
+git worktree add --detach /tmp/plater-base d163653
+
+WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js \
+LIST_ROOT=/tmp/plater-base LIST_PROOF_DIR=/tmp/list-proof-base LIST_PROOF_PORT=24211 LIST_WORKER_NAME=plater-list-base \
+node /tmp/start-list-worker.mjs
+
+WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js \
+LIST_ROOT=/agent/repos/plater LIST_PROOF_DIR=/tmp/list-proof-head LIST_PROOF_PORT=24201 LIST_WORKER_NAME=plater-list-head \
+node /tmp/start-list-worker.mjs
+
+ATTACKER_PORT=25051 WORKER_URL=http://127.0.0.1:24211 ATTACKER_LABEL=base node /tmp/attacker-page.mjs
+ATTACKER_PORT=25050 WORKER_URL=http://127.0.0.1:24201 ATTACKER_LABEL=head node /tmp/attacker-page.mjs
+
+node /tmp/probe-list-guards.mjs http://127.0.0.1:24211 weak
+node /tmp/probe-list-guards.mjs http://127.0.0.1:24201
+node /tmp/drive-list-guards.mjs   # Chromium 1210x834, foreign text/plain clicks
+node /tmp/drive-more.mjs          # 1440x900 owner-view + foreign unsubscribe click
+
+WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js \
+LIST_PROOF_DIR=/tmp/list-proof-drive LIST_PROOF_PORT=24141 \
+node /agent/repos/plater/verify/list-worker.mjs   # 26 scenarios, 0 failures
+
+cd /agent/repos/plater && npm test   # 143 pass

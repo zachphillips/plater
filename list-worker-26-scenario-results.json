@@ -1,0 +1,462 @@
+{
+  "localOnly": true,
+  "results": [
+    {
+      "id": "signup",
+      "submittedNoteHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "submittedCharacters": 0,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 44,
+      "row": {
+        "noteLength": 0,
+        "noteHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "long",
+      "submittedNoteHash": "9220d77d661bdc26d774cb1f3751fa076c90d67b248df0cac8e03bf6f765b484",
+      "submittedCharacters": 50000,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 28,
+      "row": {
+        "noteLength": 50000,
+        "noteHash": "9220d77d661bdc26d774cb1f3751fa076c90d67b248df0cac8e03bf6f765b484",
+        "noteTail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxZ"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "unicode",
+      "submittedNoteHash": "e012609ac76be5f807013bd651167feb26674530d6d9a74a312487ca9a7ce8cd",
+      "submittedCharacters": 7700,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 19,
+      "row": {
+        "noteLength": 8400,
+        "noteHash": "e012609ac76be5f807013bd651167feb26674530d6d9a74a312487ca9a7ce8cd",
+        "noteTail": "\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000é漢字🙂<&>\"\\\n\u0000"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "emoji-limit",
+      "submittedNoteHash": "cb3ad287080eb4211460ae3646302515f3652c1ec70148155d1d0bd4f8625cb8",
+      "submittedCharacters": 50000,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 55,
+      "row": {
+        "noteLength": 100000,
+        "noteHash": "cb3ad287080eb4211460ae3646302515f3652c1ec70148155d1d0bd4f8625cb8",
+        "noteTail": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "too-long",
+      "submittedNoteHash": "a6ef35e156d996bbf0001599dba2eb6028690ff55a79178f16a473a469f64592",
+      "submittedCharacters": 50001,
+      "status": 413,
+      "response": {
+        "error": "That message is longer than this form can carry. Please email it instead, and nothing will be cut."
+      },
+      "cors": "https://demo.example",
+      "ms": 6,
+      "row": null,
+      "mailCopies": 0,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "repeat",
+      "submittedNoteHash": "876f1421db32db43b27b38790ac71ac68b9f478506457bc7b0cde8be214cd39a",
+      "submittedCharacters": 46,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 15,
+      "row": {
+        "noteLength": 46,
+        "noteHash": "876f1421db32db43b27b38790ac71ac68b9f478506457bc7b0cde8be214cd39a",
+        "noteTail": "Long earlier message includes a second message"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "repeat",
+      "submittedNoteHash": "e4d18f85471533bd424efc050c4501be58b41fa2b86c481f77c660f4c5a73579",
+      "submittedCharacters": 16,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 18,
+      "row": {
+        "noteLength": 91,
+        "noteHash": "b336a72627478b7c62fd4cf3f83a1bdb27c5b42880081cd0d12c98b8fb015c82",
+        "noteTail": "Long earlier message includes a second message\n\n[2026-11-13T23:23:48.346Z] a second message"
+      },
+      "mailCopies": 2,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "repeat",
+      "submittedNoteHash": "e4d18f85471533bd424efc050c4501be58b41fa2b86c481f77c660f4c5a73579",
+      "submittedCharacters": 16,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 13,
+      "row": {
+        "noteLength": 91,
+        "noteHash": "b336a72627478b7c62fd4cf3f83a1bdb27c5b42880081cd0d12c98b8fb015c82",
+        "noteTail": "Long earlier message includes a second message\n\n[2026-11-13T23:23:48.346Z] a second message"
+      },
+      "mailCopies": 3,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "db-down",
+      "submittedNoteHash": "68f5692a1c75b21ee0eb8e07ccc8a91d7e79e6d82b2416e7b16a5ae99f7ab2c1",
+      "submittedCharacters": 24,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 10,
+      "row": null,
+      "mailCopies": 1,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "mail-down",
+      "submittedNoteHash": "cce7d1c5b74bf8a7db362c4350afaadabeb3b0e40a38fba3111e8c8b1dd4ae44",
+      "submittedCharacters": 26,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 8,
+      "row": {
+        "noteLength": 26,
+        "noteHash": "cce7d1c5b74bf8a7db362c4350afaadabeb3b0e40a38fba3111e8c8b1dd4ae44",
+        "noteTail": "Full inquiry for mail-down"
+      },
+      "mailCopies": 0,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "both-down",
+      "submittedNoteHash": "e8ac2e38667ca83f077c01c7cdbc85df81cff5aa018010df958928e0326bc3b6",
+      "submittedCharacters": 26,
+      "status": 503,
+      "response": {
+        "error": "We could not confirm that your message was safely received. Please email it instead."
+      },
+      "cors": "https://demo.example",
+      "ms": 8,
+      "row": null,
+      "mailCopies": 0,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "repair",
+      "failures": []
+    },
+    {
+      "id": "slow-db",
+      "submittedNoteHash": "0d30b5fb9065e2e0ec37f3aa4ae28614b7103310eac026616e9efba5bf6b58eb",
+      "submittedCharacters": 26,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 5011,
+      "row": null,
+      "mailCopies": 1,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "slow-mail",
+      "submittedNoteHash": "4adf4e5de405f86e491e1d7467bcb7b8adac101f32a21e9832803ab19b3901cb",
+      "submittedCharacters": 28,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 5004,
+      "row": {
+        "noteLength": 28,
+        "noteHash": "4adf4e5de405f86e491e1d7467bcb7b8adac101f32a21e9832803ab19b3901cb",
+        "noteTail": "Do not wait forever for mail"
+      },
+      "mailCopies": 0,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "restart-after-db",
+      "response": {
+        "status": "connection interrupted",
+        "error": "fetch failed"
+      },
+      "beforeRepair": {
+        "db": true,
+        "gap": true
+      },
+      "afterRepair": {
+        "db": true,
+        "mail": true
+      },
+      "failures": []
+    },
+    {
+      "id": "restart-before-db",
+      "response": {
+        "status": "connection interrupted",
+        "error": "fetch failed"
+      },
+      "beforeRepair": {
+        "db": false,
+        "gap": true
+      },
+      "afterRepair": {
+        "db": true,
+        "mail": true
+      },
+      "failures": []
+    },
+    {
+      "id": "legacy",
+      "submittedNoteHash": "c3b150f47a39d2dc1caa48c2120c27a191482ebc851a808b57af047075f38bcd",
+      "submittedCharacters": 15,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 15,
+      "row": {
+        "noteLength": 70,
+        "noteHash": "4700118edb178febd1c6fe13e005eeffad286d2a2457968bb5b55ddb00517c99",
+        "noteTail": "Existing inquiry to retain\n\n[2026-11-13T23:24:01.207Z] A later inquiry"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "concurrent",
+      "responses": [
+        {
+          "id": "concurrent",
+          "submittedNoteHash": "e1b1fc0f40888261277a7f1ada479d3661a35b5c0e8c459eda742ac7b415cca9",
+          "submittedCharacters": 22,
+          "status": 200,
+          "response": {
+            "ok": true
+          },
+          "cors": "https://demo.example",
+          "ms": 23
+        },
+        {
+          "id": "concurrent",
+          "submittedNoteHash": "28b8c5321b82d04e6b74ac714bb91d7ede9f11bf6ec174dacbd313fb28ed8339",
+          "submittedCharacters": 23,
+          "status": 200,
+          "response": {
+            "ok": true
+          },
+          "cors": "https://demo.example",
+          "ms": 26
+        },
+        {
+          "id": "concurrent",
+          "submittedNoteHash": "e1b1fc0f40888261277a7f1ada479d3661a35b5c0e8c459eda742ac7b415cca9",
+          "submittedCharacters": 22,
+          "status": 200,
+          "response": {
+            "ok": true
+          },
+          "cors": "https://demo.example",
+          "ms": 26
+        }
+      ],
+      "storedNote": "First separate message\n\n[2026-11-13T23:24:01.270Z] Second separate message",
+      "failures": []
+    },
+    {
+      "id": "db-ack-lost",
+      "submittedNoteHash": "ef8751c64f16825c2e4d51fe58ad1d75b4905b08e8c86686fca07dd148e0de06",
+      "submittedCharacters": 16,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 14,
+      "row": {
+        "noteLength": 16,
+        "noteHash": "ef8751c64f16825c2e4d51fe58ad1d75b4905b08e8c86686fca07dd148e0de06",
+        "noteTail": "Keep db-ack-lost"
+      },
+      "mailCopies": 1,
+      "gapMissing": [
+        [
+          "db",
+          "relay"
+        ]
+      ],
+      "failures": []
+    },
+    {
+      "id": "journal-and-mail-down",
+      "submittedNoteHash": "8dd204a59e4aa2e66d82a38b61b367cd60b1c6c4a397e9cb36cad0344990f525",
+      "submittedCharacters": 26,
+      "status": 503,
+      "response": {
+        "error": "We could not confirm that your message was safely received. Please email it instead."
+      },
+      "cors": "https://demo.example",
+      "ms": 8,
+      "row": {
+        "noteLength": 26,
+        "noteHash": "8dd204a59e4aa2e66d82a38b61b367cd60b1c6c4a397e9cb36cad0344990f525",
+        "noteTail": "Keep journal-and-mail-down"
+      },
+      "mailCopies": 0,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "all-down",
+      "submittedNoteHash": "6bc86b5ffc56027694a708fae49db5e070b7c8a53f72594ded79872e4eb9ede0",
+      "submittedCharacters": 13,
+      "status": 503,
+      "response": {
+        "error": "We could not confirm that your message was safely received. Please email it instead."
+      },
+      "cors": "https://demo.example",
+      "ms": 5,
+      "row": null,
+      "mailCopies": 0,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "journal-only-down",
+      "submittedNoteHash": "698ee84310d4d20d89d91af4a3d2983c98d03c119dea1f8881a828c96423e0c0",
+      "submittedCharacters": 22,
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "cors": "https://demo.example",
+      "ms": 14,
+      "row": {
+        "noteLength": 22,
+        "noteHash": "698ee84310d4d20d89d91af4a3d2983c98d03c119dea1f8881a828c96423e0c0",
+        "noteTail": "Keep journal-only-down"
+      },
+      "mailCopies": 1,
+      "gapMissing": [],
+      "failures": []
+    },
+    {
+      "id": "replayed-commit",
+      "failures": []
+    },
+    {
+      "id": "malformed-json",
+      "status": 400,
+      "response": {
+        "error": "json body required"
+      },
+      "failures": []
+    },
+    {
+      "id": "non-text-note",
+      "status": 400,
+      "response": {
+        "error": "site and email must be strings, and note must be text"
+      },
+      "failures": []
+    },
+    {
+      "id": "chunked-body-limit",
+      "bytes": 300067,
+      "status": 413,
+      "response": {
+        "error": "That message is longer than this form can carry. Please email it instead, and nothing will be cut."
+      },
+      "failures": []
+    }
+  ],
+  "failures": []
+}

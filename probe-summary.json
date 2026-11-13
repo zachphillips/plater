@@ -1,0 +1,62 @@
+{
+  "consoleErrors": [
+    "Access to fetch at 'http://127.0.0.1:24211/subscribe' from origin 'http://127.0.0.1:25051' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to fetch at 'http://127.0.0.1:24201/subscribe' from origin 'http://127.0.0.1:25050' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "Failed to load resource: net::ERR_FAILED"
+  ],
+  "failedRequests": [
+    {
+      "url": "http://127.0.0.1:24211/subscribe",
+      "error": "net::ERR_FAILED"
+    },
+    {
+      "url": "http://127.0.0.1:24201/subscribe",
+      "error": "net::ERR_FAILED"
+    }
+  ],
+  "baseAttack": {
+    "visible": "/subscribe email=foreign-1794612201768@example.com\nHTTP visible to this page: unknown\nTypeError: Failed to fetch",
+    "email": "foreign-1794612201768@example.com",
+    "stored": true,
+    "gap": false,
+    "row": {
+      "site": "demo",
+      "email": "foreign-1794612201768@example.com",
+      "note": "Written from a foreign page",
+      "created_at": "2026-11-13T23:23:21.773Z",
+      "confirmed": 1,
+      "unsubscribed_at": null
+    }
+  },
+  "headAttack": {
+    "visible": "/subscribe email=foreign-1794612202151@example.com\nHTTP visible to this page: unknown\nTypeError: Failed to fetch",
+    "email": "foreign-1794612202151@example.com",
+    "stored": false,
+    "gap": false
+  },
+  "baseFailures": [],
+  "headFailures": [],
+  "preflight": {
+    "base": {
+      "allowed": {
+        "status": 204,
+        "acao": "https://demo.example"
+      },
+      "foreign": {
+        "status": 204,
+        "acao": null
+      }
+    },
+    "head": {
+      "allowed": {
+        "status": 204,
+        "acao": "https://demo.example"
+      },
+      "foreign": {
+        "status": 204,
+        "acao": null
+      }
+    }
+  }
+}

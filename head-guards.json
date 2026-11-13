@@ -1,0 +1,364 @@
+{
+  "base": "http://127.0.0.1:24201",
+  "weak": false,
+  "failures": [],
+  "preflight": {
+    "allowed": {
+      "status": 204,
+      "acao": "https://demo.example"
+    },
+    "foreign": {
+      "status": 204,
+      "acao": null
+    }
+  },
+  "results": [
+    {
+      "case": "foreign-json",
+      "status": 403,
+      "response": {
+        "error": "this form is not allowed for that site"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": null,
+      "expected": 403,
+      "email": "foreign-json-1794612171006@example.com"
+    },
+    {
+      "case": "plain-text",
+      "status": 415,
+      "response": {
+        "error": "application/json body required"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 415,
+      "email": "plain-text-1794612171006@example.com"
+    },
+    {
+      "case": "wrong-site-origin",
+      "status": 403,
+      "response": {
+        "error": "this form is not allowed for that site"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 403,
+      "email": "wrong-site-origin-1794612171006@example.com"
+    },
+    {
+      "case": "valid-no-origin",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "Command-line integrations can still post JSON.",
+      "gap": false,
+      "cache": "no-store",
+      "cors": null,
+      "expected": 200,
+      "email": "valid-no-origin-1794612171006@example.com"
+    },
+    {
+      "case": "header-control",
+      "status": 400,
+      "response": {
+        "error": "that does not look like an email address"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 400,
+      "email": "bad\u0000-1794612171006@example.com"
+    },
+    {
+      "case": "unpaired-surrogate",
+      "status": 400,
+      "response": {
+        "error": "This message contains a character the form cannot store. Please email it instead so nothing is changed."
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 400,
+      "email": "unpaired-surrogate-1794612171006@example.com"
+    },
+    {
+      "case": "unpaired-address",
+      "status": 400,
+      "response": {
+        "error": "that does not look like an email address"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 400,
+      "email": "bad\ud800-1794612171006@example.com"
+    },
+    {
+      "case": "whitespace-note",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": " \t\n ",
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 200,
+      "email": "whitespace-note-1794612171006@example.com"
+    },
+    {
+      "case": "unsubscribe-seed",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "Keep me unless the request comes from this site.",
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 200,
+      "email": "unsubscribe-seed-1794612171006@example.com"
+    },
+    {
+      "case": "foreign-unsubscribe",
+      "status": 403,
+      "response": {
+        "error": "this form is not allowed for that site"
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "Keep me unless the request comes from this site.",
+      "gap": false,
+      "cache": "no-store",
+      "cors": null,
+      "expected": 403,
+      "email": "unsubscribe-seed-1794612171006@example.com"
+    },
+    {
+      "case": "large-unsubscribe",
+      "status": 413,
+      "response": {
+        "error": "That message is longer than this form can carry. Please email it instead, and nothing will be cut."
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "Keep me unless the request comes from this site.",
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 413,
+      "email": "unsubscribe-seed-1794612171006@example.com"
+    },
+    {
+      "case": "/list",
+      "credential": "missing",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/list",
+      "credential": "wrong",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/list",
+      "credential": "correct synthetic token",
+      "status": 200,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "rows"
+      ],
+      "expected": 200
+    },
+    {
+      "case": "/gaps",
+      "credential": "missing",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/gaps",
+      "credential": "wrong",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/gaps",
+      "credential": "correct synthetic token",
+      "status": 200,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "gaps"
+      ],
+      "expected": 200
+    },
+    {
+      "case": "/export?site=demo",
+      "credential": "missing",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/export?site=demo",
+      "credential": "wrong",
+      "status": 401,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "error"
+      ],
+      "expected": 401
+    },
+    {
+      "case": "/export?site=demo",
+      "credential": "correct synthetic token",
+      "status": 200,
+      "cache": "no-store",
+      "privateResponseHasNoStore": true,
+      "bodyKeys": [
+        "rows",
+        "cursor"
+      ],
+      "expected": 200
+    },
+    {
+      "case": "empty-note",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 200,
+      "email": "empty-note-1794612171006@example.com"
+    },
+    {
+      "case": "repeat-valid",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "Keep me unless the request comes from this site.\n\n[2026-11-13T23:22:51.330Z] second note from same address",
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 200,
+      "email": "unsubscribe-seed-1794612171006@example.com"
+    },
+    {
+      "case": "form-urlencoded",
+      "status": 415,
+      "response": {
+        "error": "application/json body required"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 415,
+      "email": "form-urlencoded-1794612171006@example.com"
+    },
+    {
+      "case": "double-foreign",
+      "status": 403,
+      "response": {
+        "error": "this form is not allowed for that site"
+      },
+      "stored": false,
+      "unsubscribed": false,
+      "note": null,
+      "gap": false,
+      "cache": "no-store",
+      "cors": null,
+      "expected": 403,
+      "email": "double-foreign-1794612171006@example.com"
+    },
+    {
+      "case": "own-origin-json",
+      "status": 200,
+      "response": {
+        "ok": true
+      },
+      "stored": true,
+      "unsubscribed": false,
+      "note": "valid same-site JSON",
+      "gap": false,
+      "cache": "no-store",
+      "cors": "https://demo.example",
+      "expected": 200,
+      "email": "own-origin-json-1794612171006@example.com"
+    },
+    {
+      "case": "empty-object",
+      "status": 400,
+      "response": {
+        "error": "site and email must be strings, and note must be text"
+      }
+    }
+  ]
+}

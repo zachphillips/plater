@@ -1,0 +1,13 @@
+Playwright console/page errors while driving http://127.0.0.1:25041/?edit
+and the foreign attacker pages:
+
+- head console Failed to load resource: the server responded with a status of 404 (Not Found)
+
+No other pageerrors. The 404 did not block Edit page / Save. Likely favicon or
+similar; not a failed /api/save.
+
+Browser fetch() from the foreign attacker page (another origin) reported
+"TypeError: Failed to fetch" on both base and head. That is CORS (OPTIONS /api/save
+returns 404 on both). The write still happened on base (text/plain simple request);
+it did not happen on head (415 before disk). Disk read-back is the proof, not the
+JS error text.

@@ -1,0 +1,44 @@
+{
+  "base HEAD /api/review": {
+    "status": 404,
+    "body": ""
+  },
+  "base OPTIONS /api/save": {
+    "status": 404,
+    "body": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\">\n<title>Page not found \u2014 Plater Demo</title>\n<style>\nbody{font-family:system-ui,-apple-system,sans-serif;max-width:38rem;margin:18vh auto 0;padding:0 1.5rem;line-height:1.55;color:#1a1a1a;background:#faf9f6}\nh1{font-size:1.6rem;"
+  },
+  "base empty body /api/save": {
+    "status": 400,
+    "body": "{\"error\":\"expected { content: {...} }\"}"
+  },
+  "base GET .env": {
+    "status": 404,
+    "sentinel": false,
+    "body": "not a web asset"
+  },
+  "base rebind host": {
+    "status": 200,
+    "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"rebind\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"name\":\"@platercms/captu"
+  },
+  "head HEAD /api/review": {
+    "status": 405,
+    "body": ""
+  },
+  "head OPTIONS /api/save": {
+    "status": 404,
+    "body": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\">\n<title>Page not found \u2014 Plater Demo</title>\n<style>\nbody{font-family:system-ui,-apple-system,sans-serif;max-width:38rem;margin:18vh auto 0;padding:0 1.5rem;line-height:1.55;color:#1a1a1a;background:#faf9f6}\nh1{font-size:1.6rem;"
+  },
+  "head empty body /api/save": {
+    "status": 400,
+    "body": "{\"error\":\"expected { content: {...} }\"}"
+  },
+  "head GET .env": {
+    "status": 404,
+    "sentinel": false,
+    "body": "not a web asset"
+  },
+  "head rebind host": {
+    "status": 403,
+    "body": "{\"error\":\"untrusted dev host\"}"
+  }
+}

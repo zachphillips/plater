@@ -1,0 +1,169 @@
+{
+  "label": "base",
+  "weak": true,
+  "url": "http://127.0.0.1:25040/",
+  "results": [
+    {
+      "name": "foreign JSON",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"foreign JSON 1794611749057\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"nam"
+    },
+    {
+      "name": "simple text/plain body",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"simple text/plain body 1794611749072\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commi"
+    },
+    {
+      "name": "DNS rebind host",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"DNS rebind host 1794611749074\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\""
+    },
+    {
+      "name": "same origin",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"same origin 1794611749080\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"name"
+    },
+    {
+      "name": "local JSON integration",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"local JSON integration 1794611749082\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commi"
+    },
+    {
+      "name": "tailnet host",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"tailnet host 1794611749083\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"nam"
+    },
+    {
+      "name": "local tailnet proxy",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"local tailnet proxy 1794611749085\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\""
+    },
+    {
+      "name": "untrusted forwarded host",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"untrusted forwarded host 1794611749087\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git com"
+    },
+    {
+      "name": "wrong local port",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"wrong local port 1794611749088\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{"
+    },
+    {
+      "name": "opaque browser origin",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"opaque browser origin 1794611749091\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commit"
+    },
+    {
+      "name": "foreign malformed api/history",
+      "status": 0,
+      "expected": "not 403 (may crash process)",
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "Error: socket hang up"
+    },
+    {
+      "name": "foreign malformed api/review",
+      "status": 0,
+      "expected": "not 403 (may crash process)",
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "foreign malformed plater/review-status",
+      "status": 0,
+      "expected": "not 403 (may crash process)",
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "foreign malformed api/agent-note",
+      "status": 0,
+      "expected": "not 403 (may crash process)",
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "HEAD api/review",
+      "status": 0,
+      "expected": "not 405",
+      "ok": true,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "HEAD plater/review-status",
+      "status": 0,
+      "expected": "not 405",
+      "ok": true,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "foreign upload",
+      "status": 0,
+      "expected": 200,
+      "ok": false,
+      "filesCreated": 0,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "GET .env",
+      "status": 0,
+      "ok": false,
+      "sentinelExposed": false,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "GET .git/config",
+      "status": 0,
+      "ok": false,
+      "sentinelExposed": false,
+      "body": "Error: connect ECONNREFUSED 127.0.0.1:25040"
+    },
+    {
+      "name": "server still up after malformed foreign POSTs",
+      "status": 0,
+      "ok": false,
+      "extra": true
+    }
+  ],
+  "failed": [
+    "foreign upload",
+    "GET .env",
+    "GET .git/config",
+    "server still up after malformed foreign POSTs"
+  ],
+  "passCount": 16,
+  "total": 20
+}

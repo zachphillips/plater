@@ -1,0 +1,16 @@
+Tried beyond the claims:
+
+- Empty JSON {} POST to /api/save: HTTP 400 on both, disk unchanged (head).
+- Empty body POST: HTTP 400 {"error":"expected { content: {...} }"} on both.
+- application/json; charset=utf-8 and Application/JSON: HTTP 200 and saved on head.
+- application/x-www-form-urlencoded: HTTP 415 on head, no disk change.
+- PUT /api/save: HTTP 404, no disk change.
+- Origin with trailing slash: HTTP 403 on head.
+- localhost Origin vs 127.0.0.1 Host: HTTP 403 on head (exact-origin rule).
+- Double save of the same field: HTTP 200 both times on head.
+- Duplicate local upload of the same bytes: HTTP 200, filesCreated 0 because the
+  hashed filename already exists (existing skip-identical-blob behaviour).
+- OPTIONS /api/save: HTTP 404 on both (no CORS preflight handler). Follow-up only;
+  the write guard is Origin + Content-Type, not CORS headers.
+- Malformed "{" to /api/history: crashes the BASE Node process; HEAD returns 403
+  and keeps serving.

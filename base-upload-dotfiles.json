@@ -1,0 +1,27 @@
+{
+  "upload": {
+    "status": 200,
+    "body": "{\"ok\":true,\"url\":\"/images/bbb9a30a-foreign-base.png\",\"path\":\"plater-dev-guards-base-eG4FBX/images/bbb9a30a-foreign-base.png\",\"commit\":null}"
+  },
+  "filesBefore": [],
+  "filesAfter": [
+    "bbb9a30a-foreign-base.png"
+  ],
+  "filesCreated": 1,
+  "env": {
+    "status": 404,
+    "body": "not a web asset"
+  },
+  "git": {
+    "status": 404,
+    "body": "not a web asset"
+  },
+  "localUp": {
+    "status": 200,
+    "body": "{\"ok\":true,\"url\":\"/images/967b16ab-local-base.png\",\"path\":\"plater-dev-guards-base-eG4FBX/images/967b16ab-local-base.png\",\"commit\":null}"
+  },
+  "filesAfterLocal": [
+    "967b16ab-local-base.png",
+    "bbb9a30a-foreign-base.png"
+  ]
+}

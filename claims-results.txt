@@ -1,0 +1,44 @@
+PR #20 b8e61ab vs base 64006b5 — claims from a real local plater dev server.
+
+1. A foreign page cannot overwrite local site files (JSON, text/plain, or image upload)
+   BASE 25040: foreign JSON POST HTTP 200, disk changed, public page headline became
+   "FOREIGN PAGE OVERWROTE THIS". text/plain POST HTTP 200, disk changed. Foreign
+   image upload HTTP 200 and created images/bbb9a30a-foreign-base.png.
+   HEAD 25041: foreign JSON HTTP 403 {"error":"origin does not match this dev server"},
+   disk unchanged. text/plain HTTP 415 {"error":"use application/json"}, disk unchanged.
+   Foreign upload HTTP 403, no new file. After a browser text/plain POST from
+   http://127.0.0.1:25050/ the public page still showed the local save.
+
+2. A rebound Host cannot trick the local server into accepting a write
+   BASE: Host: rebound.example Origin: http://rebound.example → HTTP 200, disk changed
+   (headline "rebind").
+   HEAD: same request → HTTP 403 {"error":"untrusted dev host"}, disk unchanged.
+
+3. Local same-origin editing and no-Origin JSON scripts still save
+   HEAD editor at http://127.0.0.1:25041/?edit: Edit page, type
+   "Local same-origin save still works.", Save & commit → status "saved", page
+   and site.json updated. No-Origin JSON POST HTTP 200 and changed disk. Same-origin
+   Origin header HTTP 200 and changed disk.
+
+4. Tailnet and loopback TLS-proxy saves still persist; untrusted forwarded hosts do not
+   HEAD: Host: dev-proof.tail-example.ts.net with matching Origin → HTTP 200, disk changed.
+   X-Forwarded-Host + X-Forwarded-Proto: https from loopback with matching Origin → HTTP 200.
+   Untrusted X-Forwarded-Host: foreign.example → HTTP 403. Wrong local port Origin
+   http://127.0.0.1:1 → HTTP 403. Opaque Origin: null → HTTP 403.
+   (Real Tailscale / real TLS proxy not present here; same header exercise as the
+   author's proof.)
+
+5. Foreign history/review/agent-note POSTs refused before parsing; HEAD cannot
+   change review; private dotfiles stay 404
+   HEAD: POST { to /api/history, /api/review, /plater/review-status, /api/agent-note
+   with Origin: https://foreign.example → HTTP 403, server still up (GET / = 200).
+   HEAD /api/review and /plater/review-status → HTTP 405.
+   GET /.env and /.git/config → 404, sentinel not in body.
+   BASE: the same malformed POST to /api/history crashed the Node process
+   (SyntaxError JSON.parse, HTTP 0 afterwards). GET /.env and /.git/config on a
+   living base process were already 404 / "not a web asset".
+
+npm test: 137 pass.
+
+Exact origin match also refuses localhost Origin against a 127.0.0.1 Host (403).
+The in-browser editor uses the page's own origin, so that did not block the save.

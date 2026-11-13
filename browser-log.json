@@ -1,0 +1,46 @@
+{
+  "log": [
+    {
+      "step": "base node foreign JSON",
+      "status": 200,
+      "changedDisk": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"FOREIGN PAGE OVERWROTE THIS\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"na",
+      "headlineNow": "FOREIGN PAGE OVERWROTE THIS"
+    },
+    {
+      "step": "base public page after foreign JSON",
+      "headline": "FOREIGN PAGE OVERWROTE THIS"
+    },
+    {
+      "step": "base browser text/plain attacker",
+      "out": "fetch failed: TypeError: Failed to fetch",
+      "changedDisk": true,
+      "headline": "FOREIGN PAGE OVERWROTE THIS"
+    },
+    {
+      "step": "head local editor save",
+      "status": "saved",
+      "headline": "Local same-origin save still works."
+    },
+    {
+      "step": "head browser text/plain attacker",
+      "out": "fetch failed: TypeError: Failed to fetch",
+      "changedDisk": false,
+      "headline": "Local same-origin save still works."
+    },
+    {
+      "step": "head public page after attacker",
+      "headline": "Local same-origin save still works."
+    },
+    {
+      "step": "head node foreign JSON",
+      "status": 403,
+      "changedDisk": false,
+      "body": "{\"error\":\"origin does not match this dev server\"}",
+      "headlineNow": "Local same-origin save still works."
+    }
+  ],
+  "errors": [
+    "head console Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "label": "head",
+  "weak": false,
+  "url": "http://127.0.0.1:25041/",
+  "results": [
+    {
+      "name": "foreign JSON",
+      "status": 403,
+      "expected": 403,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "simple text/plain body",
+      "status": 415,
+      "expected": 415,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"use application/json\"}"
+    },
+    {
+      "name": "DNS rebind host",
+      "status": 403,
+      "expected": 403,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"untrusted dev host\"}"
+    },
+    {
+      "name": "same origin",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"same origin 1794611749397\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"name"
+    },
+    {
+      "name": "local JSON integration",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"local JSON integration 1794611749398\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commi"
+    },
+    {
+      "name": "tailnet host",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"tailnet host 1794611749400\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"nam"
+    },
+    {
+      "name": "local tailnet proxy",
+      "status": 200,
+      "expected": 200,
+      "changedDisk": true,
+      "ok": true,
+      "body": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"local tailnet proxy 1794611749402\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\""
+    },
+    {
+      "name": "untrusted forwarded host",
+      "status": 403,
+      "expected": 403,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"untrusted forwarded dev host\"}"
+    },
+    {
+      "name": "wrong local port",
+      "status": 403,
+      "expected": 403,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "opaque browser origin",
+      "status": 403,
+      "expected": 403,
+      "changedDisk": false,
+      "ok": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "foreign malformed api/history",
+      "status": 403,
+      "expected": 403,
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "foreign malformed api/review",
+      "status": 403,
+      "expected": 403,
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "foreign malformed plater/review-status",
+      "status": 403,
+      "expected": 403,
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "foreign malformed api/agent-note",
+      "status": 403,
+      "expected": 403,
+      "ok": true,
+      "contentUnchanged": true,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "HEAD api/review",
+      "status": 405,
+      "expected": 405,
+      "ok": true,
+      "body": ""
+    },
+    {
+      "name": "HEAD plater/review-status",
+      "status": 405,
+      "expected": 405,
+      "ok": true,
+      "body": ""
+    },
+    {
+      "name": "foreign upload",
+      "status": 403,
+      "expected": 403,
+      "ok": true,
+      "filesCreated": 0,
+      "body": "{\"error\":\"origin does not match this dev server\"}"
+    },
+    {
+      "name": "GET .env",
+      "status": 404,
+      "ok": true,
+      "sentinelExposed": false,
+      "body": "not a web asset"
+    },
+    {
+      "name": "GET .git/config",
+      "status": 404,
+      "ok": true,
+      "sentinelExposed": false,
+      "body": "not a web asset"
+    },
+    {
+      "name": "server still up after malformed foreign POSTs",
+      "status": 200,
+      "ok": true,
+      "extra": true
+    }
+  ],
+  "failed": [],
+  "passCount": 20,
+  "total": 20
+}

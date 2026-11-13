@@ -26,6 +26,7 @@ export const BODY_MAX = 256 * 1024;
 export const TOO_LONG = 'That message is longer than this form can carry. Please email it instead, and nothing will be cut.';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const UNSAFE_ADDRESS = /[\x00-\x1f\x7f<>()\[\]\\,;:"]/;
 
 // Validate a parsed request body. Returns { sub } or { error, status }.
 export function readSubmission(body, sites) {
@@ -36,9 +37,10 @@ export function readSubmission(body, sites) {
   const email = String(body.email || '').trim().toLowerCase();
   const note = String(body.note ?? '');
   if (!Object.hasOwn(sites, site)) return { error: 'unknown site', status: 400 };
-  if (!EMAIL_RE.test(email) || email.length > 254) return { error: 'that does not look like an email address', status: 400 };
+  if (!email.isWellFormed() || !EMAIL_RE.test(email) || UNSAFE_ADDRESS.test(email) || email.length > 254) return { error: 'that does not look like an email address', status: 400 };
+  if (!note.isWellFormed()) return { error: 'This message contains a character the form cannot store. Please email it instead so nothing is changed.', status: 400 };
   if ([...note].length > NOTE_MAX) return { error: TOO_LONG, status: 413 };
-  return { sub: { site, email, note: note.trim() ? note : null, created_at: new Date().toISOString() } };
+  return { sub: { site, email, note: note === '' ? null : note, created_at: new Date().toISOString() } };
 }
 
 const errText = (e) => String((e && e.message) || e || 'unknown error').slice(0, 500);

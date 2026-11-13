@@ -108,7 +108,7 @@ const UPSERT = `INSERT INTO subscribers (site, email, note, created_at) VALUES (
 
 function parseSites(env) {
   // SITES = "my-site=https://my-site.com,my-site=https://www.my-site.com,another=https://another.example"
-  const map = {};
+  const map = Object.create(null);
   for (const pair of String(env.SITES || '').split(',')) {
     const i = pair.indexOf('=');
     if (i < 1) continue;
@@ -130,7 +130,42 @@ function corsHeaders(origin, sites) {
 }
 
 const json = (obj, status = 200, extra = {}) =>
-  new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...extra } });
+  new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...extra } });
+
+// JSON is deliberately not a browser "simple" form content type. Combined
+// with checking the submitted site's own origin, this prevents foreign pages
+// from causing writes that CORS alone would merely hide from their script.
+async function readBody(req, limit = BODY_MAX) {
+  if ((req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+    return { error: 'application/json body required', status: 415 };
+  }
+  if (Number(req.headers.get('content-length') || 0) > limit) return { error: TOO_LONG, status: 413 };
+  const reader = req.body?.getReader();
+  const chunks = [];
+  let bytes = 0;
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) { reader.cancel().catch(() => {}); return { error: TOO_LONG, status: 413 }; }
+      chunks.push(value);
+    }
+  }
+  const all = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.byteLength; }
+  let body;
+  try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(all)); }
+  catch { return { error: 'json body required', status: 400 }; }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'json body required', status: 400 };
+  return { body };
+}
+
+const wrongOrigin = (req, sites, site) => {
+  const origin = req.headers.get('origin');
+  return Boolean(origin) && !sites[site].includes(origin);
+};
 
 const errText = (e) => String((e && e.message) || e || 'unknown error').slice(0, 500);
 
@@ -264,30 +299,12 @@ async function handle(req, env, ctx, sites, cors) {
   }
 
   if (url.pathname === '/subscribe' && req.method === 'POST') {
-    if (Number(req.headers.get('content-length') || 0) > BODY_MAX) return json({ error: TOO_LONG }, 413, cors);
-    // Count actual bytes while streaming. Chunked requests have no trustworthy
-    // Content-Length; reading req.text() first would allow unbounded allocation.
-    const reader = req.body?.getReader();
-    const chunks = [];
-    let bytes = 0;
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        bytes += value.byteLength;
-        if (bytes > BODY_MAX) { reader.cancel().catch(() => {}); return json({ error: TOO_LONG }, 413, cors); }
-        chunks.push(value);
-      }
-    }
-    const all = new Uint8Array(bytes);
-    let offset = 0;
-    for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.byteLength; }
-    const text = new TextDecoder().decode(all);
-    let body;
-    try { body = JSON.parse(text); } catch { return json({ error: 'json body required' }, 400, cors); }
-    if (!body || typeof body !== 'object') return json({ error: 'json body required' }, 400, cors);
+    const parsed = await readBody(req);
+    if (parsed.error) return json({ error: parsed.error }, parsed.status, cors);
+    const { body } = parsed;
     const read = readSubmission(body, sites);
     if (read.error) return json({ error: read.error }, read.status, cors);
+    if (wrongOrigin(req, sites, read.sub.site)) return json({ error: 'this form is not allowed for that site' }, 403, cors);
     // honeypot: bots fill every field; humans never see `company`
     if (body.company) return json({ ok: true }, 200, cors);
 
@@ -312,11 +329,12 @@ async function handle(req, env, ctx, sites, cors) {
   }
 
   if (url.pathname === '/unsubscribe' && req.method === 'POST') {
-    let body;
-    try { body = await req.json(); } catch { return json({ error: 'json body required' }, 400, cors); }
-    const site = String(body.site || '').trim();
-    const email = String(body.email || '').trim().toLowerCase();
-    if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
+    const parsed = await readBody(req, 4096);
+    if (parsed.error) return json({ error: parsed.error }, parsed.status, cors);
+    const read = readSubmission(parsed.body, sites);
+    if (read.error) return json({ error: read.error }, read.status, cors);
+    const { site, email } = read.sub;
+    if (wrongOrigin(req, sites, site)) return json({ error: 'this form is not allowed for that site' }, 403, cors);
     await env.DB.prepare(
       'UPDATE subscribers SET unsubscribed_at = ?3 WHERE site = ?1 AND email = ?2',
     ).bind(site, email, new Date().toISOString()).run();

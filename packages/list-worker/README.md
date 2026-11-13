@@ -10,6 +10,20 @@ error and offer its own email fallback. The Kitchen form in
 [thekitchen.co#28](https://github.com/zachphillips/thekitchen.co/pull/28) uses
 these same fields and checks `out.error`.
 
+Both write endpoints require `Content-Type: application/json` (`415` otherwise).
+If a browser supplies an Origin, it must belong to the submitted site (`403`
+otherwise); being an allowed origin for a different site is insufficient.
+No-Origin JSON integrations remain supported. CORS alone cannot prevent writes.
+`POST /unsubscribe` accepts `{ site, email }` with a separate 4 KiB body limit.
+Malformed UTF-8/Unicode and unsafe email header characters receive `400`, so
+storage and mail cannot silently change the supplied text. Whitespace in notes
+is preserved. Every JSON response, including private exports, is `no-store`.
+
+These checks do not authenticate public submissions or prevent scripted spam:
+the honeypot remains the only spam filter, and no rate limiter is configured.
+A no-Origin client knowing an address can still unsubscribe it. Signed
+unsubscribe links and deployment-level rate limits require a separate decision.
+
 ## Where a submission goes
 
 With the bindings in `wrangler.example.jsonc`, the Worker first writes the

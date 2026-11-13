@@ -1,0 +1,22 @@
+# Setup used for this verification (d163653 vs main 526c83a)
+
+mkdir -p /tmp/tools && cd /tmp/tools && npm i wrangler@4.45.3 playwright@1.64.1 --no-fund --no-audit
+npx playwright install chromium
+git worktree add /tmp/plater-base 526c83a
+python3 -m http.server 24280 --bind 127.0.0.1   # /tmp/plater-verify/form.html
+
+# Baseline (main worker, D1 only)
+# wrangler.json main=/tmp/plater-base/packages/list-worker/worker.js  port 24221
+node /tmp/plater-verify/baseline-drive.mjs
+
+# Head official harness
+WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js \
+LIST_PROOF_DIR=/tmp/plater-verify/head-proof LIST_PROOF_PORT=24141 \
+  node /agent/repos/plater/verify/list-worker.mjs
+# → 26 scenarios, failures []
+
+# Head production worker for the form
+# wrangler.json main=/agent/repos/plater/packages/list-worker/worker.js  port 24231
+# form: http://127.0.0.1:24280/form.html?worker=http://127.0.0.1:24231
+
+npm test   # 143 pass

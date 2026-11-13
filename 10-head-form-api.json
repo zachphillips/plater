@@ -1,0 +1,81 @@
+{
+  "health": {
+    "ok": true,
+    "sites": [
+      "demo"
+    ],
+    "relay": true,
+    "gaps": true
+  },
+  "first": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "second": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "storedNoteLength": 1028,
+  "secondInquiryPresent": true,
+  "truncatedTo500": false,
+  "tooLong": {
+    "status": 413,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "error": "That message is longer than this form can carry. Please email it instead, and nothing will be cut."
+    }
+  },
+  "emptyNote": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "emptyEmail": {
+    "status": 400,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "error": "that does not look like an email address"
+    }
+  },
+  "badEmail": {
+    "status": 400,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "error": "that does not look like an email address"
+    }
+  },
+  "honeypot": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "honeypotStored": false,
+  "malformed": {
+    "status": 400,
+    "body": {
+      "error": "json body required"
+    },
+    "cors": "http://127.0.0.1:24280"
+  },
+  "objectNote": {
+    "status": 400,
+    "body": {
+      "error": "site and email must be strings, and note must be text"
+    },
+    "cors": "http://127.0.0.1:24280"
+  },
+  "gaps": {
+    "gaps": []
+  },
+  "broke": []
+}

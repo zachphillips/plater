@@ -1,0 +1,30 @@
+{
+  "health": {
+    "ok": true,
+    "sites": [
+      "demo"
+    ]
+  },
+  "submittedCharacters": 973,
+  "first": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "second": {
+    "status": 200,
+    "cors": "http://127.0.0.1:24280",
+    "body": {
+      "ok": true
+    }
+  },
+  "storedNoteLength": 500,
+  "storedNote": "Please cook for our Saturday dinner. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent cut. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent cut. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent ",
+  "secondInquiryPresent": false,
+  "truncatedTo500": true,
+  "gapsEndpoint": {
+    "error": "not found"
+  }
+}

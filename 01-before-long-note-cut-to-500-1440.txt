@@ -1,0 +1,12 @@
+url=http://127.0.0.1:24280/form.html?worker=http://127.0.0.1:24221
+
+reply=
+waiting
+
+stored=
+{
+  "email": "visitor@example.com",
+  "created_at": "2026-11-13T22:42:45.268Z",
+  "noteLength": 500,
+  "note": "Please cook for our Saturday dinner. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent cut. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent cut. The long version of this note is meant to survive past five hundred characters, so the kitchen actually receives the whole request instead of a silent "
+}

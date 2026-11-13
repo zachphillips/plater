@@ -1,0 +1,2 @@
+Playwright Chromium drive of the local inquiry form: 0 page console errors, 0 failed requests.
+Wrangler local Worker logs contained only ready/reload and request lines; no capture failures on the happy-path form posts.

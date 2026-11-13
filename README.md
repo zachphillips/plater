@@ -395,6 +395,13 @@ so feed curation and redirect edits are previewable before a single commit
 exists. `/api/history` there reads real `git log` of the content file, and
 Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
 
+Dev writes require `application/json` and, for browser requests, the exact
+server origin. Local addresses and `*.ts.net` hosts are accepted; arbitrary
+hostnames are refused to prevent DNS rebinding. A loopback TLS proxy may pass
+`X-Forwarded-Host` and `X-Forwarded-Proto` for tailnet editing. No-Origin JSON
+requests still work for local scripts. Dev has no sign-in, so keep its listener
+on loopback or behind a trusted tailnet proxy.
+
 **Port autopick.** Both `dev` (default 4188) and `serve` (default 8080) walk
 upward from their port on `EADDRINUSE` and print the port they actually took, so
 a second site never fails to start. `PORT=<n>` picks the starting point; every

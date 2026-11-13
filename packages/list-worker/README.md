@@ -48,6 +48,11 @@ kept even when it occurs inside an earlier message. Older accumulated notes
 have no historical hashes; a repeated fragment from before this upgrade can be
 appended once during migration rather than risk discarding a new inquiry.
 
+Repair preserves an unsubscribe made at or after the original submission's
+timestamp. Replaying an old journal must never opt someone back in. A genuine
+new signup made after the unsubscribe can reactivate the address, including
+when its database delivery is delayed. A timestamp tie preserves the opt-out.
+
 The `submission_notes` table is created automatically alongside `subscribers`
 when a write first finds either table missing. Existing subscriber rows and
 their original dates are retained. No remote migration command is needed.

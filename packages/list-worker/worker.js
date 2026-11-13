@@ -108,7 +108,10 @@ const EXPORT_BACKFILL = `INSERT OR IGNORE INTO subscriber_export (site, email)
 // same message sent twice is not appended again.
 const UPSERT = `INSERT INTO subscribers (site, email, note, created_at) VALUES (?1, ?2, ?3, ?4)
   ON CONFLICT (site, email) DO UPDATE SET
-    unsubscribed_at = NULL,
+    unsubscribed_at = CASE
+      WHEN subscribers.unsubscribed_at >= excluded.created_at THEN subscribers.unsubscribed_at
+      ELSE NULL
+    END,
     note = CASE
       WHEN excluded.note IS NULL OR excluded.note = '' THEN subscribers.note
       WHEN subscribers.note IS NULL OR subscribers.note = '' THEN excluded.note

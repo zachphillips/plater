@@ -138,9 +138,14 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
 - **Plain-text paste.** Bindings hold strings, not markup. Pasting from a word
   processor or another page inserts `text/plain` only, flattened to one line;
   dropping HTML into a binding is refused outright.
-- **A crash buffer, and a guard on the way out.** Debounced snapshots of
+- **A crash buffer, and a guard on the way out.** Immediate snapshots of
   unsaved edits go to `localStorage`, keyed per page and per draft track, and are
   offered back — **Restore** / **Discard** — the next time you enter edit mode.
+  The saved base travels with the buffer, so Restore preserves unrelated newer
+  fields loaded since it was written. Restore keeps its recovery copy until a
+  confirmed save or explicit discard. Draft autosaves retry temporary network,
+  server and rate-limit failures with backoff, and retry when the browser comes
+  online. Refused auth or invalid content waits for sign-in or another edit.
   Nothing is applied without a click, and any save or cancel clears it. On top of
   that, `beforeunload` warns you only when you have actually typed something that
   still differs from the last save.

@@ -595,7 +595,7 @@ export function initZMS(options = {}) {
   // Anything that changed CONTENT outside of typing routes through here.
   function markDirty() {
     TOUCHED = true;
-    scheduleBufferWrite();
+    writeBuffer();
     if (DRAFT_TRACK) scheduleDraftAutosave();
     else if (EDITING && $('#cms-status') && isDirty()) $('#cms-status').textContent = 'editing — unsaved changes';
   }
@@ -663,7 +663,7 @@ export function initZMS(options = {}) {
     // field must bring it back — otherwise the hint sits behind live text.
     if (el.closest('[data-list],[data-cards]')) syncPlaceholder(el);
     TOUCHED = true;
-    scheduleBufferWrite();
+    writeBuffer();
   }, true);
 
   /* ---------------- plain-text paste ---------------- */
@@ -711,7 +711,7 @@ export function initZMS(options = {}) {
   // beforeunload is the kind of thing people learn to click through.
 
   const onBeforeUnload = (e) => {
-    if (EDITING && TOUCHED) collectEdits();
+    if (EDITING && TOUCHED) writeBuffer();
     if (!isDirty()) return;
     e.preventDefault();
     e.returnValue = '';       // required by Chrome/Safari to show the prompt
@@ -726,30 +726,33 @@ export function initZMS(options = {}) {
 
   /* ---------------- crash buffer ---------------- */
   // A tab that dies mid-edit (crash, phone backgrounded, accidental close)
-  // used to lose everything typed since the last Save. Debounced snapshots go
+  // used to lose everything typed since the last Save. Immediate snapshots go
   // to localStorage, keyed per page + track, and are offered back on the next
   // entry into edit mode. It is a recovery buffer, never a source of truth:
   // nothing is applied without a click, and any save/cancel clears it.
 
   // Lazy: DRAFT_TRACK is declared further down (const → TDZ at this point).
   const bufKey = () => `plater.buf.${slug(brand)}.${normalizePagePath(location.pathname)}${DRAFT_TRACK ? '.' + DRAFT_TRACK : ''}`;
-  let bufTimer = null;
   let bufBanner = null;
 
-  function scheduleBufferWrite() {
-    clearTimeout(bufTimer);
-    bufTimer = setTimeout(() => {
-      if (!EDITING || !TOUCHED) return;
-      collectEdits();
-      try {
-        if (!isDirty()) { localStorage.removeItem(bufKey()); return; }
-        localStorage.setItem(bufKey(), JSON.stringify({ url: location.href, ts: Date.now(), content: CONTENT }));
-      } catch {}   // quota / private mode: the buffer is a bonus, never a blocker
-    }, 800);
+  function writeBuffer() {
+    if (!EDITING || !TOUCHED) return false;
+    collectEdits();
+    try {
+      if (!isDirty()) { localStorage.removeItem(bufKey()); return true; }
+      localStorage.setItem(bufKey(), JSON.stringify({ url: location.href, ts: Date.now(), content: CONTENT, base: JSON.parse(SAVED) }));
+      return true;
+    } catch {
+      setStatus('This browser could not keep a recovery copy. Keep this tab open until the changes are saved.');
+      return false;
+    }
   }
+  // Mobile browsers may suspend a page without beforeunload. Each input is
+  // already kept; these flush changes from DOM controls at the final boundary.
+  window.addEventListener('pagehide', writeBuffer);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeBuffer(); });
 
   function clearBuffer() {
-    clearTimeout(bufTimer);
     try { localStorage.removeItem(bufKey()); } catch {}
     hideBufferBanner();
   }
@@ -809,10 +812,14 @@ export function initZMS(options = {}) {
     const restore = document.createElement('button');
     restore.type = 'button'; restore.textContent = 'Restore'; restore.setAttribute(CTL, '');
     restore.addEventListener('click', () => {
-      CONTENT = buf.content;
+      // A newer deployment may have loaded unrelated edits since this buffer
+      // was made. Replay only what its author changed from the saved base.
+      if (buf.base && typeof buf.base === 'object' && !Array.isArray(buf.base)) {
+        for (const p of changedPaths(buf.base, buf.content).filter(Boolean)) setPath(CONTENT, p, getPath(buf.content, p));
+      } else CONTENT = buf.content; // old buffers remain recoverable
       render();   // EDITING is true here, so containers come back with controls
       applyEditable(true);
-      clearBuffer();
+      hideBufferBanner();
       markDirty();
       if ($('#cms-status')) $('#cms-status').textContent = 'restored unsaved edits — Save to commit them';
     });
@@ -963,7 +970,7 @@ export function initZMS(options = {}) {
       }
       acceptSavedContent(savedSnapshot, out);
       if (isDirty()) {
-        scheduleBufferWrite();
+        writeBuffer();
         setStatus('Saved — newer edits are still unsaved.');
         return;
       }
@@ -1995,14 +2002,17 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
      saves collapse (git-side each save is one small commit to the overlay). */
   let autosaveTimer = null;
   let autosaveInflight = false;
-  function scheduleDraftAutosave() {
-    if (!DRAFT_TRACK) return;
+  let autosaveFailures = 0;
+  function scheduleDraftAutosave(delay = 2000) {
+    if (!DRAFT_TRACK || !EDITING) return;
     const chip = document.getElementById('plater-autosave');
     if (chip) chip.textContent = 'editing…';
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(async () => {
       if (autosaveInflight) { scheduleDraftAutosave(); return; }
+      if (!EDITING) return;
       autosaveInflight = true;
+      let retryable = true;
       try {
         if (!(await ensureAuthFresh())) {
           if (chip) chip.textContent = 'sign in to save this draft';
@@ -2031,10 +2041,14 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
           }
           return;
         }
-        if (!r.ok || out.error) throw new Error(out.error || 'HTTP ' + r.status);
+        if (!r.ok || out.error) {
+          retryable = r.status === 429 || r.status >= 500;
+          throw new Error(out.error || 'HTTP ' + r.status);
+        }
+        autosaveFailures = 0;
         acceptSavedContent(savedSnapshot, out);
         if (isDirty()) {
-          scheduleBufferWrite();
+          writeBuffer();
           scheduleDraftAutosave();
         } else {
           clearBuffer();
@@ -2042,12 +2056,18 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
         }
       } catch (e) {
         console.warn('[plater] draft autosave failed', e);
-        if (chip) chip.textContent = 'autosave failed — will retry on next edit';
+        const kept = writeBuffer();
+        const recovery = kept ? 'recovery copy kept in this browser' : 'keep this tab open';
+        if (retryable) {
+          scheduleDraftAutosave(Math.min(30000, 2000 * 2 ** Math.min(autosaveFailures++, 4)));
+          if (chip) chip.textContent = 'autosave failed, retrying automatically; ' + recovery;
+        } else if (chip) chip.textContent = 'autosave refused; ' + recovery + ', check sign-in or edit before retrying';
       } finally {
         autosaveInflight = false;
       }
-    }, 2000);
+    }, delay);
   }
+  window.addEventListener('online', () => { if (DRAFT_TRACK && TOUCHED) scheduleDraftAutosave(0); });
 
   /* ---------------- live reload ---------------- */
   // While Zach watches a page, an agent's turn or another editor's save changes

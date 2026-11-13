@@ -1,0 +1,53 @@
+HEAD (after): missing Google configuration must FAIL CLOSED
+
+ok  missing-client/save  HTTP 401  auth failed: GOOGLE_CLIENT_ID is not set
+ok  missing-client/history  HTTP 401  auth failed: GOOGLE_CLIENT_ID is not set
+ok  missing-client/upload  HTTP 401  auth failed: GOOGLE_CLIENT_ID is not set
+ok  missing-client/review  HTTP 401  auth failed: GOOGLE_CLIENT_ID is not set
+ok  missing-client/versions  HTTP 401  auth failed
+ok  missing-client/agent-note  HTTP 401  auth failed
+ok  missing-client/propose-post  HTTP 401  auth failed: GOOGLE_CLIENT_ID is not set
+ok  configured/save  HTTP 401  auth failed: aud mismatch
+ok  configured/history  HTTP 401  auth failed: aud mismatch
+ok  configured/upload  HTTP 401  auth failed: aud mismatch
+ok  configured/review  HTTP 401  auth failed: aud mismatch
+ok  configured/versions  HTTP 401  auth failed
+ok  configured/agent-note  HTTP 401  auth failed
+ok  configured/propose-post  HTTP 401  auth failed: aud mismatch
+ok  configured/save  HTTP 400  expected { content: {...} }
+ok  configured/history  HTTP 501  missing GITHUB_TOKEN
+ok  configured/upload  HTTP 400  expected { filename, dataBase64 }
+ok  configured/review  HTTP 400  expected { path, reviewed }
+ok  configured/versions  HTTP 400  bad track name (a-z0-9._-, ≤64)
+ok  configured/agent-note  HTTP 501  agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)
+ok  configured/propose-post  HTTP 400  path must be a .md file under drafts/
+ok  missing-admin/save  HTTP 401  auth failed: CMS_ADMIN_EMAIL is not set
+ok  missing-admin/history  HTTP 401  auth failed: CMS_ADMIN_EMAIL is not set
+ok  missing-admin/upload  HTTP 401  auth failed: CMS_ADMIN_EMAIL is not set
+ok  missing-admin/review  HTTP 401  auth failed: CMS_ADMIN_EMAIL is not set
+ok  missing-admin/versions  HTTP 401  auth failed
+ok  missing-admin/agent-note  HTTP 401  auth failed
+ok  missing-admin/propose-post  HTTP 401  auth failed: CMS_ADMIN_EMAIL is not set
+ok  edit-token/save  HTTP 400  expected { content: {...} }
+ok  edit-token/history  HTTP 501  missing GITHUB_TOKEN
+ok  edit-token/upload  HTTP 400  expected { filename, dataBase64 }
+ok  edit-token/review  HTTP 400  expected { path, reviewed }
+ok  edit-token/versions  HTTP 400  bad track name (a-z0-9._-, ≤64)
+ok  edit-token/agent-note  HTTP 501  agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)
+ok  edit-token/propose-post  HTTP 400  path must be a .md file under drafts/
+ok  configured/save  HTTP 401  sign in as owner@example.com to save
+ok  configured/history  HTTP 401  sign in as owner@example.com to read history
+ok  configured/upload  HTTP 401  sign in as owner@example.com to upload
+ok  configured/review  HTTP 401  sign in as owner@example.com to review
+ok  configured/versions  HTTP 401  sign in as owner@example.com to save a draft
+ok  configured/agent-note  HTTP 401  sign in as owner@example.com to send a note
+ok  configured/propose-post  HTTP 401  sign in as owner@example.com to save
+
+config:
+  missing-client: editable=false tokenAuth=false googleClientId="" exposesToken=false
+  configured: editable=true tokenAuth=false googleClientId="plater-client" exposesToken=false
+  missing-admin: editable=false tokenAuth=false googleClientId="" exposesToken=false
+  edit-token: editable=true tokenAuth=true googleClientId="" exposesToken=false
+
+tokeninfo calls recorded: 40
+all expected gate outcomes matched

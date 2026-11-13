@@ -1,0 +1,26 @@
+Nearby cases on HEAD (0ce66e1), beyond the six claimed journeys:
+
+HTTP 401  missing-client/save  auth failed: GOOGLE_CLIENT_ID is not set  :: Google client missing, token that would match if a client were set
+HTTP 401  missing-client/agent-note  auth failed  :: Google client missing, token that would match if a client were set
+HTTP 401  edit-token/save  auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set  :: edit-token mode, Google token for another app
+HTTP 401  edit-token/agent-note  auth failed  :: edit-token mode, Google token for another app
+HTTP 401  edit-token/save  auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set  :: edit-token mode, Google token claiming this site
+HTTP 401  edit-token/agent-note  auth failed  :: edit-token mode, Google token claiming this site
+HTTP 401  configured/save  auth failed: aud mismatch  :: configured Google mode, the shared edit token from another mode
+HTTP 401  configured/agent-note  auth failed  :: configured Google mode, the shared edit token from another mode
+HTTP 401  missing-client/save  auth failed: GOOGLE_CLIENT_ID is not set  :: missing-client mode, a shared edit token that is not configured there
+HTTP 401  missing-client/agent-note  auth failed  :: missing-client mode, a shared edit token that is not configured there
+HTTP 401  missing-client/save  auth failed: GOOGLE_CLIENT_ID is not set  :: missing-client mode, 8k bearer
+HTTP 401  missing-client/agent-note  auth failed  :: missing-client mode, 8k bearer
+HTTP 400  configured/save  expected { content: {...} }  :: configured Google, empty body twice (1/2)
+HTTP 400  configured/save  expected { content: {...} }  :: configured Google, empty body twice (2/2)
+HTTP 405  missing-client/save  method not allowed  :: GET on a write gate with missing client
+HTTP 400  configured/upload  expected { filename, dataBase64 }  :: configured Google, empty body twice (1/2)
+HTTP 400  configured/upload  expected { filename, dataBase64 }  :: configured Google, empty body twice (2/2)
+HTTP 405  missing-client/upload  method not allowed  :: GET on a write gate with missing client
+
+All of these stayed closed (401) when they should, or 400/405/501 after a successful configured-Google auth with an empty body.
+Repeating the empty-body save/upload did not change the status.
+An 8k bearer on missing-client still returned 401 without contacting Google for a write.
+GET on POST-only write gates returned 405.
+A Google token in edit-token mode (client id unset) was refused; the shared edit token still passed in that mode.

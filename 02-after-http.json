@@ -1,0 +1,1130 @@
+{
+  "label": "02-after",
+  "base": "http://127.0.0.1:24222",
+  "weak": false,
+  "results": [
+    {
+      "mode": "missing-client",
+      "endpoint": "save",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "history",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "upload",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "review",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "versions",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "agent-note",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "propose-post",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "denied": true,
+      "why": "owner email set, Google client missing, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "history",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "upload",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "review",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "versions",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "agent-note",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "propose-post",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "denied": true,
+      "why": "Google fully configured, token for another app",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { content: {...} }",
+      "body": {
+        "error": "expected { content: {...} }"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "history",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 501,
+      "error": "missing GITHUB_TOKEN",
+      "body": {
+        "error": "missing GITHUB_TOKEN"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "upload",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { filename, dataBase64 }",
+      "body": {
+        "error": "expected { filename, dataBase64 }"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "review",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { path, reviewed }",
+      "body": {
+        "error": "expected { path, reviewed }"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "versions",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "bad track name (a-z0-9._-, ≤64)",
+      "body": {
+        "error": "bad track name (a-z0-9._-, ≤64)"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "agent-note",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 501,
+      "error": "agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)",
+      "body": {
+        "error": "agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "propose-post",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "path must be a .md file under drafts/",
+      "body": {
+        "error": "path must be a .md file under drafts/"
+      },
+      "denied": false,
+      "why": "Google fully configured, token for this site",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: CMS_ADMIN_EMAIL is not set",
+      "body": {
+        "error": "auth failed: CMS_ADMIN_EMAIL is not set"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "history",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: CMS_ADMIN_EMAIL is not set",
+      "body": {
+        "error": "auth failed: CMS_ADMIN_EMAIL is not set"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "upload",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: CMS_ADMIN_EMAIL is not set",
+      "body": {
+        "error": "auth failed: CMS_ADMIN_EMAIL is not set"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "review",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: CMS_ADMIN_EMAIL is not set",
+      "body": {
+        "error": "auth failed: CMS_ADMIN_EMAIL is not set"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "versions",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "agent-note",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "missing-admin",
+      "endpoint": "propose-post",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: CMS_ADMIN_EMAIL is not set",
+      "body": {
+        "error": "auth failed: CMS_ADMIN_EMAIL is not set"
+      },
+      "denied": true,
+      "why": "Google client set, owner email missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "save",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 400,
+      "error": "expected { content: {...} }",
+      "body": {
+        "error": "expected { content: {...} }"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "history",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 501,
+      "error": "missing GITHUB_TOKEN",
+      "body": {
+        "error": "missing GITHUB_TOKEN"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "upload",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 400,
+      "error": "expected { filename, dataBase64 }",
+      "body": {
+        "error": "expected { filename, dataBase64 }"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "review",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 400,
+      "error": "expected { path, reviewed }",
+      "body": {
+        "error": "expected { path, reviewed }"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "versions",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 400,
+      "error": "bad track name (a-z0-9._-, ≤64)",
+      "body": {
+        "error": "bad track name (a-z0-9._-, ≤64)"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "agent-note",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 501,
+      "error": "agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)",
+      "body": {
+        "error": "agent routing not configured (set PLATER_AGENT_ENDPOINT + PLATER_AGENT_TOKEN)"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "propose-post",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 400,
+      "error": "path must be a .md file under drafts/",
+      "body": {
+        "error": "path must be a .md file under drafts/"
+      },
+      "denied": false,
+      "why": "shared edit token, Google client missing",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to save",
+      "body": {
+        "error": "sign in as owner@example.com to save"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "history",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to read history",
+      "body": {
+        "error": "sign in as owner@example.com to read history"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "upload",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to upload",
+      "body": {
+        "error": "sign in as owner@example.com to upload"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "review",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to review",
+      "body": {
+        "error": "sign in as owner@example.com to review"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "versions",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to save a draft",
+      "body": {
+        "error": "sign in as owner@example.com to save a draft"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "agent-note",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to send a note",
+      "body": {
+        "error": "sign in as owner@example.com to send a note"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    },
+    {
+      "mode": "configured",
+      "endpoint": "propose-post",
+      "token": "",
+      "tokenLen": 0,
+      "status": 401,
+      "error": "sign in as owner@example.com to save",
+      "body": {
+        "error": "sign in as owner@example.com to save"
+      },
+      "denied": true,
+      "why": "Google fully configured, no bearer",
+      "ok": true
+    }
+  ],
+  "extras": [
+    {
+      "mode": "missing-client",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "why": "Google client missing, token that would match if a client were set"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "agent-note",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "Google client missing, token that would match if a client were set"
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "save",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set"
+      },
+      "why": "edit-token mode, Google token for another app"
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "agent-note",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "edit-token mode, Google token for another app"
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: bad edit token or Google auth: GOOGLE_CLIENT_ID is not set"
+      },
+      "why": "edit-token mode, Google token claiming this site"
+    },
+    {
+      "mode": "edit-token",
+      "endpoint": "agent-note",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "edit-token mode, Google token claiming this site"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 401,
+      "error": "auth failed: aud mismatch",
+      "body": {
+        "error": "auth failed: aud mismatch"
+      },
+      "why": "configured Google mode, the shared edit token from another mode"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "agent-note",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "configured Google mode, the shared edit token from another mode"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "save",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "why": "missing-client mode, a shared edit token that is not configured there"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "agent-note",
+      "token": "synthetic-edit-token",
+      "tokenLen": 20,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "missing-client mode, a shared edit token that is not configured there"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "save",
+      "token": "xxxxxxxxxxxxxxxxxxxxxxxx…",
+      "tokenLen": 8000,
+      "status": 401,
+      "error": "auth failed: GOOGLE_CLIENT_ID is not set",
+      "body": {
+        "error": "auth failed: GOOGLE_CLIENT_ID is not set"
+      },
+      "why": "missing-client mode, 8k bearer"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "agent-note",
+      "token": "xxxxxxxxxxxxxxxxxxxxxxxx…",
+      "tokenLen": 8000,
+      "status": 401,
+      "error": "auth failed",
+      "body": {
+        "error": "auth failed"
+      },
+      "why": "missing-client mode, 8k bearer"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { content: {...} }",
+      "body": {
+        "error": "expected { content: {...} }"
+      },
+      "why": "configured Google, empty body twice (1/2)"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "save",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { content: {...} }",
+      "body": {
+        "error": "expected { content: {...} }"
+      },
+      "why": "configured Google, empty body twice (2/2)"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "save",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 405,
+      "error": "method not allowed",
+      "body": {
+        "error": "method not allowed"
+      },
+      "why": "GET on a write gate with missing client"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "upload",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { filename, dataBase64 }",
+      "body": {
+        "error": "expected { filename, dataBase64 }"
+      },
+      "why": "configured Google, empty body twice (1/2)"
+    },
+    {
+      "mode": "configured",
+      "endpoint": "upload",
+      "token": "right-client",
+      "tokenLen": 12,
+      "status": 400,
+      "error": "expected { filename, dataBase64 }",
+      "body": {
+        "error": "expected { filename, dataBase64 }"
+      },
+      "why": "configured Google, empty body twice (2/2)"
+    },
+    {
+      "mode": "missing-client",
+      "endpoint": "upload",
+      "token": "another-client",
+      "tokenLen": 14,
+      "status": 405,
+      "error": "method not allowed",
+      "body": {
+        "error": "method not allowed"
+      },
+      "why": "GET on a write gate with missing client"
+    }
+  ],
+  "configs": [
+    {
+      "mode": "missing-client",
+      "status": 200,
+      "config": {
+        "googleClientId": "",
+        "adminEmail": "owner@example.com",
+        "editable": false,
+        "tokenAuth": false,
+        "devNoauth": false,
+        "agentRouting": false
+      },
+      "exposesToken": false,
+      "editable": false,
+      "googleClientId": "",
+      "tokenAuth": false
+    },
+    {
+      "mode": "configured",
+      "status": 200,
+      "config": {
+        "googleClientId": "plater-client",
+        "adminEmail": "owner@example.com",
+        "editable": true,
+        "tokenAuth": false,
+        "devNoauth": false,
+        "agentRouting": false
+      },
+      "exposesToken": false,
+      "editable": true,
+      "googleClientId": "plater-client",
+      "tokenAuth": false
+    },
+    {
+      "mode": "missing-admin",
+      "status": 200,
+      "config": {
+        "googleClientId": "",
+        "adminEmail": "",
+        "editable": false,
+        "tokenAuth": false,
+        "devNoauth": false,
+        "agentRouting": false
+      },
+      "exposesToken": false,
+      "editable": false,
+      "googleClientId": "",
+      "tokenAuth": false
+    },
+    {
+      "mode": "edit-token",
+      "status": 200,
+      "config": {
+        "googleClientId": "",
+        "adminEmail": "owner@example.com",
+        "editable": true,
+        "tokenAuth": true,
+        "devNoauth": false,
+        "agentRouting": false
+      },
+      "exposesToken": false,
+      "editable": true,
+      "googleClientId": "",
+      "tokenAuth": true
+    }
+  ],
+  "calls": [
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "synthetic-edit-token"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "synthetic-edit-token"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "another-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "synthetic-edit-token"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "synthetic-edit-token"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    },
+    {
+      "service": "synthetic tokeninfo",
+      "token": "right-client"
+    }
+  ],
+  "failed": [],
+  "notes": [
+    {
+      "label": "02-after",
+      "base": "http://127.0.0.1:24222",
+      "weak": false,
+      "failed": 0,
+      "claimSummary": {
+        "missing-client|another-client|owner email set, Google client missing, token for another app": {
+          "why": "owner email set, Google client missing, token for another app",
+          "denied": true,
+          "statuses": {
+            "save": 401,
+            "history": 401,
+            "upload": 401,
+            "review": 401,
+            "versions": 401,
+            "agent-note": 401,
+            "propose-post": 401
+          }
+        },
+        "configured|another-client|Google fully configured, token for another app": {
+          "why": "Google fully configured, token for another app",
+          "denied": true,
+          "statuses": {
+            "save": 401,
+            "history": 401,
+            "upload": 401,
+            "review": 401,
+            "versions": 401,
+            "agent-note": 401,
+            "propose-post": 401
+          }
+        },
+        "configured|right-client|Google fully configured, token for this site": {
+          "why": "Google fully configured, token for this site",
+          "denied": false,
+          "statuses": {
+            "save": 400,
+            "history": 501,
+            "upload": 400,
+            "review": 400,
+            "versions": 400,
+            "agent-note": 501,
+            "propose-post": 400
+          }
+        },
+        "missing-admin|right-client|Google client set, owner email missing": {
+          "why": "Google client set, owner email missing",
+          "denied": true,
+          "statuses": {
+            "save": 401,
+            "history": 401,
+            "upload": 401,
+            "review": 401,
+            "versions": 401,
+            "agent-note": 401,
+            "propose-post": 401
+          }
+        },
+        "edit-token|synthetic-edit-token|shared edit token, Google client missing": {
+          "why": "shared edit token, Google client missing",
+          "denied": false,
+          "statuses": {
+            "save": 400,
+            "history": 501,
+            "upload": 400,
+            "review": 400,
+            "versions": 400,
+            "agent-note": 501,
+            "propose-post": 400
+          }
+        },
+        "configured|(none)|Google fully configured, no bearer": {
+          "why": "Google fully configured, no bearer",
+          "denied": true,
+          "statuses": {
+            "save": 401,
+            "history": 401,
+            "upload": 401,
+            "review": 401,
+            "versions": 401,
+            "agent-note": 401,
+            "propose-post": 401
+          }
+        }
+      }
+    }
+  ]
+}

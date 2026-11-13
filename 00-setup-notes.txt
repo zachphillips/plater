@@ -1,0 +1,21 @@
+Commands used on this machine:
+
+# Playwright (outside the repo)
+cd /tmp && npm i playwright@1.64.1 && npx playwright install chromium
+
+# Base commit worktree (old handlers) + copy of HEAD verify/auth-bench.mjs
+git worktree add /tmp/plater-base 526c83a
+cp /workspace/verify/auth-bench.mjs /tmp/plater-base/verify/auth-bench.mjs
+PORT=24221 node /tmp/plater-base/verify/auth-bench.mjs   # BASE
+PORT=24222 node /workspace/verify/auth-bench.mjs         # HEAD 0ce66e1
+
+# Drive (from /tmp/plater-verify/drive.mjs)
+AUTH_EXPECT_WEAK=1 AUTH_PROOF_URL=http://127.0.0.1:24221 PROOF_LABEL=01-before node drive.mjs
+AUTH_PROOF_URL=http://127.0.0.1:24222 PROOF_LABEL=02-after node drive.mjs
+
+# Official maintained journey
+AUTH_PROOF_URL=http://127.0.0.1:24222 node /tmp/plater-verify/official-journey.mjs
+AUTH_PROOF_URL=http://127.0.0.1:24221 AUTH_EXPECT_WEAK=1 node /tmp/plater-verify/official-journey.mjs
+
+# Guards
+cd /workspace && npm test   # 138 pass

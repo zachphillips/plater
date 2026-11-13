@@ -63,6 +63,16 @@ function instrument(env, faults, requestId) {
 export default {
   async fetch(req, env, ctx) {
     const path = new URL(req.url).pathname;
+    if (path === '/__bench/seed-export' && req.method === 'POST') {
+      await env.DB.prepare('CREATE TABLE IF NOT EXISTS subscribers (site TEXT NOT NULL, email TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL, confirmed INTEGER DEFAULT 1, unsubscribed_at TEXT, PRIMARY KEY (site, email))').run();
+      await env.DB.batch(Array.from({ length: 501 }, (_, i) => env.DB.prepare('INSERT INTO subscribers (site, email, note, created_at) VALUES (?1, ?2, ?3, ?4)').bind('demo', `person-${String(i).padStart(4, '0')}@example.com`, 'Original complete inquiry', '2026-01-01T00:00:00.000Z')));
+      return json({ seeded: 501 });
+    }
+    if (path === '/__bench/hold-delayed' && req.method === 'POST') {
+      const sub = { site: 'demo', email: 'delayed@example.com', note: 'Complete delayed inquiry', created_at: '2020-01-01T00:00:00.000Z' };
+      await env.GAPS.put('gap:local-delayed', JSON.stringify({ sub, missing: ['db', 'relay'], reasons: {}, recorded_at: new Date().toISOString() }));
+      return json({ held: true });
+    }
     if (path === '/__bench/seed-legacy' && req.method === 'POST') {
       await env.DB.prepare('CREATE TABLE subscribers (site TEXT NOT NULL, email TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL, confirmed INTEGER DEFAULT 1, unsubscribed_at TEXT, PRIMARY KEY (site, email))').run();
       await env.DB.prepare("INSERT INTO subscribers (site, email, note, created_at) VALUES ('demo', 'legacy@example.com', 'Existing inquiry to retain', '2026-01-01T00:00:00.000Z')").run();

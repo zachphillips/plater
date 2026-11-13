@@ -1,0 +1,4 @@
+Head 1440 journey: 0 page errors, 0 failed requests.
+Base 1440 journey: 0 page errors, 0 failed requests.
+Head 390 journey: 0 page errors, 0 failed requests (from drive.log stale-save consoleErrors/failed arrays).
+Conflict 409 is expected and was checked; it is not counted as a failed request.

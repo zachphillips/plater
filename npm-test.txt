@@ -1,0 +1,837 @@
+
+> platercms@0.1.0 test
+> node --test
+
+TAP version 13
+# Subtest: plan gate fails closed unless all three locks hold
+ok 1 - plan gate fails closed unless all three locks hold
+  ---
+  duration_ms: 4.278837
+  type: 'test'
+  ...
+# Subtest: authorize URL: first sign-in registers, re-sign-in reuses the issued client
+ok 2 - authorize URL: first sign-in registers, re-sign-in reuses the issued client
+  ---
+  duration_ms: 1.006147
+  type: 'test'
+  ...
+# Subtest: callback: only a matching, approved, complete grant is accepted
+ok 3 - callback: only a matching, approved, complete grant is accepted
+  ---
+  duration_ms: 2.295912
+  type: 'test'
+  ...
+# Subtest: id token: signature, issuer, audience, expiry and nonce are all enforced
+ok 4 - id token: signature, issuer, audience, expiry and nonce are all enforced
+  ---
+  duration_ms: 78.419306
+  type: 'test'
+  ...
+# Subtest: credentials are private files and the host id is stable
+ok 5 - credentials are private files and the host id is stable
+  ---
+  duration_ms: 1.995661
+  type: 'test'
+  ...
+# Subtest: refresh is serialized, keeps the grant and uses the issued client id
+ok 6 - refresh is serialized, keeps the grant and uses the issued client id
+  ---
+  duration_ms: 23.239991
+  type: 'test'
+  ...
+# Subtest: codex child gets the plan token and an isolated CODEX_HOME, not the host secrets
+ok 7 - codex child gets the plan token and an isolated CODEX_HOME, not the host secrets
+  ---
+  duration_ms: 0.626032
+  type: 'test'
+  ...
+# Subtest: dev notes accept only this machine's own pages
+ok 8 - dev notes accept only this machine's own pages
+  ---
+  duration_ms: 0.483785
+  type: 'test'
+  ...
+# Subtest: dev notes are off unless the process opts in and the owner signed in
+ok 9 - dev notes are off unless the process opts in and the owner signed in
+  ---
+  duration_ms: 6.672937
+  type: 'test'
+  ...
+# Subtest: the API override only ever points at a loopback fixture
+ok 10 - the API override only ever points at a loopback fixture
+  ---
+  duration_ms: 0.742983
+  type: 'test'
+  ...
+# Subtest: a refused speed tier retries once at standard speed and says so; a usage limit does not
+ok 11 - a refused speed tier retries once at standard speed and says so; a usage limit does not
+  ---
+  duration_ms: 1.133533
+  type: 'test'
+  ...
+# Subtest: JWT-shaped edit tokens persist across page/tab instances without Google refresh
+ok 12 - JWT-shaped edit tokens persist across page/tab instances without Google refresh
+  ---
+  duration_ms: 27.173382
+  type: 'test'
+  ...
+# Subtest: fresh Google credentials persist; unpadded base64url expiration honors the 60s skew
+ok 13 - fresh Google credentials persist; unpadded base64url expiration honors the 60s skew
+  ---
+  duration_ms: 4.651004
+  type: 'test'
+  ...
+# Subtest: invalid Google tokens are discarded instead of treated as non-expiring edit tokens
+ok 14 - invalid Google tokens are discarded instead of treated as non-expiring edit tokens
+  ---
+  duration_ms: 5.027748
+  type: 'test'
+  ...
+# Subtest: untyped mixed-auth credentials reauthenticate; token-only legacy installs migrate safely
+ok 15 - untyped mixed-auth credentials reauthenticate; token-only legacy installs migrate safely
+  ---
+  duration_ms: 2.277393
+  type: 'test'
+  ...
+# Subtest: skipped One Tap offers the configured token fallback even with GIS loaded
+ok 16 - skipped One Tap offers the configured token fallback even with GIS loaded
+  ---
+  duration_ms: 1.33247
+  type: 'test'
+  ...
+# Subtest: Google refresh timeout restores sign-in controls and offers token fallback
+ok 17 - Google refresh timeout restores sign-in controls and offers token fallback
+  ---
+  duration_ms: 1.442682
+  type: 'test'
+  ...
+# Subtest: async Google callback enters draft editing; refresh requests are deduplicated
+ok 18 - async Google callback enters draft editing; refresh requests are deduplicated
+  ---
+  duration_ms: 2.992607
+  type: 'test'
+  ...
+# Subtest: clearBearer restores Google UI without leaving view mode editable
+ok 19 - clearBearer restores Google UI without leaving view mode editable
+  ---
+  duration_ms: 2.14937
+  type: 'test'
+  ...
+# Subtest: save and review clear auth for empty/HTML 401 responses while retaining edits
+ok 20 - save and review clear auth for empty/HTML 401 responses while retaining edits
+  ---
+  duration_ms: 2.283172
+  type: 'test'
+  ...
+# Subtest: all save paths and review refresh stale auth before sending requests
+ok 21 - all save paths and review refresh stale auth before sending requests
+  ---
+  duration_ms: 7.397977
+  type: 'test'
+  ...
+# Subtest: failed authentication prevents save, promotion, autosave and review requests
+ok 22 - failed authentication prevents save, promotion, autosave and review requests
+  ---
+  duration_ms: 6.772415
+  type: 'test'
+  ...
+# Subtest: draft autosave 401 restores sign-in and keeps unload protection armed
+ok 23 - draft autosave 401 restores sign-in and keeps unload protection armed
+  ---
+  duration_ms: 1.50645
+  type: 'test'
+  ...
+# Subtest: autosave snapshots submitted content; in-flight edits remain dirty and save next
+ok 24 - autosave snapshots submitted content; in-flight edits remain dirty and save next
+  ---
+  duration_ms: 1.834068
+  type: 'test'
+  ...
+# Subtest: manual save also keeps in-flight edits dirty and in edit mode
+ok 25 - manual save also keeps in-flight edits dirty and in edit mode
+  ---
+  duration_ms: 1.226709
+  type: 'test'
+  ...
+# Subtest: restricted localStorage never prevents sign-in or clearing credentials
+ok 26 - restricted localStorage never prevents sign-in or clearing credentials
+  ---
+  duration_ms: 1.086328
+  type: 'test'
+  ...
+# Subtest: a content event re-renders the page with no refresh
+ok 27 - a content event re-renders the page with no refresh
+  ---
+  duration_ms: 24.948432
+  type: 'test'
+  ...
+# Subtest: this tab's unsaved field survives another editor's change to a different field
+ok 28 - this tab's unsaved field survives another editor's change to a different field
+  ---
+  duration_ms: 3.328719
+  type: 'test'
+  ...
+# Subtest: a host with no stream (Vercel) closes it and does not poll a stale snapshot
+ok 29 - a host with no stream (Vercel) closes it and does not poll a stale snapshot
+  ---
+  duration_ms: 4.393876
+  type: 'test'
+  ...
+# Subtest: a passing failure (the 503 connection cap) retries with backoff instead of giving up
+ok 30 - a passing failure (the 503 connection cap) retries with backoff instead of giving up
+  ---
+  duration_ms: 3.226446
+  type: 'test'
+  ...
+# Subtest: a draft with no saved overlay keeps following live content without losing local edits
+ok 31 - a draft with no saved overlay keeps following live content without losing local edits
+  ---
+  duration_ms: 2.435544
+  type: 'test'
+  ...
+# Subtest: a permanently closed stream retries after a previously successful open
+ok 32 - a permanently closed stream retries after a previously successful open
+  ---
+  duration_ms: 2.309851
+  type: 'test'
+  ...
+# Subtest: signing in after boot starts live updates
+ok 33 - signing in after boot starts live updates
+  ---
+  duration_ms: 1.898835
+  type: 'test'
+  ...
+# Subtest: on a local or ?live page, leaving edit mode keeps the stream
+ok 34 - on a local or ?live page, leaving edit mode keeps the stream
+  ---
+  duration_ms: 3.961018
+  type: 'test'
+  ...
+# Subtest: a stylesheet that matches no link (an @import) refreshes every stylesheet, with no reload
+ok 35 - a stylesheet that matches no link (an @import) refreshes every stylesheet, with no reload
+  ---
+  duration_ms: 2.034517
+  type: 'test'
+  ...
+# Subtest: a stylesheet change cache-busts that path only, not another file with the same name
+ok 36 - a stylesheet change cache-busts that path only, not another file with the same name
+  ---
+  duration_ms: 1.719867
+  type: 'test'
+  ...
+# Subtest: our own save echoing back with updatedAt/updatedBy stamps does not re-render
+ok 37 - our own save echoing back with updatedAt/updatedBy stamps does not re-render
+  ---
+  duration_ms: 1.296821
+  type: 'test'
+  ...
+# Subtest: a pull that read the file before our own save landed is not applied over that save
+ok 38 - a pull that read the file before our own save landed is not applied over that save
+  ---
+  duration_ms: 2.230998
+  type: 'test'
+  ...
+# Subtest: a reconnected stream catches up on what changed meanwhile
+ok 39 - a reconnected stream catches up on what changed meanwhile
+  ---
+  duration_ms: 2.299992
+  type: 'test'
+  ...
+# Subtest: public visitors on a deployed site open no stream and no poll
+ok 40 - public visitors on a deployed site open no stream and no poll
+  ---
+  duration_ms: 1.13285
+  type: 'test'
+  ...
+# Subtest: headless capture (?shot, webdriver) opens no stream
+ok 41 - headless capture (?shot, webdriver) opens no stream
+  ---
+  duration_ms: 1.327324
+  type: 'test'
+  ...
+# Subtest: an HTML change reloads a clean page
+ok 42 - an HTML change reloads a clean page
+  ---
+  duration_ms: 1.240687
+  type: 'test'
+  ...
+# Subtest: live: false opens no stream and tells the injected dev client it is off
+ok 43 - live: false opens no stream and tells the injected dev client it is off
+  ---
+  duration_ms: 1.130227
+  type: 'test'
+  ...
+# Subtest: a reload event for an image this tab just uploaded does not reload the tab
+ok 44 - a reload event for an image this tab just uploaded does not reload the tab
+  ---
+  duration_ms: 1.188827
+  type: 'test'
+  ...
+# Subtest: a change that lands mid-upload is held, not lost, and handled when the upload ends
+ok 45 - a change that lands mid-upload is held, not lost, and handled when the upload ends
+  ---
+  duration_ms: 1.037588
+  type: 'test'
+  ...
+# Subtest: an upload whose only echo was itself reloads nothing
+ok 46 - an upload whose only echo was itself reloads nothing
+  ---
+  duration_ms: 2.087675
+  type: 'test'
+  ...
+# Subtest: a selection the caret helper cannot read never costs the remote change
+ok 47 - a selection the caret helper cannot read never costs the remote change
+  ---
+  duration_ms: 21.464143
+  type: 'test'
+  ...
+# Subtest: a static host that answers /api/live with its HTML catch-all is a host with no stream
+ok 48 - a static host that answers /api/live with its HTML catch-all is a host with no stream
+  ---
+  duration_ms: 1.625723
+  type: 'test'
+  ...
+# Subtest: a real stream that dropped is retried
+ok 49 - a real stream that dropped is retried
+  ---
+  duration_ms: 1.421001
+  type: 'test'
+  ...
+# Subtest: echoes of two uploads that overlapped are both this tab's own
+ok 50 - echoes of two uploads that overlapped are both this tab's own
+  ---
+  duration_ms: 1.363689
+  type: 'test'
+  ...
+# Subtest: a change that landed before the editor's stream opened is pulled on the first open
+ok 51 - a change that landed before the editor's stream opened is pulled on the first open
+  ---
+  duration_ms: 1.391227
+  type: 'test'
+  ...
+# Subtest: a pull that read a half-written file tries again
+ok 52 - a pull that read a half-written file tries again
+  ---
+  duration_ms: 701.512115
+  type: 'test'
+  ...
+# Subtest: a file replaced by atomic save keeps streaming on every later save
+ok 53 - a file replaced by atomic save keeps streaming on every later save
+  ---
+  duration_ms: 204.495485
+  type: 'test'
+  ...
+# Subtest: a folder deleted and recreated (git checkout) is re-armed
+ok 54 - a folder deleted and recreated (git checkout) is re-armed
+  ---
+  duration_ms: 202.499702
+  type: 'test'
+  ...
+# Subtest: .git, dot-folders and node_modules are never watched
+ok 55 - .git, dot-folders and node_modules are never watched
+  ---
+  duration_ms: 3.217718
+  type: 'test'
+  ...
+# Subtest: contentOnly (plater serve) sends content events with no file names
+ok 56 - contentOnly (plater serve) sends content events with no file names
+  ---
+  duration_ms: 151.458539
+  type: 'test'
+  ...
+# Subtest: the stream refuses clients past the cap
+ok 57 - the stream refuses clients past the cap
+  ---
+  duration_ms: 1.178787
+  type: 'test'
+  ...
+# Subtest: plater dev serves a single loose .html file live, and closes with a stream open
+ok 58 - plater dev serves a single loose .html file live, and closes with a stream open
+  ---
+  duration_ms: 31.353943
+  type: 'test'
+  ...
+# Subtest: plater dev lists a folder of loose pages with no index.html
+ok 59 - plater dev lists a folder of loose pages with no index.html
+  ---
+  duration_ms: 7.119748
+  type: 'test'
+  ...
+# Subtest: a content folder swapped in whole (already holding a new site.json) streams content
+ok 60 - a content folder swapped in whole (already holding a new site.json) streams content
+  ---
+  duration_ms: 100.983869
+  type: 'test'
+  ...
+# Subtest: a replaced web root is re-armed and announced
+ok 61 - a replaced web root is re-armed and announced
+  ---
+  duration_ms: 151.781075
+  type: 'test'
+  ...
+# Subtest: single-file mode streams only the page and its stylesheets, never a sibling page
+ok 62 - single-file mode streams only the page and its stylesheets, never a sibling page
+  ---
+  duration_ms: 101.404452
+  type: 'test'
+  ...
+# Subtest: single-file dev serves the page and its assets but not the rest of the folder
+ok 63 - single-file dev serves the page and its assets but not the rest of the folder
+  ---
+  duration_ms: 11.61694
+  type: 'test'
+  ...
+# Subtest: a root-level content file does not turn every .json in the site into content
+ok 64 - a root-level content file does not turn every .json in the site into content
+  ---
+  duration_ms: 0.321013
+  type: 'test'
+  ...
+# Subtest: static files: dev revalidates every load, serve keeps its own caching
+ok 65 - static files: dev revalidates every load, serve keeps its own caching
+  ---
+  duration_ms: 3.217985
+  type: 'test'
+  ...
+# Subtest: a client whose socket died is dropped, and the others still get the event
+ok 66 - a client whose socket died is dropped, and the others still get the event
+  ---
+  duration_ms: 0.769265
+  type: 'test'
+  ...
+# Subtest: single-file mode streams the images and fonts it serves
+ok 67 - single-file mode streams the images and fonts it serves
+  ---
+  duration_ms: 51.520332
+  type: 'test'
+  ...
+# Subtest: a folder swapped in whole announces what is nested in it, and a script outranks a stylesheet
+ok 68 - a folder swapped in whole announces what is nested in it, and a script outranks a stylesheet
+  ---
+  duration_ms: 103.866562
+  type: 'test'
+  ...
+# Subtest: single-file mode serves and streams assets in shallow folders, nothing deeper
+ok 69 - single-file mode serves and streams assets in shallow folders, nothing deeper
+  ---
+  duration_ms: 51.345801
+  type: 'test'
+  ...
+# Subtest: a folder whose name looks like a file is still re-armed when it is swapped in
+ok 70 - a folder whose name looks like a file is still re-armed when it is swapped in
+  ---
+  duration_ms: 150.291358
+  type: 'test'
+  ...
+# Subtest: plater serve mounts the content-only stream
+ok 71 - plater serve mounts the content-only stream
+  ---
+  duration_ms: 8.273541
+  type: 'test'
+  ...
+# Subtest: single-file mode sends / to the page, never to a sibling index.html
+ok 72 - single-file mode sends / to the page, never to a sibling index.html
+  ---
+  duration_ms: 4.85576
+  type: 'test'
+  ...
+# Subtest: plater serve given one .html file serves that page and its assets, nothing around it
+ok 73 - plater serve given one .html file serves that page and its assets, nothing around it
+  ---
+  duration_ms: 7.741503
+  type: 'test'
+  ...
+# Subtest: plater serve keeps /api/live to local, unproxied clients
+ok 74 - plater serve keeps /api/live to local, unproxied clients
+  ---
+  duration_ms: 2.700807
+  type: 'test'
+  ...
+# Subtest: plater serve watches only the content folder
+ok 75 - plater serve watches only the content folder
+  ---
+  duration_ms: 0.554082
+  type: 'test'
+  ...
+# Subtest: a folder too big to read in full still announces, conservatively
+ok 76 - a folder too big to read in full still announces, conservatively
+  ---
+  duration_ms: 113.206432
+  type: 'test'
+  ...
+# Subtest: a watched folder moved out of the site still announces
+ok 77 - a watched folder moved out of the site still announces
+  ---
+  duration_ms: 100.788099
+  type: 'test'
+  ...
+# Subtest: a content folder swapped for an empty one pulls content
+ok 78 - a content folder swapped for an empty one pulls content
+  ---
+  duration_ms: 100.400892
+  type: 'test'
+  ...
+# Subtest: single-file mode serves no site APIs, and the stream takes GET only
+ok 79 - single-file mode serves no site APIs, and the stream takes GET only
+  ---
+  duration_ms: 5.057289
+  type: 'test'
+  ...
+# Subtest: every stream is greeted with the generation, and every change advances it
+ok 80 - every stream is greeted with the generation, and every change advances it
+  ---
+  duration_ms: 50.535457
+  type: 'test'
+  ...
+# Subtest: single-file redirects keep the query string
+ok 81 - single-file redirects keep the query string
+  ---
+  duration_ms: 3.777705
+  type: 'test'
+  ...
+# Subtest: a content folder outside the web root is re-armed when it is swapped
+ok 82 - a content folder outside the web root is re-armed when it is swapped
+  ---
+  duration_ms: 251.534041
+  type: 'test'
+  ...
+# Subtest: serve watches nothing under the web root when content lives outside it, and only the root when it sits there
+ok 83 - serve watches nothing under the web root when content lives outside it, and only the root when it sits there
+  ---
+  duration_ms: 0.852447
+  type: 'test'
+  ...
+# Subtest: single-file mode serves a page whose name has a percent sign
+ok 84 - single-file mode serves a page whose name has a percent sign
+  ---
+  duration_ms: 0.088209
+  type: 'test'
+  ...
+# Subtest: a client that stopped reading is dropped instead of buffered for
+ok 85 - a client that stopped reading is dropped instead of buffered for
+  ---
+  duration_ms: 0.428022
+  type: 'test'
+  ...
+# Subtest: single-file mode never serves Plater's own package files
+ok 86 - single-file mode never serves Plater's own package files
+  ---
+  duration_ms: 0.05669
+  type: 'test'
+  ...
+# Subtest: the content folder is watched first, so a big asset tree cannot use up the cap before it
+ok 87 - the content folder is watched first, so a big asset tree cannot use up the cap before it
+  ---
+  duration_ms: 101.403448
+  type: 'test'
+  ...
+# Subtest: the generated list of loose pages is stamped with the generation too
+ok 88 - the generated list of loose pages is stamped with the generation too
+  ---
+  duration_ms: 2.947919
+  type: 'test'
+  ...
+# Subtest: a content folder outside the web root streams its alternates and draft overlays too
+ok 89 - a content folder outside the web root streams its alternates and draft overlays too
+  ---
+  duration_ms: 453.391054
+  type: 'test'
+  ...
+# Subtest: deleting a draft folder beside an outside content file streams content
+ok 90 - deleting a draft folder beside an outside content file streams content
+  ---
+  duration_ms: 101.70704
+  type: 'test'
+  ...
+# Subtest: the web root and an outside content folder that share a parent share one parent watcher
+ok 91 - the web root and an outside content folder that share a parent share one parent watcher
+  ---
+  duration_ms: 0.542387
+  type: 'test'
+  ...
+# Subtest: an agent writing site.json on disk streams a content event
+ok 92 - an agent writing site.json on disk streams a content event
+  ---
+  duration_ms: 289.333641
+  type: 'test'
+  ...
+# Subtest: a save through /api/save streams a content event to other tabs
+ok 93 - a save through /api/save streams a content event to other tabs
+  ---
+  duration_ms: 284.768029
+  type: 'test'
+  ...
+# Subtest: a stylesheet edit streams css, not a reload
+ok 94 - a stylesheet edit streams css, not a reload
+  ---
+  duration_ms: 273.739225
+  type: 'test'
+  ...
+# Subtest: an HTML edit streams reload
+ok 95 - an HTML edit streams reload
+  ---
+  duration_ms: 274.866132
+  type: 'test'
+  ...
+# Subtest: served HTML carries the live client, once, before </body>
+ok 96 - served HTML carries the live client, once, before </body>
+  ---
+  duration_ms: 6.138982
+  type: 'test'
+  ...
+# Subtest: dotfiles, git internals and node_modules never stream
+ok 97 - dotfiles, git internals and node_modules never stream
+  ---
+  duration_ms: 0.270511
+  type: 'test'
+  ...
+# Subtest: the editor ships live reload and the client parses
+ok 98 - the editor ships live reload and the client parses
+  ---
+  duration_ms: 0.89921
+  type: 'test'
+  ...
+# Subtest: every asset type a page loads reloads it, fonts and icons included
+ok 99 - every asset type a page loads reloads it, fonts and icons included
+  ---
+  duration_ms: 0.198104
+  type: 'test'
+  ...
+# Subtest: the injected client stays off when the editor said live: false
+ok 100 - the injected client stays off when the editor said live: false
+  ---
+  duration_ms: 0.415885
+  type: 'test'
+  ...
+# Subtest: the injected client skips the reload for a change this tab made, not for others
+ok 101 - the injected client skips the reload for a change this tab made, not for others
+  ---
+  duration_ms: 0.515142
+  type: 'test'
+  ...
+# Subtest: a page with no generation stamp catches up when its stream reconnects
+ok 102 - a page with no generation stamp catches up when its stream reconnects
+  ---
+  duration_ms: 0.144193
+  type: 'test'
+  ...
+# Subtest: a standalone page catches a change that landed before its stream opened
+ok 103 - a standalone page catches a change that landed before its stream opened
+  ---
+  duration_ms: 0.123936
+  type: 'test'
+  ...
+# Subtest: the editor pulls only when it missed something, on connect and on reconnect
+ok 104 - the editor pulls only when it missed something, on connect and on reconnect
+  ---
+  duration_ms: 0.217669
+  type: 'test'
+  ...
+# Subtest: the injected tag carries the generation the page was served at
+ok 105 - the injected tag carries the generation the page was served at
+  ---
+  duration_ms: 0.125441
+  type: 'test'
+  ...
+# Subtest: the injected client refreshes every stylesheet when none matches, instead of reloading
+ok 106 - the injected client refreshes every stylesheet when none matches, instead of reloading
+  ---
+  duration_ms: 0.35943
+  type: 'test'
+  ...
+# Subtest: a stylesheet whose name has a literal percent sign still swaps
+ok 107 - a stylesheet whose name has a literal percent sign still swaps
+  ---
+  duration_ms: 0.206522
+  type: 'test'
+  ...
+# Subtest: rss/json feed fall back to the request origin only when nothing is configured
+ok 108 - rss/json feed fall back to the request origin only when nothing is configured
+  ---
+  duration_ms: 3.813484
+  type: 'test'
+  ...
+# Subtest: feed ITEM ids never move with the request host — an id is stable forever
+ok 109 - feed ITEM ids never move with the request host — an id is stable forever
+  ---
+  duration_ms: 1.041881
+  type: 'test'
+  ...
+# Subtest: sitemap serves 200 against the request host with no CMS_SITE_URL, and prefers config
+ok 110 - sitemap serves 200 against the request host with no CMS_SITE_URL, and prefers config
+  ---
+  duration_ms: 17.251449
+  type: 'test'
+  ...
+# Subtest: sitemap refuses a Host that is not a plain host[:port] rather than trusting it
+ok 111 - sitemap refuses a Host that is not a plain host[:port] rather than trusting it
+  ---
+  duration_ms: 11.22169
+  type: 'test'
+  ...
+# Subtest: proxy headers decide the scheme; a bare hostname is assumed public https
+ok 112 - proxy headers decide the scheme; a bare hostname is assumed public https
+  ---
+  duration_ms: 7.542256
+  type: 'test'
+  ...
+# Subtest: propose-post accepts markdown drafts under the drafts prefix
+ok 113 - propose-post accepts markdown drafts under the drafts prefix
+  ---
+  duration_ms: 0.695606
+  type: 'test'
+  ...
+# Subtest: propose-post refuses traversal, non-markdown, and out-of-prefix paths
+ok 114 - propose-post refuses traversal, non-markdown, and out-of-prefix paths
+  ---
+  duration_ms: 0.151102
+  type: 'test'
+  ...
+# Subtest: propose-post rejects URL metacharacters that escape the prefix in a GitHub URL
+ok 115 - propose-post rejects URL metacharacters that escape the prefix in a GitHub URL
+  ---
+  duration_ms: 0.080668
+  type: 'test'
+  ...
+# Subtest: propose-post prefix is a real directory boundary, not a string prefix
+ok 116 - propose-post prefix is a real directory boundary, not a string prefix
+  ---
+  duration_ms: 0.072633
+  type: 'test'
+  ...
+# Subtest: editView escapes angle brackets so a path cannot break out of the inline script
+ok 117 - editView escapes angle brackets so a path cannot break out of the inline script
+  ---
+  duration_ms: 0.181428
+  type: 'test'
+  ...
+# Subtest: POST with a non-object JSON body returns 400, not a 500
+ok 118 - POST with a non-object JSON body returns 400, not a 500
+  ---
+  duration_ms: 0.399649
+  type: 'test'
+  ...
+# Subtest: POST with a malformed JSON body returns 400
+ok 119 - POST with a malformed JSON body returns 400
+  ---
+  duration_ms: 0.203388
+  type: 'test'
+  ...
+# Subtest: config advertises Google only with an admin and client; token fallback stays independent
+ok 120 - config advertises Google only with an admin and client; token fallback stays independent
+  ---
+  duration_ms: 5.800163
+  type: 'test'
+  ...
+# Subtest: invalid track names never fall through to a live write
+ok 121 - invalid track names never fall through to a live write
+  ---
+  duration_ms: 3.819796
+  type: 'test'
+  ...
+# Subtest: malformed and non-object save payloads return 400
+ok 122 - malformed and non-object save payloads return 400
+  ---
+  duration_ms: 1.382669
+  type: 'test'
+  ...
+# Subtest: draft saves target the overlay and skip deploy hooks; live and promotion trigger them
+ok 123 - draft saves target the overlay and skip deploy hooks; live and promotion trigger them
+  ---
+  duration_ms: 18.746896
+  type: 'test'
+  ...
+# Subtest: save rejects a missing bearer before any network call
+ok 124 - save rejects a missing bearer before any network call
+  ---
+  duration_ms: 2.036358
+  type: 'test'
+  ...
+# Subtest: agent acceptance validates design references and forces the configured site
+ok 125 - agent acceptance validates design references and forces the configured site
+  ---
+  duration_ms: 2.372688
+  type: 'test'
+  ...
+# Subtest: upload rejects SVG (including upper-case extensions) before GitHub access
+ok 126 - upload rejects SVG (including upper-case extensions) before GitHub access
+  ---
+  duration_ms: 1.642689
+  type: 'test'
+  ...
+# Subtest: upload skips identical blobs, rejects hash-prefix collisions, and commits new images
+ok 127 - upload skips identical blobs, rejects hash-prefix collisions, and commits new images
+  ---
+  duration_ms: 3.694817
+  type: 'test'
+  ...
+# Subtest: rss: valid channel, RFC 822 pubDate, permalink guid, skips idless items
+ok 128 - rss: valid channel, RFC 822 pubDate, permalink guid, skips idless items
+  ---
+  duration_ms: 1.302152
+  type: 'test'
+  ...
+# Subtest: json feed: 1.1 version, required id, RFC 3339 date_published passthrough
+ok 129 - json feed: 1.1 version, required id, RFC 3339 date_published passthrough
+  ---
+  duration_ms: 0.252402
+  type: 'test'
+  ...
+# Subtest: feed order is curation order, not date order
+ok 130 - feed order is curation order, not date order
+  ---
+  duration_ms: 0.227396
+  type: 'test'
+  ...
+# Subtest: redirects: permanent → 308, default → 302, normalized matching
+ok 131 - redirects: permanent → 308, default → 302, normalized matching
+  ---
+  duration_ms: 0.610389
+  type: 'test'
+  ...
+# Subtest: redirects: unsafe schemes are ignored, never served
+ok 132 - redirects: unsafe schemes are ignored, never served
+  ---
+  duration_ms: 0.164955
+  type: 'test'
+  ...
+# Subtest: 404 page: content-editable copy, escaped
+ok 133 - 404 page: content-editable copy, escaped
+  ---
+  duration_ms: 0.141183
+  type: 'test'
+  ...
+# Subtest: llms.txt: H1 + summary + page and feed links
+ok 134 - llms.txt: H1 + summary + page and feed links
+  ---
+  duration_ms: 0.292939
+  type: 'test'
+  ...
+# Subtest: slug round-trip: /, nested, .html
+ok 135 - slug round-trip: /, nested, .html
+  ---
+  duration_ms: 0.7504
+  type: 'test'
+  ...
+# Subtest: draft front matter round-trip
+ok 136 - draft front matter round-trip
+  ---
+  duration_ms: 0.499043
+  type: 'test'
+  ...
+# Subtest: draft with no front matter parses as pure body
+ok 137 - draft with no front matter parses as pure body
+  ---
+  duration_ms: 0.502076
+  type: 'test'
+  ...
+1..137
+# tests 137
+# suites 0
+# pass 137
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3677.781414
+EXIT:0

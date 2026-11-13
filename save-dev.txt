@@ -1,0 +1,4 @@
+{"ok":true,"what":"simultaneous sibling edits survive in the real file","detail":{"statuses":[200,200],"hero":{"headline":"First editor changes the headline","subhead":"Second editor changes its sibling"}}}
+{"ok":true,"what":"competing same-field writes leave one committed value and one explicit conflict","detail":[200,409]}
+{"ok":true,"what":"sparse draft save preserves inherited copy and existing draft fields","detail":{"headline":"Existing sparse draft headline","subhead":"Second editor changes its sibling"}}
+EXIT:0

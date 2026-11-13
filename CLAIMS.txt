@@ -1,0 +1,32 @@
+Verification of zachphillips/plater#14 at 64006b5 (base 526c83a).
+
+CLAIMS (user terms)
+1. Saving a headline from an older deployed page no longer wipes a newer
+   paragraph or a newer field already committed on GitHub.
+   BEFORE (526c83a): save returned 200 and the committed file lost the newer
+   paragraph and remoteOnly field. See before-02-after-save.png and drive.log
+   keptUnrelated=false.
+   AFTER (64006b5): save returned 200, headline committed, newer paragraph
+   shown on the page, remoteOnly present in the git commit.
+   See after-1440-02-after-save.png and after-390-02-after-save.png.
+
+2. If another editor already changed the same field, Save is refused (409),
+   their commit is left untouched, and my typing stays on the page with a
+   “your edits are kept” status.
+   AFTER: HTTP 409, HEAD sha unchanged, headline still “My competing headline…”.
+   See after-1440-03-conflict-keeps-writing.png.
+
+3. After reviewing that conflict, Save again succeeds and keeps both editors’
+   work (my headline + their paragraph).
+   AFTER: 200, “saved & committed”, both fields present.
+   See after-1440-04-reviewed-retry.png.
+
+4. Local disk saves use the same merge: sibling edits both survive; competing
+   headline writes return 200 and 409; a sparse draft keeps inherited copy.
+   See save-dev.txt (all three checks ok).
+
+BASELINE vs HEAD benches: http://127.0.0.1:24221/ (526c83a) and
+http://127.0.0.1:24222/ (64006b5). GitHub was the local fixture in verify/bench.mjs.
+Accepted writes were real git commits in the temp site repos.
+
+npm test: 137 pass, 0 fail.

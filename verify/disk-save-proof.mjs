@@ -11,7 +11,7 @@ export async function journey({ page, step, expect, note }) {
   git('init', '--quiet');
   fs.writeFileSync(bench.contentPath, JSON.stringify({ hero: { headline: 'Large history ' + 'x'.repeat(150000) } }));
   git('add', 'content/site.json');
-  git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'Synthetic history for write refusal');
+  git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '--allow-empty', '-m', 'Synthetic history for write refusal');
   const restore = git('rev-parse', 'HEAD').trim();
   fs.writeFileSync(bench.contentPath, liveBefore);
   const draftPath = path.join(path.dirname(bench.contentPath), 'versions', 'disk-proof', 'site.json');

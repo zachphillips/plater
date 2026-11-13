@@ -30,7 +30,10 @@ export { default } from '@platercms/server-node/save';
 ```
 
 Auth fails closed: with no `CMS_ADMIN_EMAIL` and no `CMS_EDIT_TOKEN`, nobody can
-save. Secrets (`GITHUB_TOKEN`, `PLATER_AGENT_TOKEN`) are server-side only and
+save. Google auth requires both `CMS_ADMIN_EMAIL` and `GOOGLE_CLIENT_ID`, and
+always checks the token's audience against that client. Missing Google
+configuration never weakens the gate; a configured `CMS_EDIT_TOKEN` still
+works independently. Secrets (`GITHUB_TOKEN`, `PLATER_AGENT_TOKEN`) are server-side only and
 never reach the browser.
 
 Most sites don't install it — `npm create platercms` and `platercms init` vendor

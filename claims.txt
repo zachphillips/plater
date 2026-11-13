@@ -1,0 +1,32 @@
+Claims tested for zachphillips/plater#25 at f65352b (base e3903bb).
+
+1. After typing live copy, it saves automatically in about two seconds without pressing Save; editing stays on; Save/Cancel stay hidden.
+   Baseline (e3903bb): typed text stayed only in the browser; toolbar showed Save & commit / Cancel; status "editing — your changes are local until you Save"; no /api/save.
+   Head: same steps committed to the bench git repo; status "saved & committed <sha>"; no Save/Cancel; h1 still contenteditable.
+   Artifacts: 01-before-live-text-still-needs-save-button-1440.png, 01-before-live-text-still-needs-save-button-390.png, 03-after-live-writing-commits-automatically-1440.png, 03-after-live-writing-commits-automatically-390.png, journey-live-autosave-1440.webm
+
+2. A temporary save failure keeps the writing and retries until it commits.
+   Injected HTTP 503 on the first /api/save; status "autosave failed, retrying automatically"; content file still old; after retry, git had the new headline.
+   Artifacts: 04-after-temporary-refusal-retries-1440.png, 05-after-retry-commits-1440.png
+
+3. If someone else changed the same field, autosave pauses with both versions kept; a revised edit resumes; unrelated fields stay.
+   Competing git commit of the headline; local text stayed; stored headline stayed theirs; status asked to review and continue editing; no overwrite POST within 2.6s.
+   Then typing a revision committed that headline and kept "Keep the other editor paragraph".
+   Artifacts: 06-after-same-field-conflict-pauses-autosave-1440.png, 07-after-reviewed-edit-resumes-autosave-1440.png
+
+4. If sign-in expires, the writing stays; signing back in commits it without typing again.
+   Injected 401; Sign in to edit appeared; headline still the new text; file unchanged; clicking Sign in committed that text.
+   Artifacts: 08-after-signin-expiry-keeps-writing-1440.png, 09-after-signin-commits-pending-writing-1440.png
+
+5. A live EventSource event for the same field also pauses autosave before overwriting the remote commit; later background events keep the pause; a revised edit resumes with the newer unrelated paragraph.
+   Artifacts: 10-after-live-event-pauses-autosave-1440.png, 11-after-later-background-event-keeps-pause-1440.png, 12-after-sse-reviewed-typing-commits-1440.png
+
+Broke-it:
+- Empty headline autosaved as empty string (13).
+- 8019-character headline saved (14).
+- Two rapid fills: only the later text committed.
+- Reload before the 2s save: after reload the page is signed in, not editing (15). Clicking Edit page offered Restore (16); Restore put the unsaved text back (17).
+- Phone toolbar overflowX=true at 390x844; saved-status sits off the right edge. Author already noted this.
+
+npm test: 137 pass, 0 fail.
+Console: only the injected 503/409/401 resource failures. No pageerror. No requestfailed.

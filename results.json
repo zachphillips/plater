@@ -1,0 +1,145 @@
+{
+  "claims": {
+    "baselineNeedsSave": {
+      "390": {
+        "saveRequest": false,
+        "storedHeadline": "Edit this page in the browser.",
+        "typed": "Baseline live writing 1794610359392 still waiting for Save",
+        "saveButtonVisible": true,
+        "status": "editing — your changes are local until you Save",
+        "stillEditable": "true"
+      },
+      "1440": {
+        "saveRequest": false,
+        "storedHeadline": "Edit this page in the browser.",
+        "typed": "Baseline live writing 1794610355633 still waiting for Save",
+        "saveButtonVisible": true,
+        "status": "editing — your changes are local until you Save",
+        "stillEditable": "true"
+      }
+    },
+    "baselineOk": true,
+    "autosave": {
+      "saved": true,
+      "saveBtn": false,
+      "cancelBtn": false,
+      "editable": "true",
+      "status": "saved & committed 9943e0adfd0530663eeb2caef54504b15bbfac1c",
+      "commits": "2",
+      "text": "Live text needs no Save button 1794610363261",
+      "stored": "Live text needs no Save button 1794610363261"
+    },
+    "retry": {
+      "refused": true,
+      "notSavedYet": true,
+      "retrySaved": true,
+      "afterRetryStatus": "saved & committed f3a82aaf9131336b60b4bca4e737d26576cb8509",
+      "retry": "Live retry after a refusal 1794610365989"
+    },
+    "inFlight": {
+      "newerSaved": true,
+      "stored": "Newer typing survives the in-flight save 1794610368600",
+      "second": "Newer typing survives the in-flight save 1794610368600"
+    },
+    "conflict": {
+      "paused": true,
+      "localKept": true,
+      "recovery": true,
+      "conflictStatus": "Someone else changed this text. Your edit is kept here; review it and continue editing to resume autosave.",
+      "competing": "My conflicting headline 1794610372732",
+      "remoteHeadline": "Other editor owns this competing headline",
+      "stored": "Other editor owns this competing headline"
+    },
+    "resume": {
+      "resolvedSaved": true,
+      "unrelatedKept": true,
+      "stored": {
+        "headline": "Reviewed and revised headline 1794610377818",
+        "subhead": "Keep the other editor paragraph"
+      }
+    },
+    "expired": {
+      "expired": true,
+      "notCommitted": true,
+      "writingKept": true,
+      "signedBackIn": "Typing survives sign-in expiry 1794610380209"
+    },
+    "signinResume": {
+      "afterSignin": true,
+      "stored": "Typing survives sign-in expiry 1794610380209"
+    },
+    "phone": {
+      "saved": true,
+      "saveBtn": false,
+      "status": "saved & committed cb74f54eb8082869bae2ef56687ecc8a6025f61a",
+      "barBox": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 71.59375
+      },
+      "overflowX": true
+    },
+    "sse": {
+      "paused": true,
+      "localKept": true,
+      "own": "My uncommitted live headline 1794610387706",
+      "remoteHeadline": "Their competing headline 1794610387721",
+      "remoteSha": "9487a3717b1e449c7e991611fec17ca1a06022ee",
+      "currentHead": "9487a3717b1e449c7e991611fec17ca1a06022ee",
+      "events": [
+        {
+          "type": "content",
+          "kept": 1
+        }
+      ],
+      "status": "Someone else changed this text. Your edit is kept here; review it and continue editing to resume autosave."
+    },
+    "sseLater": {
+      "stillPaused": true,
+      "subhead": "A later background paragraph also survives"
+    },
+    "sseResume": {
+      "headline": true,
+      "subheadKept": true,
+      "stored": {
+        "headline": "Reviewed SSE conflict and revised 1794610391158",
+        "subhead": "A later background paragraph also survives"
+      }
+    }
+  },
+  "broke": [
+    {
+      "case": "empty headline",
+      "emptyStored": "",
+      "emptyStatus": "saved & committed 296a486e14ed218a8b9e2874ea2121a0d8c3136c",
+      "h1": ""
+    },
+    {
+      "case": "very long headline",
+      "longSaved": true,
+      "length": 8019,
+      "storedLen": 8019
+    },
+    {
+      "case": "two rapid edits",
+      "doubleSaved": true,
+      "storedIsB": true,
+      "stored": "Double-B 1794610399439"
+    },
+    {
+      "case": "reload before autosave fires",
+      "restoreVisible": false,
+      "restored": false,
+      "afterReloadHeadline": "Double-B 1794610399439",
+      "mid": "Reload mid-wait 1794610401468"
+    }
+  ],
+  "errors": [],
+  "console": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "Failed to load resource: the server responded with a status of 409 (Conflict)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "failedRequests": []
+}

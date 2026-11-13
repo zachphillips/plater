@@ -1,0 +1,41 @@
+node v22.23.4 head f65352b37f9cad7c7385f9dd4f82594016da9889
+base bench {"url":"http://127.0.0.1:25040/","siteDir":"/tmp/plater-bench-q70I4b"}
+head bench {"url":"http://127.0.0.1:25041/","siteDir":"/tmp/plater-bench-fCPRoS"}
+sse bench {"url":"http://127.0.0.1:25042/","siteDir":"/tmp/plater-bench-mT8zBG"}
+
+=== BASELINE e3903bb ===
+shot /opt/cursor/artifacts/01-before-live-text-still-needs-save-button-1440.png
+shot /opt/cursor/artifacts/01-before-live-text-still-needs-save-button-390.png
+baseline live writing still needs Save: true {"390":{"saveRequest":false,"storedHeadline":"Edit this page in the browser.","typed":"Baseline live writing 1794610359392 still waiting for Save","saveButtonVisible":true,"status":"editing — your changes are local until you Save","stillEditable":"true"},"1440":{"saveRequest":false,"storedHeadline":"Edit this page in the browser.","typed":"Baseline live writing 1794610355633 still waiting for Save","saveButtonVisible":true,"status":"editing — your changes are local until you Save","stillEditable":"true"}}
+
+=== HEAD main autosave journey ===
+shot /opt/cursor/artifacts/03-after-live-writing-commits-automatically-1440.png
+autosave {"saved":true,"saveBtn":false,"cancelBtn":false,"editable":"true","status":"saved & committed 9943e0adfd0530663eeb2caef54504b15bbfac1c","commits":"2","text":"Live text needs no Save button 1794610363261","stored":"Live text needs no Save button 1794610363261"}
+shot /opt/cursor/artifacts/04-after-temporary-refusal-retries-1440.png
+shot /opt/cursor/artifacts/05-after-retry-commits-1440.png
+retry {"refused":true,"notSavedYet":true,"retrySaved":true,"afterRetryStatus":"saved & committed f3a82aaf9131336b60b4bca4e737d26576cb8509","retry":"Live retry after a refusal 1794610365989"}
+in-flight {"newerSaved":true,"stored":"Newer typing survives the in-flight save 1794610368600","second":"Newer typing survives the in-flight save 1794610368600"}
+shot /opt/cursor/artifacts/06-after-same-field-conflict-pauses-autosave-1440.png
+conflict {"paused":true,"localKept":true,"recovery":true,"conflictStatus":"Someone else changed this text. Your edit is kept here; review it and continue editing to resume autosave.","competing":"My conflicting headline 1794610372732","remoteHeadline":"Other editor owns this competing headline","stored":"Other editor owns this competing headline"}
+shot /opt/cursor/artifacts/07-after-reviewed-edit-resumes-autosave-1440.png
+resume {"resolvedSaved":true,"unrelatedKept":true,"stored":{"headline":"Reviewed and revised headline 1794610377818","subhead":"Keep the other editor paragraph"}}
+shot /opt/cursor/artifacts/08-after-signin-expiry-keeps-writing-1440.png
+shot /opt/cursor/artifacts/09-after-signin-commits-pending-writing-1440.png
+signin {"expired":true,"notCommitted":true,"writingKept":true,"signedBackIn":"Typing survives sign-in expiry 1794610380209"} {"afterSignin":true,"stored":"Typing survives sign-in expiry 1794610380209"}
+video /opt/cursor/artifacts/journey-live-autosave-1440.webm
+
+=== HEAD phone 390x844 ===
+shot /opt/cursor/artifacts/03-after-live-writing-commits-automatically-390.png
+phone {"saved":true,"saveBtn":false,"status":"saved & committed cb74f54eb8082869bae2ef56687ecc8a6025f61a","barBox":{"x":0,"y":0,"width":390,"height":71.59375},"overflowX":true}
+
+=== HEAD SSE conflict ===
+shot /opt/cursor/artifacts/10-after-live-event-pauses-autosave-1440.png
+shot /opt/cursor/artifacts/11-after-later-background-event-keeps-pause-1440.png
+shot /opt/cursor/artifacts/12-after-sse-reviewed-typing-commits-1440.png
+sse {"paused":true,"localKept":true,"own":"My uncommitted live headline 1794610387706","remoteHeadline":"Their competing headline 1794610387721","remoteSha":"9487a3717b1e449c7e991611fec17ca1a06022ee","currentHead":"9487a3717b1e449c7e991611fec17ca1a06022ee","events":[{"type":"content","kept":1}],"status":"Someone else changed this text. Your edit is kept here; review it and continue editing to resume autosave."} {"stillPaused":true,"subhead":"A later background paragraph also survives"} {"headline":true,"subheadKept":true,"stored":{"headline":"Reviewed SSE conflict and revised 1794610391158","subhead":"A later background paragraph also survives"}}
+
+=== TRY TO BREAK ===
+shot /opt/cursor/artifacts/13-broke-empty-headline-1440.png
+shot /opt/cursor/artifacts/14-broke-very-long-headline-1440.png
+shot /opt/cursor/artifacts/15-broke-reload-before-autosave-1440.png
+broke [{"case":"empty headline","emptyStored":"","emptyStatus":"saved & committed 296a486e14ed218a8b9e2874ea2121a0d8c3136c","h1":""},{"case":"very long headline","longSaved":true,"length":8019,"storedLen":8019},{"case":"two rapid edits","doubleSaved":true,"storedIsB":true,"stored":"Double-B 1794610399439"},{"case":"reload before autosave fires","restoreVisible":false,"restored":false,"afterReloadHeadline":"Double-B 1794610399439","mid":"Reload mid-wait 1794610401468"}]

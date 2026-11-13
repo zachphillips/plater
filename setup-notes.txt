@@ -1,0 +1,24 @@
+This PR is live autosave, not the list Worker. Earlier leftover notes about wrangler/list-worker do not apply.
+
+HEAD: f65352b37f9cad7c7385f9dd4f82594016da9889 (sol/1113-autosave-live-content)
+BASE: e3903bbf0e6f7d998d54edc8d1c22aa2bc9f73e5 (sol/1113-keep-editor-recovery)
+
+Commands that got it running here:
+
+  git worktree add --detach /tmp/plater-base e3903bb
+  mkdir -p /tmp/tools && cd /tmp/tools && npm i --no-save playwright@1.64.1 && npx playwright install chromium
+
+  # base production bench (live writing still needs Save)
+  PORT=25040 node /tmp/plater-base/verify/bench.mjs
+  # prints { url, editToken, siteDir }; open url + '?edit&shot=1', accept the token prompt, Edit page
+
+  # head production bench
+  PORT=25041 node /agent/repos/plater/verify/live-autosave-bench.mjs
+
+  # head with EventSource live stream
+  AUTOSAVE_LIVE_STREAM=1 PORT=25042 node /agent/repos/plater/verify/live-autosave-bench.mjs
+
+  npm test   # 137 pass from the HEAD checkout
+
+Driver used: /tmp/pr25-verify.mjs (Playwright Chromium, viewports 1440x900 and 390x844).
+No real GitHub, Google, email, or production URL.

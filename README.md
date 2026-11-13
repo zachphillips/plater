@@ -394,6 +394,9 @@ store changes, so what you see locally is what deploys.
 so feed curation and redirect edits are previewable before a single commit
 exists. `/api/history` there reads real `git log` of the content file, and
 Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
+Content saves and history restores write a hidden sibling file, flush it, then
+replace the previous JSON atomically. A refused or interrupted write keeps the
+last complete copy. Existing content symlinks and file permissions are kept.
 
 Dev writes require `application/json` and, for browser requests, the exact
 server origin. Local addresses and `*.ts.net` hosts are accepted; arbitrary

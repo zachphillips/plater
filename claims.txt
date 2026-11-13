@@ -1,0 +1,24 @@
+Claims tested on a real Chromium editor against the production save handler.
+
+1. Type a headline and leave immediately (before 800ms): Restore still offers those keystrokes.
+   BASE: Restore missing. HEAD: Restore shown. See 01-before / 01-after.
+
+2. After Restore, navigate again: the recovered text is still offered.
+   BASE: second Restore gone, original headline. HEAD: second Restore still works.
+   See 02-before / 02-after and 03-after-second-restore-still-there-1440.png
+
+3. Restore only puts back changed fields; another editor's newer paragraph stays.
+   BASE: subhead clobbered back to the old sentence.
+   HEAD: headline restored AND "Another editor's new paragraph …" kept.
+   See 03-before / 03-after.
+
+4. Draft autosave 503 then come online: retries without typing again and commits.
+   BASE: chip stays "will retry on next edit", overlay uncommitted.
+   HEAD: chip "retrying automatically" then "saved ✓ (draft only)", overlay committed.
+   See 04-before-draft-after-online-uncommitted.png / 04-after-draft-after-online-committed.png
+
+5. Phone 390x844: Restore sits below the toolbar inside the visible viewport.
+   BASE: banner overlaps the toolbar (Restore y=95, barBottom=147).
+   HEAD: banner below the toolbar (Restore y=171, barBottom=147).
+   See base-phone-390-restore-visible.png / head-phone-390-restore-visible.png
+   Numbers in measurements.json.

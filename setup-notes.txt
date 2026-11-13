@@ -1,0 +1,23 @@
+Verification of zachphillips/plater#17 at e3903bb vs base 64006b5.
+
+npm test — 137 pass.
+
+Playwright 1.64.1 Chromium:
+  cd /tmp/tools && npm i --no-save playwright@1.64.1 && npx playwright install chromium
+
+Base worktree:
+  git worktree add --detach /tmp/plater-base 64006b5
+
+Benches (production save handler, local git, fake GitHub):
+  PORT=25040 PLATER_ROOT=/tmp/plater-base BENCH_OUT=/tmp/verify-pr17/base-bench.json \
+    node /tmp/verify-pr17/start-bench.mjs
+  PORT=25041 PLATER_ROOT=/agent/repos/plater BENCH_OUT=/tmp/verify-pr17/head-bench.json \
+    node /tmp/verify-pr17/start-bench.mjs
+
+Driver (this machine):
+  node /tmp/verify-pr17/drive.mjs
+
+start-bench.mjs imports verify/bench.mjs startBench from the named checkout.
+Driven URLs: http://127.0.0.1:25040/ and http://127.0.0.1:25041/ with ?edit&shot=1
+Edit-token dialogs accepted from each bench JSON.
+No production URL, real GitHub, Google, or mail.

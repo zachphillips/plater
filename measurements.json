@@ -1,0 +1,113 @@
+{
+  "claim1_lastKeystroke": {
+    "base": {
+      "restoreVisible": false,
+      "immediateHasText": false,
+      "file": "01-before-immediate-nav-restore-missing.png"
+    },
+    "head": {
+      "restoreVisible": true,
+      "immediateHasText": true,
+      "file": "01-after-immediate-nav-restore-shown.png"
+    },
+    "proven": true
+  },
+  "claim2_restoreKeepsCopy": {
+    "base": {
+      "secondVisible": false,
+      "keptCopy": false,
+      "file": "02-before-restore-again-gone.png"
+    },
+    "head": {
+      "secondVisible": true,
+      "keptCopy": true,
+      "file": "02-after-restore-again-still-offered.png"
+    },
+    "proven": true
+  },
+  "claim3_unrelatedKept": {
+    "base": {
+      "keptRemote": false,
+      "subhead": "No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.",
+      "file": "03-before-restore-unrelated-subhead-clobbered.png"
+    },
+    "head": {
+      "keptRemote": true,
+      "subhead": "Another editor's new paragraph 1794612168740",
+      "headline": "Keep my headline head 1794612168652",
+      "file": "03-after-restore-unrelated-subhead-kept.png"
+    },
+    "proven": true
+  },
+  "claim4_draftRetry": {
+    "base": {
+      "committed": false,
+      "chipAfterOnline": "autosave failed — will retry on next edit",
+      "file": "04-before-draft-after-online-uncommitted.png"
+    },
+    "head": {
+      "committed": true,
+      "chipAfterOnline": "saved ✓ (draft only)",
+      "chipAfterFail": "autosave failed, retrying automatically; recovery copy kept in this browser",
+      "file": "04-after-draft-after-online-committed.png"
+    },
+    "proven": true
+  },
+  "claim5_phoneRestoreReachable": {
+    "head": {
+      "visible": true,
+      "metrics": {
+        "rect": {
+          "x": 224.59375,
+          "y": 171.203125,
+          "width": 66.203125,
+          "height": 28.6875
+        },
+        "view": {
+          "left": 0,
+          "width": 390,
+          "height": 844,
+          "barBottom": 147.5,
+          "innerWidth": 390
+        },
+        "inside": true
+      },
+      "file": "head-phone-390-restore-visible.png",
+      "text": "Phone restore head 1794612181382"
+    },
+    "proven": true
+  },
+  "broke": {
+    "discardStaysGone": true,
+    "discardFile": "broke-discard-then-navigate-no-restore.png",
+    "authHits": 2,
+    "authChip": "autosave refused; recovery copy kept in this browser, check sign-in or edit before retrying",
+    "authDidNotLoop": true,
+    "authFile": "broke-401-does-not-retry-loop.png",
+    "invalidHits": 2,
+    "invalidChip": "autosave refused; recovery copy kept in this browser, check sign-in or edit before retrying",
+    "invalidDidNotLoop": true,
+    "invalidFile": "broke-400-does-not-retry-loop.png",
+    "storageStatus": "This browser could not keep a recovery copy. Keep this tab open until the changes are saved.",
+    "storageReported": true,
+    "storageFile": "broke-failed-storage-reported.png",
+    "longRestored": true,
+    "longLen": 4005,
+    "longFile": "broke-very-long-headline-restore.png",
+    "emptyThenTypeRestore": true,
+    "afterEmpty": "After empty",
+    "emptyFile": "broke-empty-then-type-restore.png"
+  },
+  "console": {
+    "base": [
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ],
+    "head": [
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+      "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    ]
+  }
+}

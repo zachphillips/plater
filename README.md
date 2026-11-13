@@ -115,6 +115,8 @@ The five binding attributes:
 directory. The path is resolved against that directory and must end in `.json`;
 traversal, absolute paths, and symlinks pointing outside it are refused with a
 400, and a missing file is an honest 404 rather than a silently blank page.
+Draft overlays and draft documents use the same real-path boundary: a symlink
+under `versions/` cannot expose a file outside the content directory.
 
 ### 2. Editing is `contenteditable` plus one POST
 

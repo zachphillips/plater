@@ -92,7 +92,9 @@ export default async function handler(req, res) {
   // at versions/<track>/<same relative name>.
   const overlayPath = path.join(CONTENT_DIR, 'versions', track, name);
   try {
-    const overlay = JSON.parse(await fs.readFile(overlayPath, 'utf8'));
+    const real = await realInside(overlayPath);
+    if (!real) return res.status(404).json({ error: `track "${track}" has no site.json overlay` });
+    const overlay = JSON.parse(await fs.readFile(real, 'utf8'));
     return res.status(200).send(JSON.stringify(deepMerge(JSON.parse(base), overlay)));
   } catch {
     // no overlay for this track → 404 so the editor can say "this track has

@@ -6,8 +6,8 @@
 //   1. the write gate over HTTP: /api/save with no bearer and with a wrong
 //      bearer is refused (401) and leaves no commit
 //   2. a wrong edit token in the browser: ?edit, enter the token, edit the
-//      headline, Save; the editor says sign-in failed and nothing is committed
-//   3. the right edit token: same edit, Save; the status line names the
+//      headline; the editor says sign-in failed and nothing is committed
+//   3. the right edit token: same edit, autosave; the status line names the
 //      commit, the bench repo has exactly one new commit with the edit in
 //      content/site.json, and a fresh load of the page shows the new headline
 //
@@ -65,10 +65,12 @@ try {
     await page.getByRole('button', { name: 'Edit page' }).click();
     const h1 = page.locator('h1');
     await h1.fill(headline);
+    check(await page.evaluate((text) => Object.keys(localStorage).some((k) =>
+      k.startsWith('plater.buf.') && JSON.parse(localStorage.getItem(k)).content.hero.headline === text), headline),
+    'editor: the last keystroke is already in its recovery copy');
     await shot('2-edited');
-    await page.getByRole('button', { name: 'Save & commit' }).click();
-    await page.waitForFunction(() => !/saving/.test(document.querySelector('#cms-status')?.textContent || ''), null, { timeout: 10_000 });
-    await page.waitForTimeout(150);
+    check(!(await page.getByRole('button', { name: 'Save & commit' }).isVisible()), 'editor: live typing needs no Save button');
+    await page.waitForFunction(() => /saved & committed|sign in again/i.test(document.querySelector('#cms-status')?.textContent || ''), null, { timeout: 10_000 });
     await shot('3-after-save');
     const said = (await status.textContent()) || '';
     await context.close();

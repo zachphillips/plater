@@ -22,7 +22,8 @@
 //       new, different note is appended to the existing row's note, dated
 //     - the note is stored whole; past NOTE_MAX characters (50,000) the
 //       request is refused with a plain 413 message, never cut
-//     - honeypot: a non-empty `company` field silently succeeds w/o storing
+//     - honeypot: a non-empty `company` field is refused with 422, so a
+//       browser autofill false positive can use the page's email fallback
 //     - 503 { error } when neither D1 nor the relay took it, or a lone copy
 //       has no repair journal (the page's own fallback runs)
 //     - if the site has a SINK configured, the capture is also forwarded
@@ -321,8 +322,9 @@ async function handle(req, env, ctx, sites, cors) {
     const read = readSubmission(body, sites);
     if (read.error) return json({ error: read.error }, read.status, cors);
     if (wrongOrigin(req, sites, read.sub.site)) return json({ error: 'this form is not allowed for that site' }, 403, cors);
-    // honeypot: bots fill every field; humans never see `company`
-    if (body.company) return json({ ok: true }, 200, cors);
+    // Keep the spam filter, but never claim receipt for a discarded inquiry.
+    // Autofill can populate a hidden field on a real visitor's behalf.
+    if (body.company) return json({ error: 'We could not accept this form. Please email your message instead.' }, 422, cors);
 
     const sub = read.sub;
     const result = await capture(sub, placesFor(env, ctx));

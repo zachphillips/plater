@@ -75,6 +75,9 @@ packages/capture      the click-to-note overlay (src/capture.js)
 packages/server-node  12 serverless handlers, one file each
 packages/agent-host   the long-running agent runner (server.mjs + deploy/)
 packages/list-worker  optional Cloudflare Worker email capture
+packages/hosted       hosted Plater: one Worker (D1 + R2 + Access) keeping every shared
+                      draft at a permanent URL, every version and review kept;
+                      runner.mjs works the ✎ Note queue on the owner's plan
 examples/static-site  a complete working site — the demo target
 docs/                 the GitHub Pages marketing site
 test/                 write-gate guards (node:test)

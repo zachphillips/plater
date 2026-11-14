@@ -322,5 +322,6 @@ else if (cmd === 'fleet') fleet(process.argv[3] === '--sync' ? undefined : dir, 
 else if (cmd === 'publish') publish(dir).catch((e) => { console.error(no(e.message)); process.exit(1); });
 else if (cmd === 'dev') import('./dev.mjs'); // serves dir from process.argv[2] itself
 else if (cmd === 'serve') import('./serve.mjs'); // same, with auth on
+else if (cmd === 'share') import('./share.mjs'); // to hosted Plater: permanent links, every version kept
 else if (cmd === 'deploy-amber') import('./deploy-amber.mjs'); // ships dir to Amber forever-hosting (undocumented; fleet-internal)
-else { console.log('usage: platercms <init|dev|serve|doctor|sync|fleet|publish> [dir]'); process.exit(1); }
+else { console.log('usage: platercms <init|dev|serve|share|doctor|sync|fleet|publish> [dir]'); process.exit(1); }

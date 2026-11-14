@@ -56,7 +56,7 @@ export function sameMachine(req) {
   return true;
 }
 
-function notePrompt(job, label) {
+export function notePrompt(job, label) {
   const c = job.capture || {};
   return [
     `You are making a small, targeted change to the draft "${label}" in the current directory,`,

@@ -30,3 +30,8 @@ jobs:
         run: npm i --no-save playwright@1.64.1 && npx playwright install --with-deps chromium
       - name: Verify the editor saves (headless Chromium)
         run: npm run verify:ci
+      # Hosted Plater: the real Worker under local stand-ins for D1/R2/Access,
+      # driven in Chromium (share, edit, ✎ Note → new version, versions kept,
+      # review record). Needs node:sqlite, so it runs on Node 22 and skips on 20.
+      - name: Verify hosted Plater (headless Chromium)
+        run: npm run verify:hosted

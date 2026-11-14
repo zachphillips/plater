@@ -49,6 +49,29 @@ test('config advertises Google only with an admin and client; token fallback sta
   }
 });
 
+test('all Google write gates require both config values and the exact audience', async (t) => {
+  const calls = t.mock.method(globalThis, 'fetch', async () => json({
+    email: env.CMS_ADMIN_EMAIL, email_verified: 'true', aud: 'another-app',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  }));
+  const names = ['save', 'history', 'upload', 'review', 'versions', 'agent-note', 'propose-post'];
+  for (const overrides of [{ GOOGLE_CLIENT_ID: '' }, { CMS_ADMIN_EMAIL: '' }]) {
+    for (const name of names) {
+      const gate = await handler(t, name, { ...overrides, CMS_EDIT_TOKEN: '' });
+      const res = response();
+      await gate({ method: 'POST', headers: { authorization: 'Bearer owner-id-token' }, body: {} }, res);
+      assert.equal(res.code, 401, name);
+    }
+  }
+  assert.equal(calls.mock.callCount(), 0, 'incomplete config never contacts Google');
+  for (const name of names) {
+    const gate = await handler(t, name, { CMS_EDIT_TOKEN: '' });
+    const res = response();
+    await gate({ method: 'POST', headers: { authorization: 'Bearer owner-id-token' }, body: {} }, res);
+    assert.equal(res.code, 401, name);
+  }
+});
+
 test('invalid track names never fall through to a live write', async (t) => {
   const save = await handler(t, 'save');
   const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('must not write'); });

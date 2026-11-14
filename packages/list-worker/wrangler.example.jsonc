@@ -1,0 +1,33 @@
+// Example config for plater-list. Copy to wrangler.jsonc, fill in your values,
+// then: npx wrangler deploy  (and once: npx wrangler secret put LIST_ADMIN_TOKEN)
+//
+// Everything here fits the Workers Free plan. The second place a submission
+// goes is an email to you through Cloudflare Email Routing, which on the free
+// plan can send from a Worker to a verified destination address on your own
+// account. One-time setup in the Cloudflare dashboard (or API):
+//   1. Email Routing on a domain or a subdomain you own. If the domain's mail
+//      is hosted elsewhere (Google Workspace, Fastmail), use a subdomain such as
+//      list.example.com: its MX and SPF records go on the subdomain only, and
+//      the root domain's mail is not touched.
+//   2. Add your own address under Email Routing, Destination addresses, and
+//      click the verification link (your account's login address is verified
+//      already).
+//   3. Create a KV namespace for gap records and put its id below.
+// Leave out RELAY, RELAY_FROM and RELAY_TO to run with the database alone.
+{
+  "name": "plater-list",
+  "main": "worker.js",
+  "compatibility_date": "2026-06-01",
+  "vars": {
+    // key=origin pairs; repeat a key for each address a site is served from
+    "SITES": "my-site=https://my-site.example,my-site=https://www.my-site.example",
+    "RELAY_FROM": "list@list.my-site.example",
+    "RELAY_TO": "me@my-site.example"
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "plater-list", "database_id": "<your D1 database id>" }],
+  "kv_namespaces": [{ "binding": "GAPS", "id": "<your KV namespace id>" }],
+  "send_email": [{ "name": "RELAY", "destination_address": "me@my-site.example" }],
+  // hourly: put held submissions into the place they missed
+  "triggers": { "crons": ["41 * * * *"] },
+  "observability": { "enabled": true }
+}

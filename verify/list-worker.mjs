@@ -149,6 +149,22 @@ try {
   const payload = new TextEncoder().encode(JSON.stringify({ site: 'demo', email: 'chunked@example.com', note: '', unused: '漢'.repeat(100000) }));
   const chunked = await fetch(base + '/subscribe', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://demo.example' }, duplex: 'half', body: new ReadableStream({ start(controller) { for (let i = 0; i < payload.length; i += 8192) controller.enqueue(payload.slice(i, i + 8192)); controller.close(); } }) });
   results.push({ id: 'chunked-body-limit', bytes: payload.byteLength, status: chunked.status, response: await chunked.json(), failures: expect([['actual byte cap without Content-Length', chunked.status === 413]]) });
+  await faults({ relayFail: true });
+  const heldConsent = await post('consent-order', 'A complete inquiry before opting out');
+  await faults({});
+  const unsubscribe = await fetch(base + '/unsubscribe', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://demo.example' }, body: JSON.stringify({ site: 'demo', email: 'consent-order@example.com' }) });
+  const optedOutAt = (await state()).rows.find((r) => r.email === 'consent-order@example.com').unsubscribed_at;
+  await fetch(base + '/__scheduled?cron=41+*+*+*+*');
+  await until(async () => !(await state()).gaps.length, 'consent repair after opt-out');
+  const oldRepair = (await state()).rows.find((r) => r.email === 'consent-order@example.com');
+  results.push({ id: 'old-repair-keeps-opt-out', unsubscribeStatus: unsubscribe.status, optedOutAt, afterRepair: oldRepair, failures: expect([['old repair preserves later unsubscribe', accepted(heldConsent) && unsubscribe.ok && !!optedOutAt && oldRepair.unsubscribed_at === optedOutAt]]) });
+  await faults({ dbFail: true });
+  const renewedConsent = await post('consent-order', 'A genuinely newer signup after opting out');
+  await faults({});
+  await fetch(base + '/__scheduled?cron=41+*+*+*+*');
+  await until(async () => !(await state()).gaps.length, 'newer consent repair');
+  const newRepair = (await state()).rows.find((r) => r.email === 'consent-order@example.com');
+  results.push({ id: 'new-consent-reactivates', afterRepair: newRepair, failures: expect([['genuine newer signup can opt back in', accepted(renewedConsent) && !newRepair.unsubscribed_at && newRepair.note.includes('A genuinely newer signup after opting out')]]) });
 } finally {
   await stop();
   const report = { localOnly: true, results, failures: results.flatMap((r) => r.failures.map((f) => `${r.id}: ${f}`)) };

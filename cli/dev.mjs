@@ -27,6 +27,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -109,6 +110,43 @@ export async function readBody(req) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
   return Buffer.concat(chunks).toString('utf8');
+}
+
+// Dev skips sign-in, so a browser must reach it through its own local/tailnet
+// address and send JSON from that exact origin. CORS alone would still let a
+// foreign page POST text/plain JSON and overwrite files. Restrict Host too:
+// an attacker's domain must not become trusted by rebinding its DNS to us.
+function devWriteRefusal(req) {
+  if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+    return [415, 'use application/json'];
+  }
+  const authority = (value) => {
+    if (typeof value !== 'string') return null;
+    try {
+      const u = new URL('http://' + value);
+      if (u.host.toLowerCase() !== value.toLowerCase() || u.username || u.password || u.pathname !== '/' || u.search || u.hash) return null;
+      const name = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+      const local = String(req.socket?.localAddress || '').replace(/^::ffff:/, '').toLowerCase();
+      const machine = os.hostname().toLowerCase();
+      return name === 'localhost' || name === '127.0.0.1' || name === '::1' || name === local || name === machine || name === machine + '.local' || /^[a-z0-9.-]+\.ts\.net$/.test(name) ? u.host : null;
+    } catch { return null; }
+  };
+  let host = authority(req.headers.host);
+  if (!host) return [403, 'untrusted dev host'];
+  const loopback = /^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(req.socket?.remoteAddress || '');
+  let protocol = req.socket?.encrypted ? 'https' : 'http';
+  // tailpub/serve may terminate TLS on this machine. A remote peer cannot
+  // nominate a different host or protocol with forwarded headers.
+  if (loopback) {
+    if (req.headers['x-forwarded-host']) {
+      host = authority(req.headers['x-forwarded-host']);
+      if (!host) return [403, 'untrusted forwarded dev host'];
+    }
+    if (/^https?$/.test(req.headers['x-forwarded-proto'] || '')) protocol = req.headers['x-forwarded-proto'];
+  }
+  const origin = req.headers.origin;
+  if (origin !== undefined && origin !== `${protocol}://${host}`) return [403, 'origin does not match this dev server'];
+  return null;
 }
 
 // Adapt node req/res to the (req, res) express-ish shape the handlers use.
@@ -332,6 +370,13 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end('not part of this page');
       }
+      if ((p.startsWith('/api/') || p === '/plater/review-status') && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        const refused = devWriteRefusal(req);
+        if (refused) {
+          res.writeHead(refused[0], { 'content-type': 'application/json', 'cache-control': 'no-store' });
+          return res.end(JSON.stringify({ error: refused[1] }));
+        }
+      }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
         return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: notesOn }));
@@ -391,6 +436,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       }
       if (p === '/api/review' || p === '/plater/review-status') {
         if (req.method === 'GET') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(await review.computeStatus())); }
+        if (req.method !== 'POST') { res.writeHead(405, { allow: 'GET, POST' }); return res.end(); }
         const body = JSON.parse(await readBody(req) || '{}');
         const out = await review.setReviewed(body.path, body.reviewed !== false, 'dev');
         res.writeHead(out.ok ? 200 : out.status || 500, { 'content-type': 'application/json' });

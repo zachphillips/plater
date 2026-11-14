@@ -6,8 +6,8 @@
 //   1. the write gate over HTTP: /api/save with no bearer and with a wrong
 //      bearer is refused (401) and leaves no commit
 //   2. a wrong edit token in the browser: ?edit, enter the token, edit the
-//      headline, Save; the editor says sign-in failed and nothing is committed
-//   3. the right edit token: same edit, Save; the status line names the
+//      headline; the editor says sign-in failed and nothing is committed
+//   3. the right edit token: same edit, autosave; the status line names the
 //      commit, the bench repo has exactly one new commit with the edit in
 //      content/site.json, and a fresh load of the page shows the new headline
 //
@@ -65,10 +65,12 @@ try {
     await page.getByRole('button', { name: 'Edit page' }).click();
     const h1 = page.locator('h1');
     await h1.fill(headline);
+    check(await page.evaluate((text) => Object.keys(localStorage).some((k) =>
+      k.startsWith('plater.buf.') && JSON.parse(localStorage.getItem(k)).content.hero.headline === text), headline),
+    'editor: the last keystroke is already in its recovery copy');
     await shot('2-edited');
-    await page.getByRole('button', { name: 'Save & commit' }).click();
-    await page.waitForFunction(() => !/saving/.test(document.querySelector('#cms-status')?.textContent || ''), null, { timeout: 10_000 });
-    await page.waitForTimeout(150);
+    check(!(await page.getByRole('button', { name: 'Save & commit' }).isVisible()), 'editor: live typing needs no Save button');
+    await page.waitForFunction(() => /saved & committed|sign in again/i.test(document.querySelector('#cms-status')?.textContent || ''), null, { timeout: 10_000 });
     await shot('3-after-save');
     const said = (await status.textContent()) || '';
     await context.close();
@@ -81,12 +83,19 @@ try {
   check(wrong.errors.length === 0, 'editor: no console errors (wrong-token pass)', wrong.errors.join(' | '));
 
   const headline = `Edited in the browser by verify:ci ${stamp}`;
+  const remote = bench.content();
+  remote.hero.subhead = 'A newer paragraph already on GitHub when this old deployment saves.';
+  remote.remoteOnly = 'Keep the other editor\'s new field.';
+  bench.commitElsewhere(remote, { staleDisk: true });
+  const beforeRight = bench.commits();
   const right = await editAs(bench.editToken, headline, 'edit-token');
   const [sha, subject] = bench.lastCommit().split('\x1f');
   check(/saved & committed [0-9a-f]{7,}/.test(right.said) && right.said.includes(sha), 'editor: the status line names the new commit', `status: ${right.said}, HEAD ${sha}`);
-  check(bench.commits() === before.commits + 1, 'save: exactly one commit landed', `${before.commits} -> ${bench.commits()}`);
+  check(bench.commits() === beforeRight + 1, 'save: exactly one commit landed', `${beforeRight} -> ${bench.commits()}`);
   check(/^content\(bench-site\): edit via CMS/.test(subject), 'save: the commit is a CMS content commit', subject);
   check(bench.content().hero.headline === headline, 'save: content/site.json holds the new headline', bench.content().hero.headline);
+  check(bench.content().hero.subhead === remote.hero.subhead && bench.content().remoteOnly === remote.remoteOnly,
+    'save: the old deployment preserves newer GitHub fields, including a sibling of the edited headline');
   check(right.errors.length === 0, 'editor: no console errors (edit-token pass)', right.errors.join(' | '));
 
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });

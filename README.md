@@ -120,7 +120,10 @@ traversal, absolute paths, and symlinks pointing outside it are refused with a
 
 Add `?edit` to any URL (or press Cmd/Ctrl+E). The editor (`@platercms/core`)
 turns every bound element into a `contenteditable` region, tracks the dirty
-ones, and on save POSTs the content to `/api/save`. Around that core loop:
+ones, and automatically POSTs the content to `/api/save` two seconds after
+the last edit. Live edits commit to the configured branch and trigger its
+normal deployment; draft edits stay in their overlay until **Make this live**.
+There is no Save button. Around that core loop:
 
 - **Arrays are editable as arrays.** Every `data-list` / `data-cards` container
   gets per-item **×** / **↑** / **↓** and one **+ Add** in edit mode. A new card
@@ -134,7 +137,7 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
   goes to `/api/upload`, which commits it to the repo (PNG/JPG/GIF/WebP/SVG, 4 MB
   cap, name prefixed with 8 hex chars of its content hash so two `photo.jpg`s
   can't collide) and returns a site-relative URL. Only the URL lands in
-  `CONTENT`, so the swap rides your next Save like any other edit.
+  `CONTENT`, so the changed URL autosaves like any other edit.
 - **Plain-text paste.** Bindings hold strings, not markup. Pasting from a word
   processor or another page inserts `text/plain` only, flattened to one line;
   dropping HTML into a binding is refused outright.
@@ -143,10 +146,10 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
   offered back — **Restore** / **Discard** — the next time you enter edit mode.
   The saved base travels with the buffer, so Restore preserves unrelated newer
   fields loaded since it was written. Restore keeps its recovery copy until a
-  confirmed save or explicit discard. Draft autosaves retry temporary network,
+  confirmed save or explicit discard. Autosaves retry temporary network,
   server and rate-limit failures with backoff, and retry when the browser comes
   online. Refused auth or invalid content waits for sign-in or another edit.
-  Nothing is applied without a click, and any save or cancel clears it. On top of
+  Recovery is applied only after a click, and a confirmed save clears it. On top of
   that, `beforeunload` warns you only when you have actually typed something that
   still differs from the last save.
 
@@ -172,10 +175,11 @@ refetch-and-retry. Newer unrelated fields survive, including siblings inside
 one object. If both editors changed the same field differently, or a second
 write race occurs, the handler returns `409 { error: 'conflict', content }`
 and keeps the existing commit. The editor replays **only the fields this
-session changed** on that returned content and stays in edit mode with a plain-English
-line: *"Someone else saved while you were editing — reloaded the latest, your
-edits are kept (3 fields). Review and Save again."* Arrays are replayed whole
-rather than reconciled item by item. Successful responses include the committed
+session changed** on that returned content and stays in edit mode. Autosave
+pauses with the writing and its recovery copy intact. The editor asks you to
+review the merged text and continue editing before autosave resumes. Arrays are replayed whole
+rather than reconciled item by item. Live events pause the same way if a competing
+edit arrives before the pending save. Successful responses include the committed
 content too, so the editor immediately shows a merged paragraph and preserves
 typing that happened during the request. The local disk leg uses the same
 merge rule and serializes its writes.
@@ -553,7 +557,7 @@ Two ways to use a draft:
   that track in place. Editing switches on the moment you arrive with a
   credential (viewing a draft *is* editing it), every change autosaves to the
   track's overlay two seconds after
-  you stop typing — with the same conflict merge the manual Save path uses — and
+  you stop typing, with the same conflict protection as live editing, and
   **⬆ Make this live** promotes it (`{ promote: track }`) into `site.json` as one
   normal commit. **+ New draft** starts a track by naming it; there is no registry
   to register with.
@@ -578,7 +582,7 @@ state, counts, and `fully_reviewed` for external dashboards.
 description, site URL, share image — writing straight into `content.meta`.
 Those fields show up in the browser tab, search results, and share cards
 rather than on the page itself, so they are edited from the rail. The fields are
-dirty-tracked exactly like inline text, so the same Save commits them, and
+dirty-tracked exactly like inline text, so they autosave too, and
 emptying one removes the key rather than committing an empty string.
 
 ## Web standards
@@ -720,7 +724,7 @@ files via `?file=` · static publishing · optional email-capture worker.
   functions, and `platercms serve` runs them — with those rewrites reimplemented —
   on a bare `node:http` server, which is the answer for self-hosting. Cloudflare
   Pages and Netlify equivalents still aren't written down.
-- **`verify:ci` drives one journey**: token sign-in, an inline edit, Save, the
+- **`verify:ci` drives one journey**: token sign-in, an inline edit, autosave, the
   commit read back. Google sign-in, drafts, image upload and the agent loop
   are still proven by hand in a real browser, not in CI.
 

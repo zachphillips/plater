@@ -30,10 +30,11 @@ async function verifyGoogle(idToken) {
     // Fail CLOSED: with no CMS_ADMIN_EMAIL configured there is no one to
     // authorize, so an empty allowlist must never match an empty token email.
     if (!ADMIN_EMAIL) return false;
+    if (!GOOGLE_CLIENT_ID) return false;
     const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken));
     if (!r.ok) return false;
     const t = await r.json();
-    if (GOOGLE_CLIENT_ID && t.aud !== GOOGLE_CLIENT_ID) return false;
+    if (t.aud !== GOOGLE_CLIENT_ID) return false;
     if (String(t.email_verified) !== 'true') return false;
     if ((t.email || '').toLowerCase() !== ADMIN_EMAIL) return false;
     if (t.exp && Math.floor(Date.now() / 1000) > Number(t.exp)) return false;

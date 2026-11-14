@@ -27,6 +27,8 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { writeLocalContent } from './local-write.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -87,28 +89,84 @@ export function resolveSite(argDir) {
 
 // The production handlers read env at IMPORT time — point them at this site
 // before loadHandlers(). This is the whole trick: same code, local backing store.
-// `dev` also drops GITHUB_TOKEN so a local session can never commit.
+// `dev` also drops both GitHub token names and the review webhook so the
+// shared review handler cannot turn an unauthenticated local mark into a
+// remote commit or notification.
 export function configureEnv({ siteDir, webRoot, contentPath }, { dev = true } = {}) {
   process.env.PLATER_WEB_ROOT = webRoot;
   process.env.GITHUB_EDIT_PATH = path.relative(process.cwd(), contentPath);
   process.env.PLATER_REVIEW_PATH = process.env.PLATER_REVIEW_PATH || path.join(siteDir, '.plater-review.json');
   process.env.CMS_SITE_NAME = process.env.CMS_SITE_NAME || path.basename(siteDir);
-  if (dev) delete process.env.GITHUB_TOKEN; // belt & braces: dev must never commit
+  if (dev) {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.CMS_GITHUB_TOKEN;
+    delete process.env.PLATER_REVIEW_WEBHOOK;
+  }
 }
 
 // Dynamic, because configureEnv() has to win the race with their module bodies.
 export async function loadHandlers() {
   const load = (n) => import(path.join(PKG, 'server-node', n));
-  const [content, review, feed, sitemap, route, manifest, versions, upload, live] = await Promise.all(
-    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js'].map(load),
+  const [content, review, feed, sitemap, route, manifest, versions, upload, live, save] = await Promise.all(
+    ['content.js', 'review.js', 'feed.js', 'sitemap.js', 'route.js', 'manifest.js', 'versions.js', 'upload.js', 'live.js', 'save.js'].map(load),
   );
-  return { content, review, feed, sitemap, route, manifest, versions, upload, live };
+  return { content, review, feed, sitemap, route, manifest, versions, upload, live, save };
 }
 
-export async function readBody(req) {
+// Bound the actual bytes even when a chunked client omits Content-Length.
+// Drain refused bytes without retaining them, so the client can receive the
+// explicit response even when it is still writing the body.
+export async function readBody(req, limit = 2_000_000) {
+  const tooLarge = () => {
+    req.resume();
+    return Object.assign(new Error('payload too large'), { status: 413 });
+  };
+  if (Number(req.headers['content-length'] || 0) > limit) throw tooLarge();
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let seen = 0;
+  for await (const c of req.iterator({ destroyOnReturn: false })) {
+    seen += c.length;
+    if (seen > limit) throw tooLarge();
+    chunks.push(c);
+  }
   return Buffer.concat(chunks).toString('utf8');
+}
+
+// Dev skips sign-in, so a browser must reach it through its own local/tailnet
+// address and send JSON from that exact origin. CORS alone would still let a
+// foreign page POST text/plain JSON and overwrite files. Restrict Host too:
+// an attacker's domain must not become trusted by rebinding its DNS to us.
+function devWriteRefusal(req) {
+  if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+    return [415, 'use application/json'];
+  }
+  const authority = (value) => {
+    if (typeof value !== 'string') return null;
+    try {
+      const u = new URL('http://' + value);
+      if (u.host.toLowerCase() !== value.toLowerCase() || u.username || u.password || u.pathname !== '/' || u.search || u.hash) return null;
+      const name = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+      const local = String(req.socket?.localAddress || '').replace(/^::ffff:/, '').toLowerCase();
+      const machine = os.hostname().toLowerCase();
+      return name === 'localhost' || name === '127.0.0.1' || name === '::1' || name === local || name === machine || name === machine + '.local' || /^[a-z0-9.-]+\.ts\.net$/.test(name) ? u.host : null;
+    } catch { return null; }
+  };
+  let host = authority(req.headers.host);
+  if (!host) return [403, 'untrusted dev host'];
+  const loopback = /^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(req.socket?.remoteAddress || '');
+  let protocol = req.socket?.encrypted ? 'https' : 'http';
+  // tailpub/serve may terminate TLS on this machine. A remote peer cannot
+  // nominate a different host or protocol with forwarded headers.
+  if (loopback) {
+    if (req.headers['x-forwarded-host']) {
+      host = authority(req.headers['x-forwarded-host']);
+      if (!host) return [403, 'untrusted forwarded dev host'];
+    }
+    if (/^https?$/.test(req.headers['x-forwarded-proto'] || '')) protocol = req.headers['x-forwarded-proto'];
+  }
+  const origin = req.headers.origin;
+  if (origin !== undefined && origin !== `${protocol}://${host}`) return [403, 'origin does not match this dev server'];
+  return null;
 }
 
 // Adapt node req/res to the (req, res) express-ish shape the handlers use.
@@ -245,7 +303,7 @@ async function handleHistory(req, res, url, { siteDir, contentPath }) {
   // down and the only fix would be another restore.
   try { JSON.parse(stdout); } catch { return json(422, { error: `content at ${restore.slice(0, 7)} is not valid JSON` }); }
   await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.writeFile(target, stdout);
+  await writeLocalContent(target, stdout);
   // commit: null — dev never commits. The restore is on disk like every other
   // dev save, so `git diff` shows it and you commit when happy.
   return json(200, { ok: true, commit: null, ...(track ? { track } : {}) });
@@ -258,11 +316,9 @@ const MAX_UPLOAD_BODY = Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 64 * 1024;
 
 async function handleUpload(req, res, { webRoot }, safeName) {
   const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
-  if (Number(req.headers['content-length'] || 0) > MAX_UPLOAD_BODY) return json(413, { error: 'image too large (4 MB max)' });
-
   let payload;
-  try { payload = JSON.parse(await readBody(req) || '{}'); }
-  catch { return json(400, { error: 'expected JSON { filename, dataBase64 }' }); }
+  try { payload = JSON.parse(await readBody(req, MAX_UPLOAD_BODY) || '{}'); }
+  catch (e) { if (e.status === 413) throw e; return json(400, { error: 'expected JSON { filename, dataBase64 }' }); }
   if (typeof payload.filename !== 'string' || typeof payload.dataBase64 !== 'string') {
     return json(400, { error: 'expected { filename, dataBase64 }' });
   }
@@ -294,6 +350,9 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 export function createDevServer({ siteDir, webRoot, contentPath, handlers, live = true, entry = null, notes = null }) {
   const { content, review, feed, sitemap, route, manifest, versions, upload } = handlers;
   const ctx = { siteDir, webRoot, contentPath };
+  // Each disk save must read the result of the previous one. Two concurrent
+  // requests must not both merge against the same stale on-disk copy.
+  let saveQueue = Promise.resolve();
   const loose = !entry && !fsSync.existsSync(path.join(webRoot, 'index.html')) && htmlPages(webRoot).length > 0;
   // Live reload: every page plater dev serves follows the files on disk.
   // An agent's write, a save from another tab, a CSS tweak — the open tab
@@ -329,6 +388,13 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end('not part of this page');
       }
+      if ((p.startsWith('/api/') || p === '/plater/review-status') && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        const refused = devWriteRefusal(req);
+        if (refused) {
+          res.writeHead(refused[0], { 'content-type': 'application/json', 'cache-control': 'no-store' });
+          return res.end(JSON.stringify({ error: refused[1] }));
+        }
+      }
       if (p === '/api/config') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
         return res.end(JSON.stringify({ googleClientId: '', adminEmail: 'dev@localhost', editable: true, tokenAuth: false, devNoauth: true, agentRouting: notesOn }));
@@ -336,35 +402,47 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       // The real handler, so ?track= overlays AND ?file= alternate content
       // files behave (and reject traversal) exactly as they do in production.
       if (p === '/api/content') { const [rq, rs] = shim(req, res, url); return content.default(rq, rs); }
-      if (p === '/api/history' && (req.method === 'GET' || req.method === 'POST')) return handleHistory(req, res, url, ctx);
-      if (p === '/api/upload' && req.method === 'POST') return handleUpload(req, res, ctx, upload.safeName);
+      if (p === '/api/history' && (req.method === 'GET' || req.method === 'POST')) return await handleHistory(req, res, url, ctx);
+      if (p === '/api/upload' && req.method === 'POST') return await handleUpload(req, res, ctx, upload.safeName);
       if (p === '/api/save' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req) || '{}');
-        if (!body || typeof body.content !== 'object') { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
-        if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
+        if (!body || !body.content || typeof body.content !== 'object' || Array.isArray(body.content)) { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
+        if (body.base != null && (typeof body.base !== 'object' || Array.isArray(body.base))) { res.writeHead(400); return res.end('{"error":"base must be the loaded content object"}'); }
+        const save = async () => {
+          if (typeof body.promote === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.promote)) {
+            const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
+            const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
+            delete next._track_note;
+            await writeLocalContent(contentPath, JSON.stringify(next, null, 2) + '\n');
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
+          }
+          if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
+            const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
+            await fs.mkdir(path.dirname(overlayPath), { recursive: true });
+            const current = JSON.parse(await fs.readFile(overlayPath, 'utf8').catch(() => '{}'));
+            const merged = body.base ? handlers.save.mergeContent(body.base, body.content, current, { allowMissing: true }) : { content: body.content };
+            if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: handlers.save.mergeContent(body.base, body.base, current, { allowMissing: true }).content })); }
+            const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
+            await writeLocalContent(overlayPath, JSON.stringify(next, null, 2) + '\n');
+            res.writeHead(200, { 'content-type': 'application/json' });
+            return res.end(JSON.stringify({ ok: true, saved: true, content: next, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
+          }
           const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
-          const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
-          delete next._track_note;
-          await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
+          const merged = body.base ? handlers.save.mergeContent(body.base, body.content, base) : { content: { ...base, ...body.content } };
+          if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: base })); }
+          const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
+          await writeLocalContent(contentPath, JSON.stringify(next, null, 2) + '\n');
           res.writeHead(200, { 'content-type': 'application/json' });
-          return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
-        }
-        if (typeof body.track === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(body.track)) {
-          const overlayPath = path.join(path.dirname(contentPath), 'versions', body.track, 'site.json');
-          await fs.mkdir(path.dirname(overlayPath), { recursive: true });
-          await fs.writeFile(overlayPath, JSON.stringify({ ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' }, null, 2) + '\n');
-          res.writeHead(200, { 'content-type': 'application/json' });
-          return res.end(JSON.stringify({ ok: true, saved: true, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
-        }
-        const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
-        const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
-        await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
-        res.writeHead(200, { 'content-type': 'application/json' });
-        return res.end(JSON.stringify({ ok: true, saved: true, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
+          return res.end(JSON.stringify({ ok: true, saved: true, content: next, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
+        };
+        const pending = saveQueue.then(save);
+        saveQueue = pending.catch(() => {});
+        return await pending;
       }
       if (p === '/api/agent-note' && req.method === 'POST' && notesOn) {
         let body;
-        try { body = JSON.parse(await readBody(req) || '{}'); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'invalid JSON body' })); }
+        try { body = JSON.parse(await readBody(req) || '{}'); } catch (e) { if (e.status === 413) throw e; res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'invalid JSON body' })); }
         const [code, out] = notes.handle(req, body);
         res.writeHead(code, { 'content-type': 'application/json' });
         return res.end(JSON.stringify(out));
@@ -376,6 +454,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       }
       if (p === '/api/review' || p === '/plater/review-status') {
         if (req.method === 'GET') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(await review.computeStatus())); }
+        if (req.method !== 'POST') { res.writeHead(405, { allow: 'GET, POST' }); return res.end(); }
         const body = JSON.parse(await readBody(req) || '{}');
         const out = await review.setReviewed(body.path, body.reviewed !== false, 'dev');
         res.writeHead(out.ok ? 200 : out.status || 500, { 'content-type': 'application/json' });
@@ -413,7 +492,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       const [rq, rs] = shim(req, res, url);
       return route.default(rq, rs);
     } catch (e) {
-      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
+      if (!res.headersSent) res.writeHead(e.status === 413 ? 413 : 500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: String(e.message || e) }));
     }
   });

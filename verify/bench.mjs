@@ -106,6 +106,14 @@ export async function startBench({ port = 4290 } = {}) {
     commits: () => Number(git(siteDir, 'rev-list', '--count', 'HEAD')),
     lastCommit: () => git(siteDir, 'log', '-1', '--format=%H%x1f%s%x1f%an'),
     content: () => JSON.parse(fs.readFileSync(served.contentPath, 'utf8')),
+    commitElsewhere(content, { staleDisk = false } = {}) {
+      const deployed = fs.readFileSync(served.contentPath);
+      fs.writeFileSync(served.contentPath, JSON.stringify(content, null, 2) + '\n');
+      git(siteDir, 'add', 'content/site.json');
+      git(siteDir, '-c', 'user.name=bench', '-c', 'user.email=bench@localhost', 'commit', '-q', '-m', 'Another editor changes content');
+      if (staleDisk) fs.writeFileSync(served.contentPath, deployed);
+      return git(siteDir, 'rev-parse', 'HEAD');
+    },
     close: () => new Promise((resolve) => served.server.close(() => resolve())),
   };
 }

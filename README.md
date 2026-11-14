@@ -100,6 +100,10 @@ The HTML you author is the fallback: if `site.json` is missing a key, the page
 still renders what's in the markup. That means the site is never blank, never
 dependent on a fetch, and fully indexable before any JavaScript runs.
 
+Local dev limits JSON request bodies to 2,000,000 bytes while reading the
+stream. Image uploads have a separate allowance for a 4 MiB image encoded as
+base64. Oversized bodies receive HTTP 413 before any local content is changed.
+
 The five binding attributes:
 
 | Attribute | Binds |
@@ -115,12 +119,17 @@ The five binding attributes:
 directory. The path is resolved against that directory and must end in `.json`;
 traversal, absolute paths, and symlinks pointing outside it are refused with a
 400, and a missing file is an honest 404 rather than a silently blank page.
+Draft overlays and draft documents use the same real-path boundary: a symlink
+under `versions/` cannot expose a file outside the content directory.
 
 ### 2. Editing is `contenteditable` plus one POST
 
 Add `?edit` to any URL (or press Cmd/Ctrl+E). The editor (`@platercms/core`)
 turns every bound element into a `contenteditable` region, tracks the dirty
-ones, and on save POSTs the content to `/api/save`. Around that core loop:
+ones, and automatically POSTs the content to `/api/save` two seconds after
+the last edit. Live edits commit to the configured branch and trigger its
+normal deployment; draft edits stay in their overlay until **Make this live**.
+There is no Save button. Around that core loop:
 
 - **Arrays are editable as arrays.** Every `data-list` / `data-cards` container
   gets per-item **×** / **↑** / **↓** and one **+ Add** in edit mode. A new card
@@ -134,14 +143,19 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
   goes to `/api/upload`, which commits it to the repo (PNG/JPG/GIF/WebP/SVG, 4 MB
   cap, name prefixed with 8 hex chars of its content hash so two `photo.jpg`s
   can't collide) and returns a site-relative URL. Only the URL lands in
-  `CONTENT`, so the swap rides your next Save like any other edit.
+  `CONTENT`, so the changed URL autosaves like any other edit.
 - **Plain-text paste.** Bindings hold strings, not markup. Pasting from a word
   processor or another page inserts `text/plain` only, flattened to one line;
   dropping HTML into a binding is refused outright.
-- **A crash buffer, and a guard on the way out.** Debounced snapshots of
+- **A crash buffer, and a guard on the way out.** Immediate snapshots of
   unsaved edits go to `localStorage`, keyed per page and per draft track, and are
   offered back — **Restore** / **Discard** — the next time you enter edit mode.
-  Nothing is applied without a click, and any save or cancel clears it. On top of
+  The saved base travels with the buffer, so Restore preserves unrelated newer
+  fields loaded since it was written. Restore keeps its recovery copy until a
+  confirmed save or explicit discard. Autosaves retry temporary network,
+  server and rate-limit failures with backoff, and retry when the browser comes
+  online. Refused auth or invalid content waits for sign-in or another edit.
+  Recovery is applied only after a click, and a confirmed save clears it. On top of
   that, `beforeunload` warns you only when you have actually typed something that
   still differs from the last save.
 
@@ -151,7 +165,8 @@ ones, and on save POSTs the content to `/api/save`. Around that core loop:
 
 1. Authenticate the caller (below).
 2. `GET` the current `site.json` from the GitHub Contents API, with its blob sha.
-3. Merge the posted top-level keys into it.
+3. Apply the fields changed since the editor's loaded snapshot to that current
+   GitHub content. Older clients without a snapshot still merge top-level keys.
 4. `PUT` it back with a commit message like `content(<site>): edit via CMS by <you>`.
 
 That commit triggers your host's normal deploy. There is no separate publish
@@ -159,15 +174,21 @@ step, no cache to bust, no CMS database that can drift from the repo. `git log`
 is the edit history. `git revert` is the undo button. If you delete Plater
 entirely, your site keeps working — it's still just HTML plus a JSON file.
 
-**Conflicts are merged, never lost.** Two people (or a person and an agent) can
-commit between your load and your Save. The handler refetches and retries once
-server-side; a second collision is reported honestly as `409 { error: 'conflict' }`
-rather than resolved by clobbering someone. The editor answers that 409 by
-fetching the winner's file, replaying **only the fields this session changed** on
-top of it, and handing the page back still in edit mode with a plain-English
-line: *"Someone else saved while you were editing — reloaded the latest, your
-edits are kept (3 fields). Review and Save again."* Arrays are replayed whole
-rather than reconciled item by item, because guessing there silently eats work.
+**Concurrent edits are kept.** GitHub can be ahead of the deployed page before
+you start saving. The editor sends its loaded snapshot as `base`, and the
+handler starts from GitHub's current file on the first write and on its one
+refetch-and-retry. Newer unrelated fields survive, including siblings inside
+one object. If both editors changed the same field differently, or a second
+write race occurs, the handler returns `409 { error: 'conflict', content }`
+and keeps the existing commit. The editor replays **only the fields this
+session changed** on that returned content and stays in edit mode. Autosave
+pauses with the writing and its recovery copy intact. The editor asks you to
+review the merged text and continue editing before autosave resumes. Arrays are replayed whole
+rather than reconciled item by item. Live events pause the same way if a competing
+edit arrives before the pending save. Successful responses include the committed
+content too, so the editor immediately shows a merged paragraph and preserves
+typing that happened during the request. The local disk leg uses the same
+merge rule and serializes its writes.
 
 **History, and one-click restore.** Every save being a commit means undo already
 exists; the **⟲ History** button in the edit bar is the editor's window onto it.
@@ -388,6 +409,21 @@ store changes, so what you see locally is what deploys.
 so feed curation and redirect edits are previewable before a single commit
 exists. `/api/history` there reads real `git log` of the content file, and
 Restore rewrites it on disk; `/api/upload` writes into the web root's `images/`.
+Dev clears both `GITHUB_TOKEN` and its `CMS_GITHUB_TOKEN` alias, plus
+`PLATER_REVIEW_WEBHOOK`, before loading handlers. Review marks stay local even
+when the shell also holds production settings. `platercms serve` keeps its
+authenticated GitHub and webhook behavior.
+
+Content saves and history restores write a hidden sibling file, flush it, then
+replace the previous JSON atomically. A refused or interrupted write keeps the
+last complete copy. Existing content symlinks and file permissions are kept.
+
+Dev writes require `application/json` and, for browser requests, the exact
+server origin. Local addresses and `*.ts.net` hosts are accepted; arbitrary
+hostnames are refused to prevent DNS rebinding. A loopback TLS proxy may pass
+`X-Forwarded-Host` and `X-Forwarded-Proto` for tailnet editing. No-Origin JSON
+requests still work for local scripts. Dev has no sign-in, so keep its listener
+on loopback or behind a trusted tailnet proxy.
 
 **Port autopick.** Both `dev` (default 4188) and `serve` (default 8080) walk
 upward from their port on `EADDRINUSE` and print the port they actually took, so
@@ -532,7 +568,7 @@ Two ways to use a draft:
   that track in place. Editing switches on the moment you arrive with a
   credential (viewing a draft *is* editing it), every change autosaves to the
   track's overlay two seconds after
-  you stop typing — with the same conflict merge the manual Save path uses — and
+  you stop typing, with the same conflict protection as live editing, and
   **⬆ Make this live** promotes it (`{ promote: track }`) into `site.json` as one
   normal commit. **+ New draft** starts a track by naming it; there is no registry
   to register with.
@@ -557,7 +593,7 @@ state, counts, and `fully_reviewed` for external dashboards.
 description, site URL, share image — writing straight into `content.meta`.
 Those fields show up in the browser tab, search results, and share cards
 rather than on the page itself, so they are edited from the rail. The fields are
-dirty-tracked exactly like inline text, so the same Save commits them, and
+dirty-tracked exactly like inline text, so they autosave too, and
 emptying one removes the key rather than committing an empty string.
 
 ## Web standards
@@ -699,7 +735,7 @@ files via `?file=` · static publishing · optional email-capture worker.
   functions, and `platercms serve` runs them — with those rewrites reimplemented —
   on a bare `node:http` server, which is the answer for self-hosting. Cloudflare
   Pages and Netlify equivalents still aren't written down.
-- **`verify:ci` drives one journey**: token sign-in, an inline edit, Save, the
+- **`verify:ci` drives one journey**: token sign-in, an inline edit, autosave, the
   commit read back. Google sign-in, drafts, image upload and the agent loop
   are still proven by hand in a real browser, not in CI.
 

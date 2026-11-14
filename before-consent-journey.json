@@ -1,0 +1,92 @@
+{
+  "label": "before",
+  "base": "http://127.0.0.1:24301",
+  "expectWeak": true,
+  "email": "consent-before-1794690366140@example.com",
+  "claims": {
+    "oldRepairPreservesOptOut": false,
+    "inquiryKeptThroughOldRepair": true,
+    "newerSignupReactivates": true
+  },
+  "notes": {
+    "captured": {
+      "sub1": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      },
+      "gapHeld": true,
+      "gap": {
+        "sub": {
+          "site": "demo",
+          "email": "consent-before-1794690366140@example.com",
+          "note": "First complete inquiry, before opting out.",
+          "created_at": "2026-11-14T21:06:06.170Z"
+        },
+        "missing": [
+          "db",
+          "relay"
+        ],
+        "reasons": {},
+        "recorded_at": "2026-11-14T21:06:06.170Z"
+      }
+    },
+    "unsubscribed": {
+      "unsub": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      },
+      "row": {
+        "site": "demo",
+        "email": "consent-before-1794690366140@example.com",
+        "note": "First complete inquiry, before opting out.",
+        "created_at": "2026-11-14T21:06:06.170Z",
+        "confirmed": 1,
+        "unsubscribed_at": "2026-11-14T21:06:06.632Z"
+      }
+    },
+    "oldRepair": {
+      "repaired": {
+        "site": "demo",
+        "email": "consent-before-1794690366140@example.com",
+        "note": "First complete inquiry, before opting out.",
+        "created_at": "2026-11-14T21:06:06.170Z",
+        "confirmed": 1,
+        "unsubscribed_at": null
+      },
+      "stayedOut": false,
+      "inquiryKept": true,
+      "expectedStayOut": false
+    },
+    "newHeld": {
+      "sub2": {
+        "ok": true,
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      },
+      "gapHeld": true,
+      "stillUnsubscribed": true
+    },
+    "newRepair": {
+      "resubscribed": {
+        "site": "demo",
+        "email": "consent-before-1794690366140@example.com",
+        "note": "First complete inquiry, before opting out.\n\n[2026-11-14T21:06:07.196Z] I have now chosen to subscribe again.",
+        "created_at": "2026-11-14T21:06:06.170Z",
+        "confirmed": 1,
+        "unsubscribed_at": null
+      },
+      "reactivated": true
+    }
+  },
+  "consoleErrors": [],
+  "failedRequests": [],
+  "video": "/opt/cursor/artifacts/journey-before-1440.webm"
+}

@@ -1,0 +1,19 @@
+Commits: BEFORE 2af487d (15cb480^1), AFTER 15cb480 (merge of #19).
+Playwright + Wrangler (not in the repo):
+  cd /tmp/tools && npm i --no-save playwright@1.64.1 wrangler && npx playwright install chromium
+Worktrees:
+  git worktree add /tmp/plater-pr19-before 2af487d6c5e7072cba7e0a3f9337ddb35fe22934
+  git worktree add /tmp/plater-pr19-after 15cb480d634dc0ee76121ffddda77f15364966ef
+Unset GitHub/auth env; PLATER_LIVE=0
+Start local Wrangler/D1/KV/simulated mail (no production, no real email):
+  WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js LIST_PROOF_DIR=/tmp/plater-pr19-before-scratch PORT=24301 \
+    node /tmp/verify-pr19/start-bench.mjs /tmp/plater-pr19-before
+  WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js LIST_PROOF_DIR=/tmp/plater-pr19-after-scratch PORT=24311 \
+    node /tmp/verify-pr19/start-bench.mjs /tmp/plater-pr19-after
+Drive:
+  CONSENT_EXPECT_WEAK=1 CONSENT_PROOF_URL=http://127.0.0.1:24301 SHOTS=/opt/cursor/artifacts node /tmp/verify-pr19/drive.mjs before
+  CONSENT_PROOF_URL=http://127.0.0.1:24311 SHOTS=/opt/cursor/artifacts node /tmp/verify-pr19/drive.mjs after
+  CONSENT_PROOF_URL=http://127.0.0.1:24311 node /tmp/verify-pr19/break.mjs after
+Full local fault drive on AFTER:
+  WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js LIST_PROOF_DIR=/tmp/plater-pr19-after-full LIST_PROOF_PORT=24141 \
+    node /tmp/plater-pr19-after/verify/list-worker.mjs

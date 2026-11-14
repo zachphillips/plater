@@ -340,7 +340,16 @@ async function handleUpload(req, res, { webRoot }, safeName) {
 
   const dest = path.join(webRoot, 'images', named.name);
   await fs.mkdir(path.dirname(dest), { recursive: true });
-  await fs.writeFile(dest, buf);
+  const [realRoot, realImages] = await Promise.all([fs.realpath(webRoot), fs.realpath(path.dirname(dest))]);
+  if (realImages !== realRoot && !realImages.startsWith(realRoot + path.sep)) return json(403, { error: 'image directory is outside this site' });
+  try { await writeLocalContent(dest, buf, { exclusive: true }); }
+  catch (e) {
+    if (e.code !== 'EEXIST') throw e;
+    const stat = await fs.lstat(dest).catch(() => null);
+    // An identical retry is safe; an existing symlink or different image is
+    // someone else's asset, even when its short hash prefix matches ours.
+    if (!stat?.isFile() || !(await fs.readFile(dest)).equals(buf)) return json(409, { error: 'An existing image uses this name. Rename your image and try again.' });
+  }
   const rel = path.relative(process.cwd(), dest).split(path.sep).join('/');
   return json(200, { ok: true, url: `/images/${named.name}`, path: rel, commit: null });
 }

@@ -1,0 +1,31 @@
+PR 28 upload preservation verification
+BEFORE commit 15cb480 (105de43^1)  AFTER merge 105de43
+Before server http://127.0.0.1:28128/  After server http://127.0.0.1:28129/
+
+== BEFORE ==
+- existing different asset: status=200 originalKept=False outsideFileKept=None wroteOutside=None statusText=
+    out={'ok': True, 'url': '/images/aa229f90-proof.png', 'path': 'plater-pr28-site-LuEeCp/images/aa229f90-proof.png', 'commit': None}
+- existing file symlink: status=200 originalKept=None outsideFileKept=False wroteOutside=None statusText=
+    out={'ok': True, 'url': '/images/aa229f90-proof.png', 'path': 'plater-pr28-site-LuEeCp/images/aa229f90-proof.png', 'commit': None}
+- outside image directory: status=200 originalKept=None outsideFileKept=None wroteOutside=True statusText=
+    out={'ok': True, 'url': '/images/aa229f90-proof.png', 'path': 'plater-pr28-site-LuEeCp/images/aa229f90-proof.png', 'commit': None}
+- whole accepted upload and identical retry: status=[200, 200] originalKept=None outsideFileKept=None wroteOutside=None statusText=
+- editor collision with different existing asset: status=None originalKept=False outsideFileKept=None wroteOutside=None statusText=“blue.png” is in place and will save automatically.
+- editor successful replace: status=None originalKept=None outsideFileKept=None wroteOutside=None statusText=“green.png” is in place and will save automatically.
+
+== AFTER ==
+- existing different asset: status=409 originalKept=True outsideFileKept=None wroteOutside=None statusText=
+    out={'error': 'An existing image uses this name. Rename your image and try again.'}
+- existing file symlink: status=409 originalKept=None outsideFileKept=True wroteOutside=None statusText=
+    out={'error': 'An existing image uses this name. Rename your image and try again.'}
+- outside image directory: status=403 originalKept=None outsideFileKept=None wroteOutside=False statusText=
+    out={'error': 'image directory is outside this site'}
+- whole accepted upload and identical retry: status=[200, 200] originalKept=None outsideFileKept=None wroteOutside=None statusText=
+- editor collision with different existing asset: status=None originalKept=True outsideFileKept=None wroteOutside=None statusText=“blue.png” could not be uploaded — nothing was changed.
+- editor successful replace: status=None originalKept=None outsideFileKept=None wroteOutside=None statusText=“green.png” is in place and will save automatically.
+
+== BROKE-IT (after) ==
+- ok data: URL prefix upload accepted
+- ok dangling dest symlink refused with 409 and left in place
+- ok concurrent identical retries both succeed and keep one copy
+- ok public URL of successful editor upload still serves original green bytes

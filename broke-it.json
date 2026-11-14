@@ -1,0 +1,50 @@
+[
+  {
+    "ok": true,
+    "what": "data: URL prefix upload accepted",
+    "status": 200,
+    "out": {
+      "ok": true,
+      "url": "/images/aa229f90-proof.png",
+      "path": "plater-pr28-site-ns4qBz/images/aa229f90-proof.png",
+      "commit": null
+    }
+  },
+  {
+    "ok": true,
+    "what": "dangling dest symlink refused with 409 and left in place",
+    "status": 409,
+    "out": {
+      "error": "An existing image uses this name. Rename your image and try again."
+    }
+  },
+  {
+    "ok": true,
+    "what": "concurrent identical retries both succeed and keep one copy",
+    "a": {
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/c1115cd0-proof.png",
+        "path": "plater-pr28-site-ns4qBz/images/c1115cd0-proof.png",
+        "commit": null
+      }
+    },
+    "c": {
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/c1115cd0-proof.png",
+        "path": "plater-pr28-site-ns4qBz/images/c1115cd0-proof.png",
+        "commit": null
+      }
+    },
+    "size": 40
+  },
+  {
+    "ok": true,
+    "what": "public URL of successful editor upload still serves original green bytes",
+    "status": 200,
+    "bytes": 510
+  }
+]

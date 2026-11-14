@@ -1,0 +1,144 @@
+{
+  "label": "after",
+  "weak": false,
+  "url": "http://127.0.0.1:28129/",
+  "siteDir": "/tmp/plater-pr28-site-ns4qBz",
+  "results": [
+    {
+      "case": "existing different asset",
+      "status": 409,
+      "out": {
+        "error": "An existing image uses this name. Rename your image and try again."
+      },
+      "originalKept": true
+    },
+    {
+      "case": "existing file symlink",
+      "status": 409,
+      "out": {
+        "error": "An existing image uses this name. Rename your image and try again."
+      },
+      "outsideFileKept": true
+    },
+    {
+      "case": "outside image directory",
+      "status": 403,
+      "out": {
+        "error": "image directory is outside this site"
+      },
+      "wroteOutside": false
+    },
+    {
+      "case": "whole accepted upload and identical retry",
+      "statuses": [
+        200,
+        200
+      ],
+      "wholeFile": true,
+      "served": 200,
+      "servedExact": true,
+      "noTmp": true
+    },
+    {
+      "case": "editor collision with different existing asset",
+      "statusText": "“blue.png” could not be uploaded — nothing was changed.",
+      "originalKept": true,
+      "destBytesChanged": false
+    },
+    {
+      "case": "editor successful replace",
+      "statusText": "“green.png” is in place and will save automatically.",
+      "greenOnDisk": true,
+      "greenName": "af28f25b-green.png"
+    }
+  ],
+  "extras": [
+    {
+      "ok": true,
+      "what": "hash-prefix collision vs different existing asset"
+    },
+    {
+      "ok": true,
+      "what": "file symlink is not followed"
+    },
+    {
+      "ok": true,
+      "what": "images dir symlink cannot escape web root"
+    },
+    {
+      "ok": true,
+      "what": "normal upload + identical retry serve exact bytes and leave no temps"
+    },
+    {
+      "ok": true,
+      "what": "empty image refused (400)"
+    },
+    {
+      "case": "empty image",
+      "status": 400,
+      "out": {
+        "error": "empty image"
+      }
+    },
+    {
+      "ok": true,
+      "what": "svg refused (400)"
+    },
+    {
+      "case": "svg",
+      "status": 400,
+      "out": {
+        "error": "unsupported file type (allowed: png, jpg, jpeg, gif, webp)"
+      }
+    },
+    {
+      "case": "traversal filename",
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/aa229f90-secret.png",
+        "path": "plater-pr28-site-ns4qBz/images/aa229f90-secret.png",
+        "commit": null
+      }
+    },
+    {
+      "ok": true,
+      "what": "path-traversal filename did not write outside images/"
+    },
+    {
+      "ok": true,
+      "what": "3 MiB image accepted (200)"
+    },
+    {
+      "case": "3 MiB image",
+      "status": 200,
+      "stored": [
+        "fadc8b76-within-image-limit.png"
+      ],
+      "sizeOk": true
+    },
+    {
+      "ok": true,
+      "what": "oversized image refused (413)"
+    },
+    {
+      "case": "oversized",
+      "status": 413,
+      "out": {
+        "error": "image too large (4 MB max)"
+      }
+    },
+    {
+      "ok": true,
+      "what": "editor collision kept original bytes (after should keep)"
+    },
+    {
+      "ok": true,
+      "what": "editor successful replace (“green.png” is in place and will save automatically.)"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 409 (Conflict)"
+  ],
+  "failedRequests": []
+}

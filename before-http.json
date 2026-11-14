@@ -1,0 +1,151 @@
+{
+  "label": "before",
+  "weak": true,
+  "url": "http://127.0.0.1:28128/",
+  "siteDir": "/tmp/plater-pr28-site-LuEeCp",
+  "results": [
+    {
+      "case": "existing different asset",
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/aa229f90-proof.png",
+        "path": "plater-pr28-site-LuEeCp/images/aa229f90-proof.png",
+        "commit": null
+      },
+      "originalKept": false
+    },
+    {
+      "case": "existing file symlink",
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/aa229f90-proof.png",
+        "path": "plater-pr28-site-LuEeCp/images/aa229f90-proof.png",
+        "commit": null
+      },
+      "outsideFileKept": false
+    },
+    {
+      "case": "outside image directory",
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/aa229f90-proof.png",
+        "path": "plater-pr28-site-LuEeCp/images/aa229f90-proof.png",
+        "commit": null
+      },
+      "wroteOutside": true
+    },
+    {
+      "case": "whole accepted upload and identical retry",
+      "statuses": [
+        200,
+        200
+      ],
+      "wholeFile": true,
+      "served": 200,
+      "servedExact": true,
+      "noTmp": true
+    },
+    {
+      "case": "editor collision with different existing asset",
+      "statusText": "“blue.png” is in place and will save automatically.",
+      "originalKept": false,
+      "destBytesChanged": true
+    },
+    {
+      "case": "editor successful replace",
+      "statusText": "“green.png” is in place and will save automatically.",
+      "greenOnDisk": true,
+      "greenName": "af28f25b-green.png"
+    }
+  ],
+  "extras": [
+    {
+      "ok": true,
+      "what": "hash-prefix collision vs different existing asset"
+    },
+    {
+      "ok": true,
+      "what": "file symlink is not followed"
+    },
+    {
+      "ok": true,
+      "what": "images dir symlink cannot escape web root"
+    },
+    {
+      "ok": true,
+      "what": "normal upload + identical retry serve exact bytes and leave no temps"
+    },
+    {
+      "ok": true,
+      "what": "empty image refused (400)"
+    },
+    {
+      "case": "empty image",
+      "status": 400,
+      "out": {
+        "error": "empty image"
+      }
+    },
+    {
+      "ok": true,
+      "what": "svg refused (400)"
+    },
+    {
+      "case": "svg",
+      "status": 400,
+      "out": {
+        "error": "unsupported file type (allowed: png, jpg, jpeg, gif, webp)"
+      }
+    },
+    {
+      "case": "traversal filename",
+      "status": 200,
+      "out": {
+        "ok": true,
+        "url": "/images/aa229f90-secret.png",
+        "path": "plater-pr28-site-LuEeCp/images/aa229f90-secret.png",
+        "commit": null
+      }
+    },
+    {
+      "ok": true,
+      "what": "path-traversal filename did not write outside images/"
+    },
+    {
+      "ok": true,
+      "what": "3 MiB image accepted (200)"
+    },
+    {
+      "case": "3 MiB image",
+      "status": 200,
+      "stored": [
+        "fadc8b76-within-image-limit.png"
+      ],
+      "sizeOk": true
+    },
+    {
+      "ok": true,
+      "what": "oversized image refused (413)"
+    },
+    {
+      "case": "oversized",
+      "status": 413,
+      "out": {
+        "error": "image too large (4 MB max)"
+      }
+    },
+    {
+      "ok": true,
+      "what": "editor collision kept original bytes (before should overwrite)"
+    },
+    {
+      "ok": true,
+      "what": "editor successful replace (“green.png” is in place and will save automatically.)"
+    }
+  ],
+  "consoleErrors": [],
+  "failedRequests": []
+}

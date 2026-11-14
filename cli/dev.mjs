@@ -28,6 +28,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { writeLocalContent } from './local-write.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -283,7 +284,7 @@ async function handleHistory(req, res, url, { siteDir, contentPath }) {
   // down and the only fix would be another restore.
   try { JSON.parse(stdout); } catch { return json(422, { error: `content at ${restore.slice(0, 7)} is not valid JSON` }); }
   await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.writeFile(target, stdout);
+  await writeLocalContent(target, stdout);
   // commit: null — dev never commits. The restore is on disk like every other
   // dev save, so `git diff` shows it and you commit when happy.
   return json(200, { ok: true, commit: null, ...(track ? { track } : {}) });
@@ -384,8 +385,8 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
       // The real handler, so ?track= overlays AND ?file= alternate content
       // files behave (and reject traversal) exactly as they do in production.
       if (p === '/api/content') { const [rq, rs] = shim(req, res, url); return content.default(rq, rs); }
-      if (p === '/api/history' && (req.method === 'GET' || req.method === 'POST')) return handleHistory(req, res, url, ctx);
-      if (p === '/api/upload' && req.method === 'POST') return handleUpload(req, res, ctx, upload.safeName);
+      if (p === '/api/history' && (req.method === 'GET' || req.method === 'POST')) return await handleHistory(req, res, url, ctx);
+      if (p === '/api/upload' && req.method === 'POST') return await handleUpload(req, res, ctx, upload.safeName);
       if (p === '/api/save' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req) || '{}');
         if (!body || !body.content || typeof body.content !== 'object' || Array.isArray(body.content)) { res.writeHead(400); return res.end('{"error":"expected { content: {...} }"}'); }
@@ -395,7 +396,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
             const base = JSON.parse(await fs.readFile(contentPath, 'utf8').catch(() => '{}'));
             const next = { ...base, ...body.content, updatedAt: new Date().toISOString(), updatedBy: 'dev', promotedFrom: body.promote };
             delete next._track_note;
-            await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
+            await writeLocalContent(contentPath, JSON.stringify(next, null, 2) + '\n');
             res.writeHead(200, { 'content-type': 'application/json' });
             return res.end(JSON.stringify({ ok: true, promoted: body.promote, git: { committed: false, dev: 'live content replaced on disk' } }));
           }
@@ -406,7 +407,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
             const merged = body.base ? handlers.save.mergeContent(body.base, body.content, current, { allowMissing: true }) : { content: body.content };
             if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: handlers.save.mergeContent(body.base, body.base, current, { allowMissing: true }).content })); }
             const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
-            await fs.writeFile(overlayPath, JSON.stringify(next, null, 2) + '\n');
+            await writeLocalContent(overlayPath, JSON.stringify(next, null, 2) + '\n');
             res.writeHead(200, { 'content-type': 'application/json' });
             return res.end(JSON.stringify({ ok: true, saved: true, content: next, track: body.track, git: { committed: false, dev: 'wrote draft overlay on disk' } }));
           }
@@ -414,7 +415,7 @@ export function createDevServer({ siteDir, webRoot, contentPath, handlers, live 
           const merged = body.base ? handlers.save.mergeContent(body.base, body.content, base) : { content: { ...base, ...body.content } };
           if (merged.conflict) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'conflict', content: base })); }
           const next = { ...merged.content, updatedAt: new Date().toISOString(), updatedBy: 'dev' };
-          await fs.writeFile(contentPath, JSON.stringify(next, null, 2) + '\n');
+          await writeLocalContent(contentPath, JSON.stringify(next, null, 2) + '\n');
           res.writeHead(200, { 'content-type': 'application/json' });
           return res.end(JSON.stringify({ ok: true, saved: true, content: next, git: { committed: false, dev: 'wrote local file — commit when happy' } }));
         };

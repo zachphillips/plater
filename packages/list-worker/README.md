@@ -65,6 +65,26 @@ Per-site `SINKS` are optional extra forwarding after capture. They are not one
 of the two primary copies or the journal, and failures do not change the
 capture response.
 
+## Incremental export
+
+`GET /export?site=<key>&since=<cursor>` returns up to 500 current subscriber
+rows and an opaque `cursor`. Send that cursor unchanged on the next pull.
+The cursor follows database write order, including repaired old submissions,
+later inquiries from existing addresses and unsubscribe changes. Submission
+dates remain the original dates; equal timestamps cannot skip a page.
+
+The additive `subscriber_export` table keeps one current position per address.
+Capture/repair moves it atomically with the subscriber write; unsubscribe does
+the same. Existing rows are backfilled when the table is first needed. The
+first request with an old ISO timestamp cursor starts a one-time replay from
+the beginning, returning a `v2:` cursor. Consumers must accept repeats. The
+included Elsewhere bridge already passes cursors unchanged and handles a
+duplicate address as synced. It imports addresses/tags only, not inquiry text
+or unsubscribe changes into the vault.
+
+This export describes the latest subscriber state, not a history of every
+individual submission. The complete accumulated inquiry stays in the note.
+
 ## Local proof
 
 The verification adapter imports the production Worker and wraps only the

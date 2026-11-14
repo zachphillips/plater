@@ -91,6 +91,18 @@ const NOTES_MIGRATION = `CREATE TABLE IF NOT EXISTS submission_notes (
   PRIMARY KEY (site, email, note_hash)
 )`;
 
+// One current export position per subscriber. AUTOINCREMENT never reuses a
+// drained position, including after a row is replaced. Capture/repair and
+// unsubscribe move this position in the same transaction as the list write.
+// Original submission timestamps remain untouched and cannot skip late repair.
+const EXPORT_MIGRATION = `CREATE TABLE IF NOT EXISTS subscriber_export (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  site TEXT NOT NULL, email TEXT NOT NULL,
+  UNIQUE (site, email)
+)`;
+const EXPORT_BACKFILL = `INSERT OR IGNORE INTO subscriber_export (site, email)
+  SELECT site, email FROM subscribers ORDER BY created_at, email`;
+
 // A repeat sign-up keeps the original row and date. A new message from the
 // same address is appended, dated, so a second inquiry is never dropped; the
 // same message sent twice is not appended again.
@@ -211,7 +223,7 @@ const isAdmin = (req, env) => {
 async function withTable(env, fn) {
   try { return await fn(); } catch (e) {
     if (!/no such table/i.test(errText(e))) throw e;
-    await env.DB.batch([env.DB.prepare(MIGRATION), env.DB.prepare(NOTES_MIGRATION)]);
+    await env.DB.batch([env.DB.prepare(MIGRATION), env.DB.prepare(NOTES_MIGRATION), env.DB.prepare(EXPORT_MIGRATION), env.DB.prepare(EXPORT_BACKFILL)]);
     return fn();
   }
 }
@@ -222,6 +234,7 @@ async function saveToDb(env, sub) {
   const result = await withTable(env, () => env.DB.batch([
     env.DB.prepare(UPSERT).bind(sub.site, sub.email, sub.note, sub.created_at, hash),
     env.DB.prepare('INSERT OR IGNORE INTO submission_notes (site, email, note_hash) VALUES (?1, ?2, ?3)').bind(sub.site, sub.email, hash),
+    env.DB.prepare('INSERT OR REPLACE INTO subscriber_export (site, email) VALUES (?1, ?2)').bind(sub.site, sub.email),
   ]));
   const row = result[0].results[0];
   return { fresh: !row || row.created_at === sub.created_at };
@@ -335,24 +348,36 @@ async function handle(req, env, ctx, sites, cors) {
     if (read.error) return json({ error: read.error }, read.status, cors);
     const { site, email } = read.sub;
     if (wrongOrigin(req, sites, site)) return json({ error: 'this form is not allowed for that site' }, 403, cors);
-    await env.DB.prepare(
-      'UPDATE subscribers SET unsubscribed_at = ?3 WHERE site = ?1 AND email = ?2',
-    ).bind(site, email, new Date().toISOString()).run();
+    await withTable(env, () => env.DB.batch([
+      env.DB.prepare('UPDATE subscribers SET unsubscribed_at = ?3 WHERE site = ?1 AND email = ?2').bind(site, email, new Date().toISOString()),
+      env.DB.prepare('INSERT OR REPLACE INTO subscriber_export (site, email) SELECT site, email FROM subscribers WHERE site = ?1 AND email = ?2').bind(site, email),
+    ]));
     return json({ ok: true }, 200, cors);
   }
 
   // Incremental drain for PULL consumers (e.g. the Elsewhere vault bridge):
-  // rows strictly after `since` (ISO), oldest first, plus the next cursor.
+  // `since` is an opaque durable write position, independent of sent dates.
+  // Legacy ISO cursors restart once from zero: replay is safer than silently
+  // abandoning already skipped rows. The existing bridge passes it unchanged.
   if (url.pathname === '/export' && req.method === 'GET') {
     if (!isAdmin(req, env)) return json({ error: 'unauthorized' }, 401, cors);
     const site = String(url.searchParams.get('site') || '').trim();
     if (!sites[site]) return json({ error: 'unknown site' }, 400, cors);
-    const since = String(url.searchParams.get('since') || '1970-01-01T00:00:00Z');
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM subscribers WHERE site = ?1 AND created_at > ?2 ORDER BY created_at ASC LIMIT 500',
-    ).bind(site, since).all();
-    const cursor = results.length ? results[results.length - 1].created_at : since;
-    return json({ rows: results, cursor }, 200, cors);
+    const since = String(url.searchParams.get('since') || '');
+    let seq = 0;
+    if (/^v2:\d+$/.test(since)) seq = Number(since.slice(3));
+    else if (since && !(/^\d{4}-\d{2}-\d{2}T/.test(since) && Number.isFinite(Date.parse(since)))) {
+      return json({ error: 'invalid export cursor; use the cursor returned by /export' }, 400, cors);
+    }
+    if (!Number.isSafeInteger(seq)) return json({ error: 'invalid export cursor' }, 400, cors);
+    const { results } = await withTable(env, () => env.DB.prepare(
+      `SELECT s.*, e.seq AS export_seq FROM subscriber_export e
+       JOIN subscribers s ON s.site = e.site AND s.email = e.email
+       WHERE e.site = ?1 AND e.seq > ?2 ORDER BY e.seq ASC LIMIT 500`,
+    ).bind(site, seq).all());
+    const cursor = `v2:${results.length ? results[results.length - 1].export_seq : seq}`;
+    const rows = results.map(({ export_seq, ...row }) => row);
+    return json({ rows, cursor }, 200, cors);
   }
 
   if (url.pathname === '/list' && req.method === 'GET') {

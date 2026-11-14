@@ -1,0 +1,7 @@
+{
+  "note": "symlink from content/versions/safe/machine.md to /tmp/really-private-outside-site.txt, a file outside the site directory",
+  "apiVersions": { "url": "/api/versions?track=safe&page=/machine/", "status": 404, "body": "{\"error\":\"no safe draft for /machine/\"}" },
+  "staticMd": { "url": "/content/versions/safe/machine.md", "status": 404, "body": "" },
+  "staticJson": { "url": "/content/versions/safe/machine.json", "status": 404 },
+  "apiFile": { "url": "/api/content?file=versions/safe/machine.json", "status": 400, "body": "{\"error\":\"bad file\"}" }
+}

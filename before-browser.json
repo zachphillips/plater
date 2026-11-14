@@ -1,0 +1,59 @@
+{
+  "label": "before",
+  "benchUrl": "http://127.0.0.1:28124/",
+  "visits": [
+    {
+      "claim": "draft overlay via outside track",
+      "route": "api/content?track=outside",
+      "status": 200,
+      "privateFixtureExposed": true,
+      "screenshot": "01-before-draft-overlay-via-outside-track-1440.png",
+      "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Edit this page in the browser.\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"na"
+    },
+    {
+      "claim": "alternate file via leaked json symlink",
+      "route": "api/content?file=versions/safe/leaked.json",
+      "status": 400,
+      "privateFixtureExposed": false,
+      "screenshot": "02-before-alternate-file-via-leaked-json-symlink-1440.png",
+      "bodyPreview": "{\"error\":\"bad file\"}"
+    },
+    {
+      "claim": "draft document via outside track",
+      "route": "api/versions?track=outside&page=/",
+      "status": 200,
+      "privateFixtureExposed": true,
+      "screenshot": "03-before-draft-document-via-outside-track-1440.png",
+      "bodyPreview": "{\"track\":\"outside\",\"slug\":\"index\",\"page\":\"/\",\"body\":\"synthetic-private-draft-sentinel\"}"
+    },
+    {
+      "claim": "draft document via leaked md symlink",
+      "route": "api/versions?track=safe&page=/leaked/",
+      "status": 200,
+      "privateFixtureExposed": true,
+      "screenshot": "04-before-draft-document-via-leaked-md-symlink-1440.png",
+      "bodyPreview": "{\"track\":\"safe\",\"slug\":\"leaked\",\"page\":\"/leaked/\",\"body\":\"synthetic-private-draft-sentinel\"}"
+    },
+    {
+      "claim": "legitimate draft overlay",
+      "route": "api/content?track=safe",
+      "status": 200,
+      "privateFixtureExposed": false,
+      "screenshot": "05-before-legitimate-draft-overlay-1440.png",
+      "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"A safe draft inside content\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser editor\"},{\"name\":\"@platercms/server-node\",\"desc\":\"the server handlers that save as git commits\"},{\"name\""
+    },
+    {
+      "claim": "legitimate draft document",
+      "route": "api/versions?track=safe&page=/",
+      "status": 200,
+      "privateFixtureExposed": false,
+      "screenshot": "06-before-legitimate-draft-document-1440.png",
+      "bodyPreview": "{\"track\":\"safe\",\"slug\":\"index\",\"page\":\"/\",\"body\":\"A safe draft document inside content\"}"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ],
+  "pageErrors": [],
+  "failedRequests": []
+}

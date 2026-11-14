@@ -1,0 +1,29 @@
+PR 24 verification — Keep draft readers from following links into private files
+BEFORE: 1a4a66ad455c79d077bf40e1d11fcd753ab67b07  (ddd7cc5^1)
+AFTER:  ddd7cc59d934d3c69f5e79d31d9b3fd6e4362a28  (merge of #24)
+Head named in the request: 96bdf18d17f5b4719b0a3880b38b876131956ba8
+Benches: http://127.0.0.1:28124/ (before) and http://127.0.0.1:28125/ (after)
+No GitHub/Google credentials. PLATER_LIVE=0. Synthetic sentinel only.
+
+Claim 1 — A versions/<track> directory that is a symlink outside content used to
+return the private file; after the change it returns 404 without the private bytes.
+  BEFORE GET /api/content?track=outside          → 200, privateFixtureExposed=true
+  AFTER  GET /api/content?track=outside          → 404, privateFixtureExposed=false
+  BEFORE GET /api/versions?track=outside&page=/  → 200 body includes sentinel
+  AFTER  GET /api/versions?track=outside&page=/  → 404, no sentinel
+
+Claim 2 — A draft Markdown symlink outside content used to return the private file;
+after the change it returns 404.
+  BEFORE GET /api/versions?track=safe&page=/leaked/ → 200 body includes sentinel
+  AFTER  GET /api/versions?track=safe&page=/leaked/ → 404, no sentinel
+
+Claim 3 — Ordinary alternate-content reads already blocked that escape and still do.
+  BEFORE and AFTER GET /api/content?file=versions/safe/leaked.json → 400 {"error":"bad file"}
+  No private bytes.
+
+Claim 4 — Legitimate in-bounds draft overlay and draft document reads still return 200.
+  AFTER GET /api/content?track=safe             → 200 headline "A safe draft inside content"
+  AFTER GET /api/versions?track=safe&page=/     → 200 body "A safe draft document inside content"
+
+All four claims were driven in Chromium 1440x900 against the real production server
+(plater serve / startBench), with no editor token required for these GET reads.

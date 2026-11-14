@@ -1,0 +1,149 @@
+[
+  {
+    "group": "escape",
+    "route": "api/content?track=outside",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Edit this page in the browser.\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser e"
+  },
+  {
+    "group": "escape",
+    "route": "api/content?file=versions/safe/leaked.json",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad file\"}"
+  },
+  {
+    "group": "escape",
+    "route": "api/versions?track=outside&page=/",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"track\":\"outside\",\"slug\":\"index\",\"page\":\"/\",\"body\":\"synthetic-private-draft-sentinel\"}"
+  },
+  {
+    "group": "escape",
+    "route": "api/versions?track=safe&page=/leaked/",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"track\":\"safe\",\"slug\":\"leaked\",\"page\":\"/leaked/\",\"body\":\"synthetic-private-draft-sentinel\"}"
+  },
+  {
+    "group": "safe",
+    "route": "api/content?track=safe",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"A safe draft inside content\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser edit"
+  },
+  {
+    "group": "safe",
+    "route": "api/versions?track=safe&page=/",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"track\":\"safe\",\"slug\":\"index\",\"page\":\"/\",\"body\":\"A safe draft document inside content\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/versions",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"site\":\"bench-site\",\"tracks\":{\"safe\":[\"index\",\"leaked\"]}}"
+  },
+  {
+    "group": "break",
+    "route": "api/versions?track=safe",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"track\":\"safe\",\"pages\":[{\"track\":\"safe\",\"slug\":\"index\",\"page\":\"/\"},{\"track\":\"safe\",\"slug\":\"leaked\",\"page\":\"/leaked/\"}]}"
+  },
+  {
+    "group": "break",
+    "route": "api/versions?track=outside",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"track\":\"outside\",\"pages\":[]}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?track=alias",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"A safe draft inside content\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser edit"
+  },
+  {
+    "group": "break",
+    "route": "api/versions?track=alias&page=/",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"track\":\"alias\",\"slug\":\"index\",\"page\":\"/\",\"body\":\"A safe draft document inside content\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?track=",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\n  \"meta\": {\n    \"title\": \"Plater Demo\"\n  },\n  \"hero\": {\n    \"headline\": \"Edit this page in the browser.\",\n    \"subhead\": \"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"\n  },\n  \"features\": [\n    \"Inline contenteditable copy editing\",\n    \"Google SSO or shared edit-token auth\",\n    \"Durable save via a GitHub commit\"\n  ],\n  \"t"
+  },
+  {
+    "group": "break",
+    "route": "api/content?track=..",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad track name\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?track=../private-fixture",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad track name\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?file=../../private-fixture/site.json",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad file\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?file=/etc/passwd",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad file\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?file=versions/safe/leaked.json",
+    "status": 400,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"bad file\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/versions?track=safe&page=/missing/",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no safe draft for /missing/\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/versions?track=nosuch&page=/",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no nosuch draft for /\"}"
+  },
+  {
+    "group": "break",
+    "route": "api/content?track=outside&file=site.json",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Edit this page in the browser.\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@platercms/core\",\"desc\":\"the in-browser e"
+  },
+  {
+    "group": "break",
+    "route": "api/content",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\n  \"meta\": {\n    \"title\": \"Plater Demo\"\n  },\n  \"hero\": {\n    \"headline\": \"Edit this page in the browser.\",\n    \"subhead\": \"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"\n  },\n  \"features\": [\n    \"Inline contenteditable copy editing\",\n    \"Google SSO or shared edit-token auth\",\n    \"Durable save via a GitHub commit\"\n  ],\n  \"t"
+  }
+]

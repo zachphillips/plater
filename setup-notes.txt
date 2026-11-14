@@ -1,0 +1,14 @@
+Playwright: cd /tmp/tools && npm i --no-save playwright@1.64.1 && npx playwright install chromium
+Worktrees:
+  /tmp/plater-pr24-before @ 1a4a66ad455c79d077bf40e1d11fcd753ab67b07
+  /tmp/plater-pr24-after  @ ddd7cc59d934d3c69f5e79d31d9b3fd6e4362a28
+unset GITHUB_TOKEN CMS_GITHUB_TOKEN CMS_ADMIN_EMAIL GOOGLE_CLIENT_ID CMS_DEPLOY_HOOK GITHUB_EDIT_PATH PLATER_AGENT_ENDPOINT ZMS_AGENT_ENDPOINT CMS_EDIT_TOKEN GITHUB_REPOSITORY
+export PLATER_LIVE=0
+PORT=28124 node /tmp/verify-pr24/start-bench.mjs /tmp/plater-pr24-before   # → http://127.0.0.1:28124/
+PORT=28125 node /tmp/verify-pr24/start-bench.mjs /tmp/plater-pr24-after    # → http://127.0.0.1:28125/
+node /tmp/verify-pr24/probe.mjs http://127.0.0.1:28124/
+node /tmp/verify-pr24/probe.mjs http://127.0.0.1:28125/
+DRAFT_READ_BENCH_FILE=/tmp/verify-pr24/before.json SHOTS=/opt/cursor/artifacts node /tmp/verify-pr24/drive.mjs before
+DRAFT_READ_BENCH_FILE=/tmp/verify-pr24/after.json  SHOTS=/opt/cursor/artifacts node /tmp/verify-pr24/drive.mjs after
+node /tmp/verify-pr24/break.mjs http://127.0.0.1:28125/
+cd /tmp/plater-pr24-after && npm test   # 144 pass, 0 fail

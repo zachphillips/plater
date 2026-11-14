@@ -1,0 +1,26 @@
+Extra cases on AFTER (http://127.0.0.1:28125/), synthetic data only.
+
+Still blocked, no private bytes:
+- Repeating the leak URLs twice still 404
+- Percent-encoded track=outside still 404
+- track=OUTSIDE still 404 (no overlay)
+- page=/leaked without trailing slash, /leaked/index, encoded /leaked/ all 404
+- POST /api/content?track=outside → 405
+- ?file=../../private-fixture/site.json and ?file=/etc/passwd → 400
+- A symlink from versions/safe/machine.md to /tmp/really-private-outside-site.txt
+  (a file actually outside the site dir) → API 404, static 404, ?file= 400
+
+Still readable:
+- In-bounds track directory symlink versions/alias → versions/safe
+  GET /api/content?track=alias and /api/versions?track=alias&page=/ both 200
+  with the safe draft (not the sentinel)
+- Repeating the legitimate overlay read still 200
+
+Notes, not leaks of private bytes:
+- GET /api/versions still lists slug "leaked" under track "safe" because that
+  is the filename of the symlink inside content/. Opening it 404s. BEFORE also
+  listed it and, unlike AFTER, included it in GET /api/versions?track=safe pages.
+- Static GETs of content/versions/outside/* and private-fixture/* return the
+  sentinel only because those files were placed inside the public web root of
+  the bench site. A symlink whose real path leaves the web root is 404, matching
+  the author's claim that static serving already blocked that escape.

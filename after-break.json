@@ -1,0 +1,135 @@
+[
+  {
+    "route": "api/content?track=outside",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"track \\\"outside\\\" has no site.json overlay\"}"
+  },
+  {
+    "route": "api/content?track=outside",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"track \\\"outside\\\" has no site.json overlay\"}"
+  },
+  {
+    "route": "api/versions?track=outside&page=/",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no outside draft for /\"}"
+  },
+  {
+    "route": "api/versions?track=outside&page=/",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no outside draft for /\"}"
+  },
+  {
+    "route": "api/content?track=%6f%75%74%73%69%64%65",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"track \\\"outside\\\" has no site.json overlay\"}"
+  },
+  {
+    "route": "api/content?track=OUTSIDE",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"track \\\"OUTSIDE\\\" has no site.json overlay\"}"
+  },
+  {
+    "route": "api/versions?track=safe&page=%2Fleaked%2F",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no safe draft for /leaked/\"}"
+  },
+  {
+    "route": "api/versions?track=safe&page=/leaked",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no safe draft for /leaked\"}"
+  },
+  {
+    "route": "api/versions?track=safe&page=/leaked/index",
+    "method": "GET",
+    "status": 404,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"no safe draft for /leaked/index\"}"
+  },
+  {
+    "route": "content/versions/outside/site.json",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"private\":\"synthetic-private-draft-sentinel\"}"
+  },
+  {
+    "route": "content/versions/outside/index.md",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "synthetic-private-draft-sentinel"
+  },
+  {
+    "route": "content/versions/safe/leaked.json",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"private\":\"synthetic-private-draft-sentinel\"}"
+  },
+  {
+    "route": "content/versions/safe/leaked.md",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "synthetic-private-draft-sentinel"
+  },
+  {
+    "route": "private-fixture/site.json",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": true,
+    "bodyPreview": "{\"private\":\"synthetic-private-draft-sentinel\"}"
+  },
+  {
+    "route": "api/content?track=outside",
+    "method": "POST",
+    "status": 405,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"error\":\"method not allowed\"}"
+  },
+  {
+    "route": "api/versions?track=outside&page=/",
+    "method": "HEAD",
+    "status": 405,
+    "privateFixtureExposed": false,
+    "bodyPreview": ""
+  },
+  {
+    "route": "api/content?track=safe",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"A safe draft inside content\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or sh"
+  },
+  {
+    "route": "api/content?track=safe",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"A safe draft inside content\",\"subhead\":\"No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or sh"
+  },
+  {
+    "route": "api/versions?track=alias",
+    "method": "GET",
+    "status": 200,
+    "privateFixtureExposed": false,
+    "bodyPreview": "{\"track\":\"alias\",\"pages\":[]}"
+  }
+]

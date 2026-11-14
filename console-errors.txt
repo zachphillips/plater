@@ -1,0 +1,13 @@
+before-browser.json consoleErrors:
+- "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  (visiting /api/content?file=versions/safe/leaked.json, which is refused)
+
+after-browser.json consoleErrors:
+- 404 for the three out-of-bounds draft URLs
+- 400 for the already-guarded alternate-file URL
+
+pageErrors: none on either run
+failedRequests: none on either run
+
+These are Chromium logging the HTTP status of the JSON responses themselves,
+not JavaScript exceptions in the site.

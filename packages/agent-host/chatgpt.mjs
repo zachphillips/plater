@@ -13,17 +13,28 @@
 //           usage was granted. Never prints a token.
 //   logout  Revokes the refresh token with OpenAI, then clears tokens locally.
 //           The client id and host id are kept so the next login reuses them.
+//   move-to <ssh-host>
+//           Moves this sign-in to an always-on machine of the owner's, the way
+//           OpenAI's self-hosted guide describes
+//           (developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms):
+//           the full credential set goes over SSH, the target keeps its OWN host
+//           id, and from then on only the target refreshes. This machine keeps
+//           the client id and account mapping but drops its tokens. There is no
+//           revocation, because the target is now using the same grant.
+//   import  The receiving end of move-to (reads the record on stdin).
 //
 // The engine also needs PLATER_CHATGPT_PLAN=1 on the agent host and
-// "planUsage": true on the site in sites.json. Credentials stay on this machine:
-// there is deliberately no export/import, and they are never shared with
-// another person.
+// "planUsage": true on the site in sites.json. Credentials are never shared with
+// another person, and they only ever live on one machine at a time: move-to
+// hands them to another of the owner's machines and drops them here.
 import http from 'node:http';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   AUTH_BASE, CALLBACK_PATH, authorizeUrl, buildRecord, exchangeCode, hasPlanGrant, hostId,
-  loadRecord, pkce, planDir, randomState, readCallback, saveRecord, verifyIdToken,
+  loadRecord, pkce, planDir, randomState, readCallback, saveRecord, verifyIdToken, settingsFile,
 } from './chatgpt-plan.mjs';
+import fs from 'node:fs';
 
 const page = (msg) => `<!doctype html><meta charset="utf-8"><title>Plater</title><body style="font:16px system-ui;margin:3rem">${msg}</body>`;
 
@@ -85,6 +96,7 @@ export function status({ dir = planDir(), env = process.env } = {}) {
     email: r?.email || null,
     planGranted: hasPlanGrant(r),
     expiresAt: r?.expires_at ? new Date(r.expires_at).toISOString() : null,
+    ...(r?.moved_to ? { movedTo: r.moved_to, movedAt: r.moved_at } : {}),
   };
 }
 
@@ -106,6 +118,45 @@ export async function logout({ dir = planDir(), authBase = AUTH_BASE, fetch: fet
   return { revoked, cleared: true, detail };
 }
 
+// The receiving end. Keeps (or creates) THIS machine's host id, refuses to
+// overwrite a different account's live sign-in, and never prints a token.
+export function importRecord(payload, { dir = planDir(), from = null } = {}) {
+  const incoming = payload && payload.record;
+  if (!hasPlanGrant(incoming)) throw new Error('nothing to import: the record has no plan grant');
+  const current = loadRecord(dir);
+  if (current && current.access_token && current.client_id !== incoming.client_id) {
+    throw new Error('this machine is already signed in with a different registration; sign it out first');
+  }
+  const host = hostId(dir, { create: true });
+  const record = { ...incoming, ext_agent_host_id: host, imported_at: new Date().toISOString(), ...(from ? { imported_from: from } : {}) };
+  saveRecord(dir, record);
+  if (payload.settings && !fs.existsSync(settingsFile(dir))) {
+    fs.writeFileSync(settingsFile(dir), JSON.stringify(payload.settings, null, 2) + '\n', { mode: 0o600 });
+  }
+  return { ok: true, hostId: host, email: record.email || null, planGranted: hasPlanGrant(record) };
+}
+
+// The sending end. Only after the target confirms does this machine drop its tokens.
+export async function moveTo(sshHost, { dir = planDir(), remoteRepo = '~/Dev/plater', ssh = 'ssh', from = null } = {}) {
+  if (!/^[A-Za-z0-9._@-]+$/.test(String(sshHost || ''))) throw new Error('usage: move-to <ssh-host>');
+  const record = loadRecord(dir);
+  if (!hasPlanGrant(record)) throw new Error('this machine has no plan sign-in to move');
+  let settings = null; try { settings = JSON.parse(fs.readFileSync(settingsFile(dir), 'utf8')); } catch {}
+  const payload = JSON.stringify({ record, settings });
+  const out = await new Promise((resolve, reject) => {
+    const child = execFile(ssh, ['-o', 'BatchMode=yes', sshHost, `node ${remoteRepo}/packages/agent-host/chatgpt.mjs import ${from || ''}`.trim()],
+      { timeout: 60_000, maxBuffer: 1_000_000 }, (err, stdout, stderr) => {
+        if (err) return reject(new Error(`import on ${sshHost} failed: ${String(stderr || err.message).trim().slice(-300)}`));
+        try { resolve(JSON.parse(String(stdout).trim().split('\n').pop())); } catch { reject(new Error(`import on ${sshHost} gave no result`)); }
+      });
+    child.stdin.end(payload);
+  });
+  if (!out.ok || !out.planGranted) throw new Error(`import on ${sshHost} did not confirm the plan grant`);
+  saveRecord(dir, { client_id: record.client_id, ext_agent_host_id: record.ext_agent_host_id, email: record.email, sub: record.sub,
+    issuer: record.issuer, moved_to: sshHost, moved_at: new Date().toISOString() });
+  return { moved: true, to: sshHost, remoteHostId: out.hostId, email: out.email };
+}
+
 async function main() {
   const cmd = process.argv[2];
   if (cmd === 'login') {
@@ -120,8 +171,14 @@ async function main() {
     console.log(out.revoked ? 'Signed out; OpenAI confirmed the revocation.'
       : out.cleared ? `Signed out locally, but OpenAI did not confirm the revocation (${out.detail}). Disconnect Plater in ChatGPT settings to be sure.`
         : out.detail);
+  } else if (cmd === 'move-to') {
+    const out = await moveTo(process.argv[3], { from: (await import('node:os')).hostname() });
+    console.log(`Moved the ChatGPT plan sign-in for ${out.email || 'this account'} to ${out.to}. Only ${out.to} refreshes it now; this machine dropped its tokens.`);
+  } else if (cmd === 'import') {
+    let input = ''; for await (const c of process.stdin) input += c;
+    console.log(JSON.stringify(importRecord(JSON.parse(input), { from: process.argv[3] || null })));
   } else {
-    console.log('usage: node packages/agent-host/chatgpt.mjs <login|status|logout>');
+    console.log('usage: node packages/agent-host/chatgpt.mjs <login|status|logout|move-to <ssh-host>>');
     process.exit(1);
   }
 }

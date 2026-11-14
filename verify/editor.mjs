@@ -103,6 +103,26 @@ try {
   await page.locator('h1', { hasText: headline }).waitFor({ timeout: 10_000 }).catch(() => {});
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'reader-after-save.png') });
   check((await page.locator('h1').textContent()) === headline, 'reader: a fresh page load shows the saved headline');
+
+  // Keep the promotion load race in the real browser CI journey too.
+  const { journey: promotionLoad } = await import('./promotion-load-proof.mjs');
+  const promotionPage = await browser.newPage({ viewport: { width: 1210, height: 834 } });
+  const configFile = path.join(bench.siteDir, '.promotion-proof.json');
+  fs.writeFileSync(configFile, JSON.stringify({ url: bench.url, siteDir: bench.siteDir,
+    contentPath: bench.contentPath, editToken: bench.editToken }));
+  process.env.PROMOTION_BENCH_FILE = configFile;
+  const proofExpect = Object.assign((ok, message) => { if (!ok) throw new Error(message); }, {
+    text: async (selector, text) => {
+      const actual = await promotionPage.locator(selector).textContent();
+      if (actual !== text) throw new Error(`${selector}: expected ${text}, got ${actual}`);
+    },
+  });
+  await promotionLoad({ page: promotionPage, expect: proofExpect, note: () => {},
+    step: async (name) => {
+      if (SHOTS) await promotionPage.screenshot({ path: path.join(SHOTS, `promotion-${name.replace(/\W+/g, '-')}.png`) });
+    },
+  });
+  check(true, 'promotion: a live change during draft loading is refused and the newer commit is preserved');
 } catch (e) {
   check(false, 'drive finished without throwing', e.stack || e);
 } finally {

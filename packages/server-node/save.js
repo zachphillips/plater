@@ -52,6 +52,13 @@ function stableJson(value) {
   return JSON.stringify(value, null, 2) + '\n';
 }
 
+// Promotion replaces a snapshot, so every live field must still match what
+// the editor saw when opening the draft. Missing baselines fail closed.
+export function canPromote(current, expected) {
+  return expected !== null && typeof expected === 'object' && !Array.isArray(expected) &&
+    JSON.stringify(current) === JSON.stringify(expected);
+}
+
 // Apply only the fields changed since the editor's loaded snapshot. GitHub
 // can be ahead of the deployed disk and another editor can change a sibling
 // field without racing this PUT. Arrays remain atomic. If both editors changed
@@ -221,10 +228,11 @@ export default async function handler(req, res) {
   // live copy is one `git revert` away like every save.
   if (typeof payload.promote === 'string') {
     if (!TRACK_RE.test(payload.promote)) return res.status(400).json({ error: 'bad track name' });
-    if (!payload.content || typeof payload.content !== 'object') return res.status(400).json({ error: 'promote needs the rendered draft content' });
+    if (!payload.content || typeof payload.content !== 'object' || Array.isArray(payload.content)) return res.status(400).json({ error: 'promote needs the rendered draft content' });
     // The patch (the rendered draft) re-applied over any base — disk now, or
     // GitHub's fresher copy if the first write loses a race.
     const promoted = (base) => {
+      if (!canPromote(base, payload.liveBase)) return null;
       const out = { ...base, ...payload.content };
       delete out._track_note;
       out.updatedAt = new Date().toISOString();

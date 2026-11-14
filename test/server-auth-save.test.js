@@ -105,7 +105,7 @@ test('draft saves target the overlay and skip deploy hooks; live and promotion t
   for (const [extra, suffix, deploy] of [
     [{ track: 'draft.v2' }, '/versions/draft.v2/site.json', false],
     [{}, '/content/site.json', true], [{ track: '' }, '/content/site.json', true],
-    [{ promote: 'draft.v2' }, '/content/site.json', true],
+    [{ promote: 'draft.v2', liveBase: {} }, '/content/site.json', true],
   ]) {
     calls.length = 0;
     const res = response();

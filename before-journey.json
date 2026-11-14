@@ -1,0 +1,48 @@
+{
+  "label": "before",
+  "base": "http://127.0.0.1:24300",
+  "weak": true,
+  "ok": true,
+  "error": null,
+  "notes": [
+    {
+      "name": "timestamp cursor skipped one of 501 rows",
+      "detail": {
+        "distinctRows": 500,
+        "pages": [
+          {
+            "count": 500,
+            "cursor": "2026-01-01T00:00:00.000Z"
+          },
+          {
+            "count": 0,
+            "cursor": "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "repaired inquiry exists in D1 but is never exported",
+      "detail": {
+        "databaseHasDelayed": true,
+        "exportedRows": [],
+        "cursor": "2026-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "name": "later inquiry and unsubscribe are absent from export",
+      "detail": {
+        "inquiryRows": [],
+        "unsubscribeRows": [],
+        "unsignedUnsubscribeStatus": 200
+      }
+    }
+  ],
+  "shots": [
+    "01-before-timestamp-cursor-skipped-one-of-501-rows-1440x900.png",
+    "02-before-repaired-inquiry-exists-in-d1-but-is-never-exported-1440x900.png",
+    "03-before-later-inquiry-and-unsubscribe-are-absent-from-export-1440x900.png"
+  ],
+  "consoleErrors": [],
+  "failedRequests": []
+}

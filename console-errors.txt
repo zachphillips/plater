@@ -1,0 +1,10 @@
+{
+  "before": {
+    "consoleErrors": [],
+    "failedRequests": []
+  },
+  "after": {
+    "consoleErrors": [],
+    "failedRequests": []
+  }
+}

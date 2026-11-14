@@ -1,0 +1,282 @@
+{
+  "base": "http://127.0.0.1:24401",
+  "probes": [
+    {
+      "name": "no auth",
+      "status": 401,
+      "error": "unauthorized"
+    },
+    {
+      "name": "unknown site",
+      "status": 400,
+      "error": "unknown site"
+    },
+    {
+      "name": "malformed cursor broken",
+      "status": 400,
+      "error": "invalid export cursor; use the cursor returned by /export"
+    },
+    {
+      "name": "malformed cursor v2-abc",
+      "status": 400,
+      "error": "invalid export cursor; use the cursor returned by /export"
+    },
+    {
+      "name": "malformed cursor v2-negative",
+      "status": 400,
+      "error": "invalid export cursor; use the cursor returned by /export"
+    },
+    {
+      "name": "unsafe integer cursor",
+      "status": 400,
+      "error": "invalid export cursor"
+    },
+    {
+      "name": "very long cursor",
+      "status": 400,
+      "error": "invalid export cursor; use the cursor returned by /export"
+    },
+    {
+      "name": "empty since",
+      "status": 200,
+      "cursor": "v2:501",
+      "rowCount": 500,
+      "sample": [
+        {
+          "email": "person-0001@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0002@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0003@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0500@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": null,
+        "noteTail": "Original complete inquiry"
+      }
+    },
+    {
+      "name": "legacy ISO cursor replay",
+      "status": 200,
+      "cursor": "v2:501",
+      "rowCount": 500,
+      "sample": [
+        {
+          "email": "person-0001@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0002@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0003@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0500@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": null,
+        "noteTail": "Original complete inquiry"
+      }
+    },
+    {
+      "name": "repeat same v2:500 cursor first",
+      "status": 200,
+      "cursor": "v2:504",
+      "rowCount": 3,
+      "sample": [
+        {
+          "email": "person-0500@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "delayed@example.com",
+          "created_at": "2020-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Complete delayed inquiry"
+        },
+        {
+          "email": "person-0000@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": "2026-11-14T00:36:21.113Z",
+          "noteTail": "riginal complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂"
+        }
+      ],
+      "last": {
+        "email": "person-0000@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": "2026-11-14T00:36:21.113Z",
+        "noteTail": "riginal complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂"
+      }
+    },
+    {
+      "name": "repeat same v2:500 cursor second",
+      "status": 200,
+      "cursor": "v2:504",
+      "rowCount": 3,
+      "sample": [
+        {
+          "email": "person-0500@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "delayed@example.com",
+          "created_at": "2020-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Complete delayed inquiry"
+        },
+        {
+          "email": "person-0000@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": "2026-11-14T00:36:21.113Z",
+          "noteTail": "riginal complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂"
+        }
+      ],
+      "last": {
+        "email": "person-0000@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": "2026-11-14T00:36:21.113Z",
+        "noteTail": "riginal complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂"
+      }
+    },
+    {
+      "name": "past-end cursor",
+      "status": 200,
+      "cursor": "v2:999999",
+      "rowCount": 0,
+      "sample": []
+    },
+    {
+      "name": "v2:0 full replay count",
+      "status": 200,
+      "cursor": "v2:501",
+      "rowCount": 500,
+      "sample": [
+        {
+          "email": "person-0001@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0002@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        },
+        {
+          "email": "person-0003@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0500@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": null,
+        "noteTail": "Original complete inquiry"
+      }
+    },
+    {
+      "name": "first unsubscribe person-0001",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "name": "export after first extra unsubscribe",
+      "status": 200,
+      "cursor": "v2:505",
+      "rowCount": 1,
+      "sample": [
+        {
+          "email": "person-0001@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": "2026-11-14T00:36:54.934Z",
+          "noteTail": "Original complete inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0001@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": "2026-11-14T00:36:54.934Z",
+        "noteTail": "Original complete inquiry"
+      }
+    },
+    {
+      "name": "second unsubscribe same address",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "name": "export after second unsubscribe",
+      "status": 200,
+      "cursor": "v2:506",
+      "rowCount": 1,
+      "sample": [
+        {
+          "email": "person-0001@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": "2026-11-14T00:36:54.948Z",
+          "noteTail": "Original complete inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0001@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": "2026-11-14T00:36:54.948Z",
+        "noteTail": "Original complete inquiry"
+      }
+    },
+    {
+      "name": "later inquiry person-0002",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "name": "export later inquiry preserves original date",
+      "status": 200,
+      "cursor": "v2:507",
+      "rowCount": 1,
+      "sample": [
+        {
+          "email": "person-0002@example.com",
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "unsubscribed_at": null,
+          "noteTail": "Original complete inquiry\n\n[2026-11-14T00:36:54.959Z] Another later inquiry"
+        }
+      ],
+      "last": {
+        "email": "person-0002@example.com",
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "unsubscribed_at": null,
+        "noteTail": "Original complete inquiry\n\n[2026-11-14T00:36:54.959Z] Another later inquiry"
+      }
+    }
+  ]
+}

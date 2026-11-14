@@ -1,0 +1,34 @@
+Verification of zachphillips/plater#18 at 5a2e441 on 2026-11-14.
+
+Claims driven against real local Wrangler 4.50.0 (D1 + KV + simulated send_email).
+No remote Cloudflare, no live credentials.
+
+Install (outside the repo):
+  mkdir -p /tmp/tools && cd /tmp/tools && npm i --no-save wrangler@4.50.0 playwright@1.64.1
+  cd /tmp/tools && npx playwright install chromium
+
+Base checkout (timestamp-only export):
+  git worktree add --detach /tmp/plater-base 1a784d1
+  # seed/hold bench routes exist only on HEAD; copy the adapter, keep base worker.js
+  cp /agent/repos/plater/verify/list-entry.js /tmp/plater-base/verify/list-entry.js
+
+Start workers (scratch start script at /tmp/verify-pr18/start-worker.mjs):
+  WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js
+  PLATER_ROOT=/tmp/plater-base LIST_PROOF_DIR=/tmp/verify-pr18/base LIST_PROOF_PORT=24300 \
+    node /tmp/verify-pr18/start-worker.mjs
+  PLATER_ROOT=/agent/repos/plater LIST_PROOF_DIR=/tmp/verify-pr18/head LIST_PROOF_PORT=24401 \
+    node /tmp/verify-pr18/start-worker.mjs
+  curl -sf http://127.0.0.1:24300/health
+  curl -sf http://127.0.0.1:24401/health
+
+Drive the included journey in Chromium (verify/export-proof.mjs):
+  EXPORT_PROOF_URL=http://127.0.0.1:24300 EXPORT_EXPECT_WEAK=1 EXPORT_LABEL=before \
+    node /tmp/verify-pr18/drive.mjs
+  EXPORT_PROOF_URL=http://127.0.0.1:24401 EXPORT_LABEL=after \
+    node /tmp/verify-pr18/drive.mjs
+
+Nearby cases:
+  EXPORT_PROOF_URL=http://127.0.0.1:24401 node /tmp/verify-pr18/break-it.mjs
+
+Also ran from the repo (not used as proof): npm run lint; npm test  (143 pass).
+Did not rerun node verify/list-worker.mjs (the 26 delivery-failure scenarios).

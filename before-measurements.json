@@ -1,0 +1,26 @@
+{
+  "timestamp cursor skipped one of 501 rows": {
+    "distinctRows": 500,
+    "pages": [
+      {
+        "count": 500,
+        "cursor": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "count": 0,
+        "cursor": "2026-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  "repaired inquiry exists in D1 but is never exported": {
+    "databaseHasDelayed": true,
+    "exportedRows": [],
+    "cursor": "2026-01-01T00:00:00.000Z"
+  },
+  "later inquiry and unsubscribe are absent from export": {
+    "inquiryRows": [],
+    "unsubscribeRows": [],
+    "unsignedUnsubscribeStatus": 200
+  },
+  "ok": true
+}

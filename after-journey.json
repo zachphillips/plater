@@ -1,0 +1,87 @@
+{
+  "label": "after",
+  "base": "http://127.0.0.1:24401",
+  "weak": false,
+  "ok": true,
+  "error": null,
+  "notes": [
+    {
+      "name": "all 501 equal-timestamp rows exported",
+      "detail": {
+        "distinctRows": 501,
+        "pages": [
+          {
+            "count": 500,
+            "cursor": "v2:500"
+          },
+          {
+            "count": 1,
+            "cursor": "v2:501"
+          },
+          {
+            "count": 0,
+            "cursor": "v2:501"
+          }
+        ]
+      }
+    },
+    {
+      "name": "old inquiry repaired later is exported whole",
+      "detail": {
+        "databaseHasDelayed": true,
+        "exportedRows": [
+          {
+            "site": "demo",
+            "email": "delayed@example.com",
+            "note": "Complete delayed inquiry",
+            "created_at": "2020-01-01T00:00:00.000Z",
+            "confirmed": 1,
+            "unsubscribed_at": null
+          }
+        ],
+        "cursor": "v2:502"
+      }
+    },
+    {
+      "name": "later inquiry and unsubscribe advance the cursor",
+      "detail": {
+        "inquiryRows": [
+          {
+            "site": "demo",
+            "email": "person-0000@example.com",
+            "note": "Original complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "confirmed": 1,
+            "unsubscribed_at": null
+          }
+        ],
+        "unsubscribeRows": [
+          {
+            "site": "demo",
+            "email": "person-0000@example.com",
+            "note": "Original complete inquiry\n\n[2026-11-14T00:36:21.071Z] A later complete inquiry 🙂",
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "confirmed": 1,
+            "unsubscribed_at": "2026-11-14T00:36:21.113Z"
+          }
+        ],
+        "unsignedUnsubscribeStatus": 200
+      }
+    },
+    {
+      "name": "legacy cursor upgrade",
+      "detail": {
+        "count": 500,
+        "cursor": "v2:501",
+        "invalidStatus": 400
+      }
+    }
+  ],
+  "shots": [
+    "01-after-all-501-equal-timestamp-rows-exported-1440x900.png",
+    "02-after-old-inquiry-repaired-later-is-exported-whole-1440x900.png",
+    "03-after-later-inquiry-and-unsubscribe-advance-the-cursor-1440x900.png"
+  ],
+  "consoleErrors": [],
+  "failedRequests": []
+}

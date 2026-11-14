@@ -1,0 +1,145 @@
+{
+  "emptyPath": {
+    "status": 404,
+    "body": {
+      "error": "unknown page: "
+    }
+  },
+  "unknownPath": {
+    "status": 404,
+    "body": {
+      "error": "unknown page: /does-not-exist.html"
+    }
+  },
+  "foreignOrigin": {
+    "status": 403,
+    "body": {
+      "error": "origin does not match this dev server"
+    }
+  },
+  "firstPass": [
+    {
+      "path": "/about.html",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": false
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": false
+    },
+    {
+      "path": "/work/",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": true
+    }
+  ],
+  "afterFirst": {
+    "githubWrites": 0,
+    "webhook": 0,
+    "local": true
+  },
+  "secondPass": [
+    {
+      "path": "/about.html",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": true
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": true
+    },
+    {
+      "path": "/work/",
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "fully_reviewed": true
+    }
+  ],
+  "afterSecond": {
+    "githubWrites": 0,
+    "webhook": 0,
+    "local": true
+  },
+  "unmark": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "site": "plater-dev-effects-ibeU88",
+      "review_path": ".plater-review.json",
+      "generated_at": "2026-11-14T21:33:08.655Z",
+      "pages": [
+        {
+          "path": "/about.html",
+          "title": "About — Plater Demo",
+          "reviewed": false,
+          "stale": false,
+          "reviewed_at": null,
+          "by": null,
+          "content_hash": "ea6e69394dba7b6bbe00f7e83b082dcc35d240d2620b1f0b162ef6ab79fc3e53",
+          "reviewed_hash": null
+        },
+        {
+          "path": "/",
+          "title": "Plater Demo",
+          "reviewed": true,
+          "stale": false,
+          "reviewed_at": "2026-11-14T21:33:08.651Z",
+          "by": "dev",
+          "content_hash": "46051003e5201c4b44b356a21ea1bb032401ae92e0f8eb6757b8bab6a5d81618",
+          "reviewed_hash": "46051003e5201c4b44b356a21ea1bb032401ae92e0f8eb6757b8bab6a5d81618"
+        },
+        {
+          "path": "/work/",
+          "title": "Work — Plater Demo",
+          "reviewed": true,
+          "stale": false,
+          "reviewed_at": "2026-11-14T21:33:08.653Z",
+          "by": "dev",
+          "content_hash": "c23b6be338be670196c7a8cbd6adce2666a9c984c9b2814ff2202a5056d0dc04",
+          "reviewed_hash": "c23b6be338be670196c7a8cbd6adce2666a9c984c9b2814ff2202a5056d0dc04"
+        }
+      ],
+      "counts": {
+        "total": 3,
+        "reviewed": 2,
+        "unreviewed": 1
+      },
+      "fully_reviewed": false
+    },
+    "localKeys": [
+      "/",
+      "/work/"
+    ]
+  },
+  "remark": {
+    "status": 200,
+    "fully_reviewed": true,
+    "githubWrites": 0,
+    "webhook": 0
+  },
+  "reload": {
+    "remainingCheckboxes": 0,
+    "reviewedMarks": 3
+  },
+  "save": {
+    "status": 200,
+    "git": {
+      "committed": false,
+      "dev": "wrote local file — commit when happy"
+    },
+    "githubWritesAfterSave": 0
+  }
+}

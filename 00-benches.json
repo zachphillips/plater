@@ -1,0 +1,35 @@
+{
+  "before": {
+    "url": "http://127.0.0.1:27221/",
+    "siteDir": "/tmp/plater-dev-effects-UDR8tT",
+    "callsPath": "/tmp/plater-dev-effects-UDR8tT/.proof-calls.json",
+    "reviewPath": "/tmp/plater-dev-effects-UDR8tT/.plater-review.json",
+    "leftover": {
+      "GITHUB_TOKEN": null,
+      "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+      "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+    }
+  },
+  "after": {
+    "url": "http://127.0.0.1:27222/",
+    "siteDir": "/tmp/plater-dev-effects-vzJGqE",
+    "callsPath": "/tmp/plater-dev-effects-vzJGqE/.proof-calls.json",
+    "reviewPath": "/tmp/plater-dev-effects-vzJGqE/.plater-review.json",
+    "leftover": {
+      "GITHUB_TOKEN": null,
+      "CMS_GITHUB_TOKEN": null,
+      "PLATER_REVIEW_WEBHOOK": null
+    }
+  },
+  "serve": {
+    "url": "http://127.0.0.1:27232/",
+    "siteDir": "/tmp/plater-serve-effects-D07dy0",
+    "callsPath": "/tmp/plater-serve-effects-D07dy0/.proof-calls.json",
+    "reviewPath": "/tmp/plater-serve-effects-D07dy0/.plater-review.json",
+    "leftover": {
+      "GITHUB_TOKEN": "synthetic-primary-token",
+      "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+      "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "/about.html": {
+    "reviewed_at": "2026-11-14T21:33:05.229Z",
+    "by": "dev",
+    "content_hash": "ea6e69394dba7b6bbe00f7e83b082dcc35d240d2620b1f0b162ef6ab79fc3e53"
+  },
+  "/": {
+    "reviewed_at": "2026-11-14T21:33:05.475Z",
+    "by": "dev",
+    "content_hash": "46051003e5201c4b44b356a21ea1bb032401ae92e0f8eb6757b8bab6a5d81618"
+  },
+  "/work/": {
+    "reviewed_at": "2026-11-14T21:33:05.726Z",
+    "by": "dev",
+    "content_hash": "c23b6be338be670196c7a8cbd6adce2666a9c984c9b2814ff2202a5056d0dc04"
+  }
+}

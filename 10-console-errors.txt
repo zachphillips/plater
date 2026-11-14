@@ -1,0 +1,3 @@
+before UI: 0 page errors, 0 failed requests
+after UI: 0 page errors, 0 failed requests
+reload after: 0 page errors, 0 failed requests

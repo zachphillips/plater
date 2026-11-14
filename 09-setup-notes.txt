@@ -1,0 +1,28 @@
+Verification of zachphillips/plater#22 after merge.
+
+Commits
+  BEFORE 4e323426604109f57132943489e9f30228aebadb  (1a4a66ad455c79d077bf40e1d11fcd753ab67b07^1)
+  AFTER  1a4a66ad455c79d077bf40e1d11fcd753ab67b07  (merge of #22)
+
+Worktrees
+  git worktree add --detach /tmp/plater-pr22-before 4e323426604109f57132943489e9f30228aebadb
+  git worktree add --detach /tmp/plater-pr22-after  1a4a66ad455c79d077bf40e1d11fcd753ab67b07
+
+Playwright
+  cd /tmp/tools && npm i --no-save playwright@1.64.1 && npx playwright install chromium
+
+Benches (synthetic tokens; every external fetch intercepted before the network)
+  REPO_ROOT=/tmp/plater-pr22-before PORT=27221 node /tmp/verify-pr22/dev-bench.mjs
+  REPO_ROOT=/tmp/plater-pr22-after  PORT=27222 node /tmp/verify-pr22/dev-bench.mjs
+  REPO_ROOT=/tmp/plater-pr22-after  PORT=27232 node /tmp/verify-pr22/serve-bench.mjs
+
+Drive
+  NODE_PATH=/tmp/tools/node_modules node /tmp/verify-pr22/drive.mjs
+
+Env
+  Unset real GitHub/auth secrets. PLATER_LIVE=0.
+  Fixture set GITHUB_TOKEN, CMS_GITHUB_TOKEN, PLATER_REVIEW_WEBHOOK, GITHUB_REPOSITORY
+  to synthetic values. No real token, commit, or webhook was used.
+
+Tests
+  cd /tmp/plater-pr22-after && node --test   # 144 pass, 0 fail

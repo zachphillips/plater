@@ -1,0 +1,9 @@
+BEFORE leftover tokens: {"GITHUB_TOKEN":null,"CMS_GITHUB_TOKEN":"synthetic-alias-token","PLATER_REVIEW_WEBHOOK":"https://dev-effects.example.invalid/reviewed"}
+BEFORE github PUTs: 3 webhook: 1 local file: false
+AFTER leftover tokens: {"GITHUB_TOKEN":null,"CMS_GITHUB_TOKEN":null,"PLATER_REVIEW_WEBHOOK":null}
+AFTER github PUTs: 0 webhook: 0 local file: true
+AFTER local by: {"/about.html":"dev","/":"dev","/work/":"dev"}
+SERVE leftover tokens: {"GITHUB_TOKEN":"synthetic-primary-token","CMS_GITHUB_TOKEN":"synthetic-alias-token","PLATER_REVIEW_WEBHOOK":"https://dev-effects.example.invalid/reviewed"}
+SERVE github PUTs: 3 webhook: 1 unauth: 401
+UI marked before: {"marked":["/about.html","/","/work/"],"status":"page reviewed — site fully reviewed ✓","countText":"PAGES\n3/3 reviewed"}
+UI marked after: {"marked":["/about.html","/","/work/"],"status":"page reviewed — site fully reviewed ✓","countText":"PAGES\n3/3 reviewed"}

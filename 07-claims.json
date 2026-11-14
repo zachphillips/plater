@@ -1,0 +1,40 @@
+{
+  "beforeAttemptsGithubAndWebhook": {
+    "githubWrites": 3,
+    "webhookCalls": 1,
+    "localReviewExists": false,
+    "leftover": {
+      "GITHUB_TOKEN": null,
+      "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+      "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+    }
+  },
+  "afterStaysOnDisk": {
+    "githubWrites": 0,
+    "webhookCalls": 0,
+    "localReviewExists": true,
+    "localBy": {
+      "/about.html": "dev",
+      "/": "dev",
+      "/work/": "dev"
+    },
+    "leftover": {
+      "GITHUB_TOKEN": null,
+      "CMS_GITHUB_TOKEN": null,
+      "PLATER_REVIEW_WEBHOOK": null
+    },
+    "consoleErrors": [],
+    "failed": []
+  },
+  "serveKeepsConfig": {
+    "leftover": {
+      "GITHUB_TOKEN": "synthetic-primary-token",
+      "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+      "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+    },
+    "githubWrites": 3,
+    "webhookCalls": 1,
+    "localReviewExists": false,
+    "unauthStatus": 401
+  }
+}

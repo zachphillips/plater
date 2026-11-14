@@ -1,0 +1,145 @@
+{
+  "leftover": {
+    "GITHUB_TOKEN": "synthetic-primary-token",
+    "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+    "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+  },
+  "unauthStatus": 401,
+  "unauthError": "sign in as editor@example.invalid to review",
+  "statuses": [
+    {
+      "path": "/about.html",
+      "status": 200,
+      "ok": true,
+      "commit": "synthetic-commit",
+      "error": null
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "ok": true,
+      "commit": "synthetic-commit",
+      "error": null
+    },
+    {
+      "path": "/work/",
+      "status": 200,
+      "ok": true,
+      "commit": "synthetic-commit",
+      "error": null
+    }
+  ],
+  "snap": {
+    "leftover": {
+      "GITHUB_TOKEN": "synthetic-primary-token",
+      "CMS_GITHUB_TOKEN": "synthetic-alias-token",
+      "PLATER_REVIEW_WEBHOOK": "https://dev-effects.example.invalid/reviewed"
+    },
+    "localReviewExists": false,
+    "localReview": null,
+    "externalCalls": [
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      },
+      {
+        "host": "dev-effects.example.invalid",
+        "path": "/reviewed",
+        "method": "POST",
+        "href": "https://dev-effects.example.invalid/reviewed"
+      }
+    ],
+    "githubWrites": [
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "PUT",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json"
+      }
+    ],
+    "githubReads": [
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      },
+      {
+        "host": "api.github.com",
+        "path": "/repos/fixture/local/contents/.plater-review.json",
+        "method": "GET",
+        "href": "https://api.github.com/repos/fixture/local/contents/.plater-review.json?ref=main"
+      }
+    ],
+    "webhookCalls": [
+      {
+        "host": "dev-effects.example.invalid",
+        "path": "/reviewed",
+        "method": "POST",
+        "href": "https://dev-effects.example.invalid/reviewed"
+      }
+    ]
+  }
+}

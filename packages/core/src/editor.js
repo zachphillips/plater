@@ -220,7 +220,9 @@ export function initZMS(options = {}) {
   let SAVED = '{}';
   let PROMOTION_BASE = null;
   let SAVE_INFLIGHT = false;
-  let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false };
+  // statusLabel: a host that signs people in before the page loads (hosted
+  // Plater behind Cloudflare Access) answers devNoauth and names the person here.
+  let CONFIG = { editable: false, googleClientId: '', tokenAuth: false, devNoauth: false, adminEmail: '', agentRouting: false, statusLabel: '' };
   let ID_TOKEN = null;      // bearer sent to /api/save: a Google ID token OR the edit token
   let TOKEN_KIND = null;    // explicit provenance: JWT-shaped edit tokens are still edit tokens
   let EDITING = false;
@@ -2457,7 +2459,7 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
       else if (CONFIG.googleClientId || CONFIG.tokenAuth) {
         ensureAuthFresh().then((ok) => { if (ok && DRAFT_TRACK && !EDITING) setEditable(true); });
       }
-      else if (CONFIG.devNoauth) { setLoggedIn(true); if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = 'dev mode — no auth (localhost)'; }
+      else if (CONFIG.devNoauth) { setLoggedIn(true); if ($('#cms-edit')) $('#cms-edit').hidden = false; if ($('#cms-status')) $('#cms-status').textContent = CONFIG.statusLabel || 'dev mode — no auth (localhost)'; }
       else {
         // Nothing can authenticate here. Hide the sign-in that would do nothing
         // and hand over the checklist that finishes the install instead.

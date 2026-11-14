@@ -1,0 +1,213 @@
+{
+  "label": "after",
+  "weak": false,
+  "bench": {
+    "url": "http://127.0.0.1:27222/",
+    "siteDir": "/tmp/plater-request-size-KOGeW7",
+    "contentPath": "/tmp/plater-request-size-KOGeW7/content/site.json",
+    "port": 27222
+  },
+  "claims": [
+    {
+      "name": "AFTER: 3 MiB save with Content-Length=false is HTTP 413 and leaves content intact",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "changed": false,
+        "reply": "{\"error\":\"payload too large\"}",
+        "bytes": 3145792
+      }
+    },
+    {
+      "name": "AFTER: 3 MiB save with Content-Length=true is HTTP 413 and leaves content intact",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "changed": false,
+        "reply": "{\"error\":\"payload too large\"}",
+        "bytes": 3145791
+      }
+    },
+    {
+      "name": "AFTER: an unfinished 7 MiB upload is refused with 413 before the client finishes",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "reply": "{\"error\":\"payload too large\"}",
+        "bodyBytes": 7340076
+      }
+    },
+    {
+      "name": "AFTER: a complete 3 MiB image (above the 2 MB JSON cap) is still accepted",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "reply": "{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-KOGeW7/images/bbd05cf6-within-image-limit.png\",\"commit\":null}",
+        "stored": [
+          {
+            "name": "bbd05cf6-within-image-limit.png",
+            "size": 3145728
+          }
+        ],
+        "imageBodyBytes": 4194357
+      }
+    },
+    {
+      "name": "AFTER: a small retry still saves the full Unicode paragraph",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl",
+        "saved": {
+          "headline": "Small retry remains accepted",
+          "subhead": "Whole small paragraph 🙂"
+        }
+      }
+    },
+    {
+      "name": "AFTER: oversized history request is HTTP 413 and does not change content",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "reply": "{\"error\":\"payload too large\"}",
+        "changed": false
+      }
+    },
+    {
+      "name": "AFTER: oversized review request is HTTP 413 and does not change content",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "reply": "{\"error\":\"payload too large\"}",
+        "changed": false
+      }
+    },
+    {
+      "name": "AFTER: oversized local note request is HTTP 413 and does not change content",
+      "ok": true,
+      "detail": {
+        "status": 413,
+        "reply": "{\"error\":\"payload too large\"}",
+        "changed": false
+      }
+    }
+  ],
+  "failures": [],
+  "results": [
+    {
+      "case": "oversized-save Content-Length=false",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 3145792,
+      "changedDisk": false,
+      "headlineAfter": "Edit this page in the browser."
+    },
+    {
+      "case": "oversized-save Content-Length=true",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 3145791,
+      "changedDisk": false,
+      "headlineAfter": "Edit this page in the browser."
+    },
+    {
+      "case": "unfinished-7mib-upload",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 7340076
+    },
+    {
+      "case": "3mib-image",
+      "status": 200,
+      "reply": "{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-KOGeW7/images/bbd05cf6-within-image-limit.png\",\"commit\":null}",
+      "bodyBytes": 4194357,
+      "stored": [
+        {
+          "name": "bbd05cf6-within-image-limit.png",
+          "size": 3145728
+        }
+      ],
+      "imageBodyBytes": 4194357
+    },
+    {
+      "case": "small-retry",
+      "status": 200,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl",
+      "bodyBytes": 103,
+      "savedHeadline": "Small retry remains accepted",
+      "savedSubhead": "Whole small paragraph 🙂"
+    },
+    {
+      "case": "oversized-history",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 3145742,
+      "changedDisk": false
+    },
+    {
+      "case": "oversized-review",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 3145756,
+      "changedDisk": false
+    },
+    {
+      "case": "oversized-local note",
+      "status": 413,
+      "reply": "{\"error\":\"payload too large\"}",
+      "bodyBytes": 3145739,
+      "changedDisk": false
+    }
+  ],
+  "broke": [
+    {
+      "case": "empty-body",
+      "status": 400,
+      "reply": "{\"error\":\"expected { content: {...} }\"}",
+      "bodyBytes": 0
+    },
+    {
+      "case": "exactly-2e6",
+      "status": 200,
+      "bodyBytes": 2000000,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"\",\"pad\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "diskHeadline": ""
+    },
+    {
+      "case": "just-over-2e6-with-length",
+      "status": 413,
+      "bodyBytes": 2000056,
+      "reply": "{\"error\":\"payload too large\"}",
+      "changedDisk": false
+    },
+    {
+      "case": "double-oversize-then-retry",
+      "first": 413,
+      "second": 413,
+      "retry": 200,
+      "headline": "Second retry after two refusals",
+      "subhead": "still whole 🙂"
+    },
+    {
+      "case": "missing-content-type",
+      "status": 415,
+      "reply": "{\"error\":\"use application/json\"}"
+    }
+  ],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "homeShot": {
+    "file": "/opt/cursor/artifacts/shots/03-after-homepage-after-413-intact-1440.png",
+    "title": "Plater Demo",
+    "headline": "Edit this page in the browser.",
+    "subhead": "No database and no build step. Add ?edit to the URL, change the words on the page, and save. The save is a git commit.",
+    "subheadChars": 118
+  },
+  "retryShot": {
+    "file": "/opt/cursor/artifacts/shots/04-after-small-retry-unicode-1440.png",
+    "title": "Plater Demo",
+    "headline": "Small retry remains accepted",
+    "subhead": "Whole small paragraph 🙂",
+    "subheadChars": 24
+  }
+}

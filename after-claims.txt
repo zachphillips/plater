@@ -1,0 +1,23 @@
+PROVEN  AFTER: 3 MiB save with Content-Length=false is HTTP 413 and leaves content intact
+  {"status":413,"changed":false,"reply":"{\"error\":\"payload too large\"}","bytes":3145792}
+
+PROVEN  AFTER: 3 MiB save with Content-Length=true is HTTP 413 and leaves content intact
+  {"status":413,"changed":false,"reply":"{\"error\":\"payload too large\"}","bytes":3145791}
+
+PROVEN  AFTER: an unfinished 7 MiB upload is refused with 413 before the client finishes
+  {"status":413,"reply":"{\"error\":\"payload too large\"}","bodyBytes":7340076}
+
+PROVEN  AFTER: a complete 3 MiB image (above the 2 MB JSON cap) is still accepted
+  {"status":200,"reply":"{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-KOGeW7/images/bbd05cf6-within-image-limit.png\",\"commit\":null}","stored":[{"name":"bbd05cf6-within-image-limit.png","size":3145728}],"imageBodyBytes":4194357}
+
+PROVEN  AFTER: a small retry still saves the full Unicode paragraph
+  {"status":200,"reply":"{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl","saved":{"headline":"Small retry remains accepted","subhead":"Whole small paragraph 🙂"}}
+
+PROVEN  AFTER: oversized history request is HTTP 413 and does not change content
+  {"status":413,"reply":"{\"error\":\"payload too large\"}","changed":false}
+
+PROVEN  AFTER: oversized review request is HTTP 413 and does not change content
+  {"status":413,"reply":"{\"error\":\"payload too large\"}","changed":false}
+
+PROVEN  AFTER: oversized local note request is HTTP 413 and does not change content
+  {"status":413,"reply":"{\"error\":\"payload too large\"}","changed":false}

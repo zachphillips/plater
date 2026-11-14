@@ -1,0 +1,188 @@
+{
+  "label": "before",
+  "weak": true,
+  "bench": {
+    "url": "http://127.0.0.1:27221/",
+    "siteDir": "/tmp/plater-request-size-CKh4le",
+    "contentPath": "/tmp/plater-request-size-CKh4le/content/site.json",
+    "port": 27221
+  },
+  "claims": [
+    {
+      "name": "BEFORE: 3 MiB save with Content-Length=false is accepted and rewrites disk",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "changed": true,
+        "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized false\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "bytes": 3145792
+      }
+    },
+    {
+      "name": "BEFORE: 3 MiB save with Content-Length=true is accepted and rewrites disk",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "changed": true,
+        "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized true\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "bytes": 3145791
+      }
+    },
+    {
+      "name": "BEFORE: an unfinished 7 MiB upload keeps waiting for more data",
+      "ok": true,
+      "detail": {
+        "status": null,
+        "waitingForUnboundedBody": true,
+        "bodyBytes": 7340076
+      }
+    },
+    {
+      "name": "BEFORE: a complete 3 MiB image upload is accepted (baseline still allows it)",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "reply": "{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-CKh4le/images/bbd05cf6-within-image-limit.png\",\"commit\":null}",
+        "stored": [
+          {
+            "name": "bbd05cf6-within-image-limit.png",
+            "size": 3145728
+          }
+        ]
+      }
+    },
+    {
+      "name": "BEFORE: a small retry still saves the full Unicode paragraph",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl",
+        "saved": {
+          "headline": "Small retry remains accepted",
+          "subhead": "Whole small paragraph 🙂"
+        }
+      }
+    }
+  ],
+  "failures": [],
+  "results": [
+    {
+      "case": "oversized-save Content-Length=false",
+      "status": 200,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized false\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "bodyBytes": 3145792,
+      "changedDisk": true,
+      "headlineAfter": "Oversized false"
+    },
+    {
+      "case": "oversized-save Content-Length=true",
+      "status": 200,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized true\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "bodyBytes": 3145791,
+      "changedDisk": true,
+      "headlineAfter": "Oversized true"
+    },
+    {
+      "case": "unfinished-7mib-upload",
+      "status": null,
+      "waitingForUnboundedBody": true,
+      "bodyBytes": 7340076
+    },
+    {
+      "case": "3mib-image",
+      "status": 200,
+      "reply": "{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-CKh4le/images/bbd05cf6-within-image-limit.png\",\"commit\":null}",
+      "bodyBytes": 4194357,
+      "stored": [
+        {
+          "name": "bbd05cf6-within-image-limit.png",
+          "size": 3145728
+        }
+      ],
+      "imageBodyBytes": 4194357
+    },
+    {
+      "case": "small-retry",
+      "status": 200,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl",
+      "bodyBytes": 103,
+      "savedHeadline": "Small retry remains accepted",
+      "savedSubhead": "Whole small paragraph 🙂"
+    },
+    {
+      "case": "oversized-history",
+      "status": 400,
+      "reply": "{\"error\":\"expected { restore: \\\"<full sha>\\\" }\"}",
+      "bodyBytes": 3145742,
+      "changedDisk": false,
+      "baselineNote": "history/review/note had no streaming cap"
+    },
+    {
+      "case": "oversized-review",
+      "status": 404,
+      "reply": "{\"error\":\"unknown page: /ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+      "bodyBytes": 3145756,
+      "changedDisk": false,
+      "baselineNote": "history/review/note had no streaming cap"
+    },
+    {
+      "case": "oversized-local note",
+      "status": 202,
+      "reply": "{\"id\":\"dev-echo\",\"status\":\"queued\",\"dev\":\"agent routing is disabled in plater dev — push a branch and note the preview URL instead\",\"note\":\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\"}",
+      "bodyBytes": 3145739,
+      "changedDisk": false,
+      "baselineNote": "history/review/note had no streaming cap"
+    }
+  ],
+  "broke": [
+    {
+      "case": "empty-body",
+      "status": 400,
+      "reply": "{\"error\":\"expected { content: {...} }\"}",
+      "bodyBytes": 0
+    },
+    {
+      "case": "exactly-2e6",
+      "status": 200,
+      "bodyBytes": 2000000,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"\",\"pad\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "diskHeadline": ""
+    },
+    {
+      "case": "just-over-2e6-with-length",
+      "status": 200,
+      "bodyBytes": 2000056,
+      "reply": "{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"over-by-one\",\"pad\":\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+      "changedDisk": true
+    },
+    {
+      "case": "double-oversize-then-retry",
+      "first": 200,
+      "second": 200,
+      "retry": 200,
+      "headline": "Second retry after two refusals",
+      "subhead": "still whole 🙂"
+    },
+    {
+      "case": "missing-content-type",
+      "status": 415,
+      "reply": "{\"error\":\"use application/json\"}"
+    }
+  ],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "homeShot": {
+    "file": "/opt/cursor/artifacts/shots/01-before-after-oversized-save-rewrote-page-1440.png",
+    "title": "Plater Demo",
+    "headline": "Oversized true",
+    "subhead": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "subheadChars": 3145728
+  },
+  "retryShot": {
+    "file": "/opt/cursor/artifacts/shots/02-before-small-retry-still-works-1440.png",
+    "title": "Plater Demo",
+    "headline": "Small retry remains accepted",
+    "subhead": "Whole small paragraph 🙂",
+    "subheadChars": 24
+  }
+}

@@ -1,0 +1,34 @@
+PR 26 verification measurements
+BEFORE: 020c4eb^1 = ddd7cc5 (base just before merge)
+AFTER:  020c4eb (merge of #26)
+Head named in the request: c4728d2 (sol/1113-cap-dev-requests)
+
+Claims (HTTP + disk read-back + Chromium 1440x900)
+
+BEFORE (port 27221)
+- 3 MiB JSON POST /api/save without Content-Length: HTTP 200, disk changed, 3,145,792 body bytes
+- 3 MiB JSON POST /api/save with Content-Length: HTTP 200, disk changed, headline became "Oversized true", subhead 3,145,728 chars
+- Unfinished 7 MiB POST /api/upload (client never called end): still waiting after 1.8s (status null)
+- 3 MiB raw image upload: HTTP 200, stored file 3,145,728 bytes
+- Small retry: HTTP 200, subhead "Whole small paragraph 🙂"
+
+AFTER (port 27222, then 27223 for same-origin browser fetch)
+- 3 MiB JSON POST /api/save without Content-Length: HTTP 413 {"error":"payload too large"}, disk unchanged, headline still "Edit this page in the browser."
+- 3 MiB JSON POST /api/save with Content-Length: HTTP 413, disk unchanged
+- Unfinished 7 MiB POST /api/upload: HTTP 413 {"error":"payload too large"} before the client finished
+- 3 MiB image JSON body 4,194,357 bytes (> 2,000,000 JSON cap): HTTP 200, stored file 3,145,728 bytes
+- Small retry: HTTP 200, subhead "Whole small paragraph 🙂"
+- Oversized POST /api/history, /api/review, /api/agent-note: each HTTP 413, disk unchanged
+- Same-origin fetch() from the open page: 3 MiB save HTTP 413, disk unchanged; retry HTTP 200 showed "Browser retry after 413"
+
+Break-it on AFTER
+- empty body: 400 expected { content: {...} }
+- exactly 2,000,000 bytes: 200 (limit is seen > 2e6)
+- 2,000,056 bytes with Content-Length: 413, disk unchanged
+- two oversized saves then a small retry: 413, 413, 200
+- missing Content-Type: 415 use application/json
+
+node --test on AFTER: 144 pass, 0 fail
+Chromium console errors: 0
+Failed requests: 0
+No production URLs or real secrets were used.

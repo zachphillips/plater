@@ -1,0 +1,14 @@
+PROVEN  BEFORE: 3 MiB save with Content-Length=false is accepted and rewrites disk
+  {"status":200,"changed":true,"reply":"{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized false\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","bytes":3145792}
+
+PROVEN  BEFORE: 3 MiB save with Content-Length=true is accepted and rewrites disk
+  {"status":200,"changed":true,"reply":"{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Oversized true\",\"subhead\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","bytes":3145791}
+
+PROVEN  BEFORE: an unfinished 7 MiB upload keeps waiting for more data
+  {"status":null,"waitingForUnboundedBody":true,"bodyBytes":7340076}
+
+PROVEN  BEFORE: a complete 3 MiB image upload is accepted (baseline still allows it)
+  {"status":200,"reply":"{\"ok\":true,\"url\":\"/images/bbd05cf6-within-image-limit.png\",\"path\":\"../plater-request-size-CKh4le/images/bbd05cf6-within-image-limit.png\",\"commit\":null}","stored":[{"name":"bbd05cf6-within-image-limit.png","size":3145728}]}
+
+PROVEN  BEFORE: a small retry still saves the full Unicode paragraph
+  {"status":200,"reply":"{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"Small retry remains accepted\",\"subhead\":\"Whole small paragraph 🙂\"},\"features\":[\"Inline contenteditable copy editing\",\"Google SSO or shared edit-token auth\",\"Durable save via a GitHub commit\"],\"tools\":[{\"name\":\"@pl","saved":{"headline":"Small retry remains accepted","subhead":"Whole small paragraph 🙂"}}

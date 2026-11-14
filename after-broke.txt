@@ -1,0 +1,5 @@
+{"case":"empty-body","status":400,"reply":"{\"error\":\"expected { content: {...} }\"}","bodyBytes":0}
+{"case":"exactly-2e6","status":200,"bodyBytes":2000000,"reply":"{\"ok\":true,\"saved\":true,\"content\":{\"meta\":{\"title\":\"Plater Demo\"},\"hero\":{\"headline\":\"\",\"pad\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","diskHeadline":""}
+{"case":"just-over-2e6-with-length","status":413,"bodyBytes":2000056,"reply":"{\"error\":\"payload too large\"}","changedDisk":false}
+{"case":"double-oversize-then-retry","first":413,"second":413,"retry":200,"headline":"Second retry after two refusals","subhead":"still whole 🙂"}
+{"case":"missing-content-type","status":415,"reply":"{\"error\":\"use application/json\"}"}

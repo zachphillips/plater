@@ -149,6 +149,9 @@ export async function moveTo(sshHost, { dir = planDir(), remoteRepo = '~/Dev/pla
         if (err) return reject(new Error(`import on ${sshHost} failed: ${String(stderr || err.message).trim().slice(-300)}`));
         try { resolve(JSON.parse(String(stdout).trim().split('\n').pop())); } catch { reject(new Error(`import on ${sshHost} gave no result`)); }
       });
+    // ssh that exits early (unreachable host, refused key) closes stdin under us;
+    // the exit callback reports that, so the EPIPE must not escape as a crash.
+    child.stdin.on('error', () => {});
     child.stdin.end(payload);
   });
   if (!out.ok || !out.planGranted) throw new Error(`import on ${sshHost} did not confirm the plan grant`);

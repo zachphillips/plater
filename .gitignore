@@ -4,5 +4,6 @@ node_modules/
 .DS_Store
 *.log
 dist/
+.list-proof/
 .vercel/
 examples/static-site/.plater-review.json

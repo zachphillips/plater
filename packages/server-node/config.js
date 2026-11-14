@@ -17,5 +17,8 @@ export default function handler(req, res) {
     // Advertises the agent-routing feature to the client when an agent-host
     // endpoint is configured. The endpoint URL/secret are never sent here.
     agentRouting: Boolean(process.env.PLATER_AGENT_ENDPOINT || process.env.ZMS_AGENT_ENDPOINT),
+    // The in-page edit assistant (/api/assist). Only whether it is on; the
+    // key never leaves the server.
+    assist: Boolean(process.env.PLATER_ASSIST_ANTHROPIC_KEY),
   });
 }

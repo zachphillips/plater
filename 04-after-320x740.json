@@ -1,0 +1,225 @@
+{
+  "label": "04-after",
+  "size": "320x740",
+  "expectWeak": false,
+  "extraText": "Phone writing stays safe when autosave is refused 🙂",
+  "about": "",
+  "refuseOnce": false,
+  "doReload": false,
+  "doTwice": false,
+  "url": "http://127.0.0.1:25200/",
+  "startedAt": "2026-11-14T18:43:58.255Z",
+  "storedHeadline": "Edit this page in the browser.",
+  "refusedHeadlineNeverCommitted": true,
+  "recovery": [
+    {
+      "key": "plater.buf.plater-demo./",
+      "headline": "Phone writing stays safe when autosave is refused 🙂",
+      "hasText": true
+    }
+  ],
+  "wholeWritingInRecovery": true,
+  "rects": {
+    "view": {
+      "left": 0,
+      "right": 320,
+      "top": 0,
+      "bottom": 740,
+      "width": 320,
+      "height": 740,
+      "innerWidth": 320
+    },
+    "bar": {
+      "tag": "DIV",
+      "id": "cms-bar",
+      "text": "\n    PLATER DEMO\n    ✦ Edit Live\n    \n    Edit page\n    Save & commit\n    Cancel\n    ✎ NoteNotes⟲ History☰ Pagesautosave failed, retrying automatically; recovery copy kept in this browser\n  ",
+      "name": "cms-bar",
+      "hidden": false,
+      "display": "flex",
+      "flexWrap": "wrap",
+      "flex": "0 1 auto",
+      "minWidth": "0px",
+      "overflowWrap": "normal",
+      "whiteSpace": "normal",
+      "left": 0,
+      "right": 320,
+      "top": 0,
+      "bottom": 130.875,
+      "width": 320,
+      "height": 130.875
+    },
+    "status": {
+      "tag": "SPAN",
+      "id": "cms-status",
+      "text": "autosave failed, retrying automatically; recovery copy kept in this browser",
+      "name": "cms-status",
+      "hidden": false,
+      "display": "block",
+      "flexWrap": "nowrap",
+      "flex": "1 0 100%",
+      "minWidth": "0px",
+      "overflowWrap": "anywhere",
+      "whiteSpace": "normal",
+      "left": 16,
+      "right": 304,
+      "top": 78.375,
+      "bottom": 121.875,
+      "width": 288,
+      "height": 43.5
+    },
+    "buttons": [
+      {
+        "tag": "BUTTON",
+        "id": "cms-impeccable",
+        "text": "✦ Edit Live",
+        "name": "cms-impeccable",
+        "hidden": false,
+        "display": "block",
+        "flexWrap": "nowrap",
+        "flex": "0 0 auto",
+        "minWidth": "auto",
+        "overflowWrap": "normal",
+        "whiteSpace": "normal",
+        "left": 128.765625,
+        "right": 221.390625,
+        "top": 8,
+        "bottom": 32.59375,
+        "width": 92.625,
+        "height": 24.59375
+      },
+      {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "✎ Note",
+        "name": "✎ Note",
+        "hidden": false,
+        "display": "block",
+        "flexWrap": "nowrap",
+        "flex": "0 0 auto",
+        "minWidth": "auto",
+        "overflowWrap": "normal",
+        "whiteSpace": "normal",
+        "left": 230.984375,
+        "right": 297.6875,
+        "top": 8,
+        "bottom": 32.59375,
+        "width": 66.703125,
+        "height": 24.59375
+      },
+      {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Notes",
+        "name": "Notes",
+        "hidden": false,
+        "display": "block",
+        "flexWrap": "nowrap",
+        "flex": "0 0 auto",
+        "minWidth": "auto",
+        "overflowWrap": "normal",
+        "whiteSpace": "normal",
+        "left": 16,
+        "right": 80.40625,
+        "top": 43.1875,
+        "bottom": 67.78125,
+        "width": 64.40625,
+        "height": 24.59375
+      },
+      {
+        "tag": "BUTTON",
+        "id": "cms-history",
+        "text": "⟲ History",
+        "name": "cms-history",
+        "hidden": false,
+        "display": "block",
+        "flexWrap": "nowrap",
+        "flex": "0 0 auto",
+        "minWidth": "auto",
+        "overflowWrap": "normal",
+        "whiteSpace": "normal",
+        "left": 90,
+        "right": 175,
+        "top": 42.1875,
+        "bottom": 68.78125,
+        "width": 85,
+        "height": 26.59375
+      },
+      {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "☰ Pages",
+        "name": "☰ Pages",
+        "hidden": false,
+        "display": "block",
+        "flexWrap": "nowrap",
+        "flex": "0 0 auto",
+        "minWidth": "auto",
+        "overflowWrap": "normal",
+        "whiteSpace": "normal",
+        "left": 184.59375,
+        "right": 263.953125,
+        "top": 42.1875,
+        "bottom": 68.78125,
+        "width": 79.359375,
+        "height": 26.59375
+      }
+    ],
+    "allButtons": [
+      {
+        "text": "✦ Edit Live",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "text": "Edit page",
+        "hidden": true,
+        "display": "none"
+      },
+      {
+        "text": "Save & commit",
+        "hidden": true,
+        "display": "none"
+      },
+      {
+        "text": "Cancel",
+        "hidden": true,
+        "display": "none"
+      },
+      {
+        "text": "✎ Note",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "text": "Notes",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "text": "⟲ History",
+        "hidden": false,
+        "display": "block"
+      },
+      {
+        "text": "☰ Pages",
+        "hidden": false,
+        "display": "block"
+      }
+    ]
+  },
+  "statusInsideX": true,
+  "statusInsideY": true,
+  "buttonsInside": true,
+  "statusText": "autosave failed, retrying automatically; recovery copy kept in this browser",
+  "consoleErrors": [],
+  "failedRequests": [],
+  "httpErrors": [],
+  "injected503Count": 1,
+  "claims": {
+    "statusOnscreen": true,
+    "buttonsOnscreen": true,
+    "contentUnchanged": true,
+    "recoveryKept": true
+  },
+  "passForThisRun": true
+}

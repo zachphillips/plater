@@ -1,0 +1,9 @@
+{
+  "editing": true,
+  "status": "Editing live, every change saves automatically",
+  "banner": "UNSAVED edits from a moment ago\nRestore\nDiscard",
+  "h1": "Edit this page in the browser.",
+  "restoreVisible": true,
+  "afterRestoreH1": "Phone writing stays safe when autosave is refused 🙂",
+  "afterRestoreStatus": "Restored unsaved edits, saving automatically"
+}

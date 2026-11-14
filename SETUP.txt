@@ -1,0 +1,34 @@
+Verification of zachphillips/plater#27 (Keep phone autosave status visible)
+BEFORE commit: 020c4ebbd4c48e20f37e0187e7ba5eb252c6b14b  (2af487d^1)
+AFTER commit:  2af487d6c5e7072cba7e0a3f9337ddb35fe22934  (merge of #27)
+PR head named in the request: 6127c564d4af5002fb76f8fe91d297859b5b2b39
+
+This PR is the in-browser editor toolbar, not the list-worker. The wrangler
+commands from an earlier PR-18 verifier were not used.
+
+Commands that got it running here:
+
+  mkdir -p /opt/cursor/artifacts /tmp/tools /tmp/verify-pr27
+  cd /tmp/tools && npm i --no-save playwright@1.64.1 && npx playwright install chromium
+
+  cd /agent/repos/plater
+  git worktree add --detach /tmp/plater-pr27-before 020c4ebbd4c48e20f37e0187e7ba5eb252c6b14b
+  git worktree add --detach /tmp/plater-pr27-after  2af487d6c5e7072cba7e0a3f9337ddb35fe22934
+
+  # each prints one JSON line and stays up
+  PORT=25100 node /tmp/plater-pr27-before/verify/live-autosave-bench.mjs
+  PORT=25200 node /tmp/plater-pr27-after/verify/live-autosave-bench.mjs
+
+  ln -sfn /tmp/tools/node_modules /tmp/verify-pr27/node_modules
+  LIVE_AUTOSAVE_BENCH_FILE=/tmp/verify-pr27/before-bench.json \
+    EXPORT_LABEL=01-before MOBILE_STATUS_EXPECT_WEAK=1 VIEWPORT=390x844 RECORD_VIDEO=1 \
+    node /tmp/verify-pr27/drive.mjs
+  LIVE_AUTOSAVE_BENCH_FILE=/tmp/verify-pr27/after-bench.json \
+    EXPORT_LABEL=02-after VIEWPORT=390x844 RECORD_VIDEO=1 \
+    node /tmp/verify-pr27/drive.mjs
+
+  cd /tmp/plater-pr27-after && npm test   # 144 pass, not used as proof
+
+Driver scripts copied here as drive.mjs and drive-reload-restore.mjs.
+Each JSON next to a PNG holds viewport rects, recovery keys, and the
+on-disk headline after the synthetic HTTP 503.

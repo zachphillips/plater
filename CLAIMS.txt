@@ -1,0 +1,32 @@
+Claims tested against a real Chromium window on the live-autosave bench.
+
+1. On a phone (390x844), a failed autosave no longer pushes the retry/recovery
+   status off the right edge.
+   BEFORE: status.right=517.59  view.right=390  insideX=false  flexWrap=nowrap
+           01-before-390x844.png / 01-before-390x844.json
+   AFTER:  status.right=374     view.right=390  insideX=true   flexWrap=wrap
+           02-after-390x844.png / 02-after-390x844.json
+   PROVEN
+
+2. Visible toolbar buttons stay inside the phone viewport.
+   BEFORE 390: buttonsInside=false (Pages clipped; History barely on-screen)
+   AFTER  390: buttonsInside=true  (Edit Live, Note, Notes, History, Pages)
+   Same result at 320x740: 03-before-320x740.png vs 04-after-320x740.png
+   PROVEN
+
+3. A refused save does not write the new headline, and the full edit is kept
+   in this-browser recovery (plater.buf.*).
+   AFTER 390: storedHeadline still "Edit this page in the browser."
+              recovery headline is the typed sentence
+              02-after-390x844.json
+   Both bench content files still held the original headline after every run.
+   PROVEN
+
+4. Desktop 1440x900 layout is unchanged: single-row toolbar, nowrap, status
+   at the right. Colors and fonts match.
+   05-before-1440x900.png vs 06-after-1440x900.png
+   barFlexWrap=nowrap both; status.right=1424 both
+   PROVEN
+
+Chromium 156 / Playwright 1.64.1. Console errors: 0 on these runs.
+Synthetic 503 was injected in the browser; it never reached disk.

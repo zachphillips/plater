@@ -86,6 +86,7 @@ try {
   await faults({});
   await fetch(base + '/__bench/seed-legacy', { method: 'POST' });
   await check('signup', () => post('signup'), (r) => expect([['honest acceptance', accepted(r)], ['D1 row', !!r.row], ['local mail', r.mail.length === 1], ['no outstanding gap', !r.gaps.length]]));
+  await check('autofill', () => post('autofill', 'A complete inquiry from an autofilled form', { company: 'Autofilled company' }), (r) => expect([['explicit refusal', r.status === 422 && !!r.response.error && !r.response.ok], ['nothing silently accepted', !r.row && !r.mail.length && !r.gaps.length], ['visitor can read fallback instruction', r.cors === 'https://demo.example']]));
   const long = 'x'.repeat(49_999) + 'Z';
   await check('long', () => post('long', long), (r) => expect([['50,000 chars accepted', accepted(r)], ['whole D1 note', r.row?.note === long], ['whole MIME body', r.mail[0]?.includes(long)]]));
   const unusual = 'é漢字🙂<&>"\\\n\u0000'.repeat(700);

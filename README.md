@@ -580,6 +580,8 @@ Both local and GitHub saves refuse promotion with HTTP 409 if live content has
 changed, or if an older client sends no baseline. The draft stays intact.
 Reload the updated site and review before promoting again. A GitHub retry also
 checks the baseline, so it cannot overwrite a commit that wins the write race.
+Promotion still replaces the whole rendered page. Review the whole draft after
+reloading; an overlay can already contain older text from earlier draft edits.
 
 ## Review state and the Pages rail (multi-page sites)
 

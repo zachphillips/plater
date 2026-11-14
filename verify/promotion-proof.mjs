@@ -40,7 +40,8 @@ export async function journey({page,step,expect,note}) {
   const final=JSON.parse(git('show','HEAD:content/site.json'));
   expect(accepted.status()===200&&final.hero.subhead===remote.hero.subhead&&final.hero.headline==='Draft headline intentionally changed','reviewed fresh promotion preserves the newer live paragraph and promotes the draft headline');
   note('Fresh reviewed promotion accepted',{status:accepted.status(),head:git('rev-parse','HEAD'),content:final.hero,legacyStatus:legacy.status});
-  await page.getByRole('button',{name:'LIVE ✓'}).waitFor();
+  await page.waitForURL((url) => !url.searchParams.has('draft'));
+  await expect.text('h1', 'Draft headline intentionally changed');
   await step('fresh reviewed promotion succeeds with both editors text');
   if (process.env.PROMOTION_DEV_BENCH_FILE) {
    const dev=JSON.parse(fs.readFileSync(process.env.PROMOTION_DEV_BENCH_FILE,'utf8'));
@@ -62,6 +63,6 @@ export async function journey({page,step,expect,note}) {
  expect(r.status()===200&&lost,'repro: promotion acknowledges success while overwriting the unrelated newer paragraph');
  expect(stored.remoteOnly===remote.remoteOnly,'top-level unknown fields survive, unlike nested siblings');
  note('Actual promotion response and local git read-back',{status:r.status(),out,remoteSha,head:git('rev-parse','HEAD'),beforeParagraph:remote.hero.subhead,afterParagraph:stored.hero.subhead,draftHeadline:stored.hero.headline,newTopLevelFieldKept:stored.remoteOnly===remote.remoteOnly});
- await page.getByRole('button',{name:'LIVE ✓'}).waitFor();
+ await page.waitForURL((url) => !url.searchParams.has('draft'));
  await step('promotion says live but replaces the newer paragraph');
 }

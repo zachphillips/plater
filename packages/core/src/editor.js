@@ -2394,10 +2394,14 @@ ${DRAFT_TRACK ? `<span class="autosave" id="plater-autosave">every edit autosave
   async function boot() {
     try {
       const contentUrl = `${apiBase}/content${DRAFT_TRACK ? `?track=${encodeURIComponent(DRAFT_TRACK)}` : ''}`;
-      const [cfg, contentRes, liveBase] = await Promise.all([
+      // Capture live before reading the rendered draft. Parallel reads could
+      // pair an older draft snapshot with a newer baseline and authorize it.
+      const liveBase = DRAFT_TRACK
+        ? await fetch(`${apiBase}/content`, { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).catch(() => null)
+        : null;
+      const [cfg, contentRes] = await Promise.all([
         fetch(`${apiBase}/config`).then((r) => r.json()).catch(() => CONFIG),
         fetch(contentUrl),
-        DRAFT_TRACK ? fetch(`${apiBase}/content`, { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).catch(() => null) : null,
       ]);
       CONFIG = { ...CONFIG, ...cfg };
       PROMOTION_BASE = liveBase;

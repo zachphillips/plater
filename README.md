@@ -573,7 +573,9 @@ Two ways to use a draft:
   normal commit. **+ New draft** starts a track by naming it; there is no registry
   to register with.
 
-Promotion includes `liveBase`, the live snapshot read when the draft opened.
+Promotion includes `liveBase`, the live snapshot read before loading the draft.
+Reading it first prevents a concurrent change from giving an older rendered
+draft a newer baseline.
 Both local and GitHub saves refuse promotion with HTTP 409 if live content has
 changed, or if an older client sends no baseline. The draft stays intact.
 Reload the updated site and review before promoting again. A GitHub retry also

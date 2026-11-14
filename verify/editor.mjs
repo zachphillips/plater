@@ -17,7 +17,7 @@
 // SHOTS=<dir> also saves a screenshot after each browser step.
 import fs from 'node:fs';
 import path from 'node:path';
-import { startBench } from './bench.mjs';
+import { startAssistBench } from './assist-bench.mjs';
 
 let chromium;
 try { ({ chromium } = await import('playwright')); } catch {
@@ -33,7 +33,9 @@ function check(ok, what, detail = '') {
   if (!ok) failures++;
 }
 
-const bench = await startBench({ port: Number(process.env.PORT) || 4290 });
+// The bench has the edit assistant switched on against a local Anthropic
+// stand-in (no key, no network), so pass 4 can drive it.
+const bench = await startAssistBench({ port: Number(process.env.PORT) || 4290 });
 const browser = await chromium.launch();
 const stamp = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
 const before = { commits: bench.commits(), headline: bench.content().hero.headline };
@@ -123,6 +125,20 @@ try {
     },
   });
   check(true, 'promotion: a live change during draft loading is refused and the newer commit is preserved');
+
+  /* ---- 4. the edit assistant: visitor sees nothing; propose, accept, discard, leave, error ---- */
+  const assistFile = path.join(bench.siteDir, '.assist-proof.json');
+  fs.writeFileSync(assistFile, JSON.stringify({ url: bench.url, editToken: bench.editToken, siteDir: bench.siteDir,
+    contentPath: bench.contentPath, usageLog: bench.usageLog, standin: bench.standin.url, key: bench.key, original: bench.original }));
+  process.env.ASSIST_BENCH_FILE = assistFile;
+  const { journey: assistJourney } = await import('./assist-journey.mjs');
+  const assistPage = await browser.newPage({ viewport: { width: 1210, height: 834 } });
+  await assistJourney({ page: assistPage,
+    expect: (ok, message) => { if (!ok) throw new Error(message); },
+    note: () => {},
+    step: async (name) => { if (SHOTS) await assistPage.screenshot({ path: path.join(SHOTS, `assist-${name.replace(/\W+/g, '-')}.png`) }); },
+  });
+  check(true, 'assist: proposals show in place unsaved; accept commits, discard and leaving commit nothing; one usage line per billed call');
 } catch (e) {
   check(false, 'drive finished without throwing', e.stack || e);
 } finally {

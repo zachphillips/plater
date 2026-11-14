@@ -124,6 +124,10 @@ export async function journey({ page, step, expect, note }) {
   await page.keyboard.press('Escape');
 
   /* ---- money and the key ---- */
+  // Exactly the calls the journey made: three proposals and the one busy reply.
+  // (evidence is told to ignore /api/assist failures because of that 429; this
+  // line is what keeps any other assist failure from passing.)
+  expect(JSON.stringify(assistCalls) === '[200,200,200,429]', `assist responses were ${JSON.stringify(assistCalls)}`);
   const billed = assistCalls.filter((s) => s === 200).length;
   const added = logLines().slice(logBefore);
   expect(added.length === billed, `one usage line per billed response (${added.length} lines, ${billed} billed)`);

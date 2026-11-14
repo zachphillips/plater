@@ -99,9 +99,21 @@ async function verifyGoogle(idToken) {
 
 /* ---------------- read side (local disk — deployed with the site) --------- */
 
+// Drafts are public content too. A symlink under versions/ must not turn the
+// reader into access to a private file elsewhere in the checkout or machine.
+async function realContentPath(file) {
+  try {
+    const [real, root] = await Promise.all([
+      fs.realpath(file), fs.realpath(path.resolve(process.cwd(), path.dirname(CONTENT_PATH))),
+    ]);
+    return real === root || real.startsWith(root + path.sep) ? real : null;
+  } catch { return null; }
+}
+
 async function listTracks() {
-  const root = path.resolve(process.cwd(), VERSIONS_DIR);
+  const root = await realContentPath(path.resolve(process.cwd(), VERSIONS_DIR));
   const out = {};
+  if (!root) return out;
   const tracks = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
   for (const t of tracks) {
     if (!t.isDirectory() || !TRACK_RE.test(t.name)) continue;
@@ -114,8 +126,10 @@ async function listTracks() {
 async function readDraft(track, slug) {
   const file = path.resolve(process.cwd(), VERSIONS_DIR, track, slug + '.md');
   const root = path.resolve(process.cwd(), VERSIONS_DIR);
-  if (!file.startsWith(root)) return null;
-  const text = await fs.readFile(file, 'utf8').catch(() => null);
+  if (!file.startsWith(root + path.sep)) return null;
+  const real = await realContentPath(file);
+  if (!real) return null;
+  const text = await fs.readFile(real, 'utf8').catch(() => null);
   if (text == null) return null;
   const { meta, body } = parseDraft(text);
   return { track, slug, page: pageForSlug(slug), ...meta, body };

@@ -191,3 +191,38 @@ test('a refused speed tier retries once at standard speed and says so; a usage l
   await runPlanNote({ prompt: 'p', cwd: dir, dir, env: {}, turn: async (o) => { calls.push(o.serviceTier); return { ok: true, status: 'completed' }; } });
   assert.deepEqual(calls, [null], 'standard speed unless the owner set a tier');
 });
+
+test('move-to: the target keeps its own host id, and only a confirmed import drops tokens here', async (t) => {
+  const { importRecord, moveTo } = await import('../packages/agent-host/chatgpt.mjs');
+  const src = tmp(t); const dst = tmp(t) + '-target';
+  t.after(() => fs.rmSync(dst, { recursive: true, force: true }));
+  hostId(src, { create: true });
+  saveRecord(src, { ...granted, email: 'owner@example.test', ext_agent_host_id: hostId(src) });
+  const targetHost = hostId(dst, { create: true });
+  // a fake ssh that runs the import into the target dir, as the real one does over SSH
+  const fake = path.join(path.dirname(src), 'fake-ssh.mjs');
+  fs.writeFileSync(fake, `#!/usr/bin/env node
+import { importRecord } from ${JSON.stringify(path.resolve('packages/agent-host/chatgpt.mjs'))};
+let s = ''; for await (const c of process.stdin) s += c;
+console.log(JSON.stringify(importRecord(JSON.parse(s), { dir: ${JSON.stringify(dst)} })));`, { mode: 0o755 });
+  const out = await moveTo('triklops', { dir: src, ssh: fake });
+  assert.equal(out.remoteHostId, targetHost, 'the target keeps its own host id');
+  assert.equal(loadRecord(dst).ext_agent_host_id, targetHost);
+  assert.equal(loadRecord(dst).refresh_token, 'rt');
+  assert.equal(fs.statSync(credentialsFile(dst)).mode & 0o777, 0o600);
+  const left = loadRecord(src);
+  assert.equal(left.access_token, undefined); assert.equal(left.refresh_token, undefined);
+  assert.equal(left.client_id, 'oaiapp_test'); assert.equal(left.moved_to, 'triklops');
+  // a failed import leaves this machine's tokens alone
+  saveRecord(src, { ...granted, ext_agent_host_id: hostId(src) });
+  await assert.rejects(moveTo('triklops', { dir: src, ssh: '/usr/bin/false' }), /failed/);
+  assert.equal(loadRecord(src).refresh_token, 'rt');
+  // never clobber a different registration's live sign-in on the target
+  assert.throws(() => importRecord({ record: { ...granted, client_id: 'oaiapp_other' } }, { dir: dst }), /different registration/);
+  await assert.rejects(moveTo('bad host; rm -rf /', { dir: src, ssh: fake }), /usage/);
+  // an alias that points back at this machine: refused, and the tokens stay
+  const selfSsh = path.join(path.dirname(src), 'self-ssh.mjs');
+  fs.writeFileSync(selfSsh, fs.readFileSync(fake, 'utf8').replace(JSON.stringify(dst), JSON.stringify(src)), { mode: 0o755 });
+  await assert.rejects(moveTo('sorceress', { dir: src, ssh: selfSsh }), /is this machine/);
+  assert.equal(loadRecord(src).refresh_token, 'rt');
+});

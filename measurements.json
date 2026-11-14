@@ -1,0 +1,117 @@
+{
+  "before": {
+    "rejected": {
+      "visibleText": "Thanks — we received your message.",
+      "stored": false,
+      "journaled": false,
+      "mailed": false
+    }
+  },
+  "after": {
+    "rejected": {
+      "visibleText": "The form did not take your message.\n\nWe could not accept this form. Please email your message instead.\n\nEmail your message instead",
+      "fallbackHref": "mailto:hello@demo.example?subject=Website%20inquiry&body=A%20complete%20real%20inquiry%20from%20an%20autofilled%20form%20%F0%9F%99%82%0A%0A%E2%80%94%20autofill-after-1794682237268%40example.com",
+      "stored": false,
+      "journaled": false
+    },
+    "accepted": {
+      "visibleText": "Thanks — we received your message.",
+      "storedNote": "A complete real inquiry from an autofilled form 🙂"
+    }
+  },
+  "broke": {
+    "emptyCompany": {
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "cors": "http://127.0.0.1:27080"
+    },
+    "whitespaceCompany": {
+      "status": 422,
+      "body": {
+        "error": "We could not accept this form. Please email your message instead."
+      },
+      "cors": "http://127.0.0.1:27080",
+      "stored": false
+    },
+    "doubleRefuse": {
+      "first": {
+        "status": 422,
+        "body": {
+          "error": "We could not accept this form. Please email your message instead."
+        },
+        "cors": "http://127.0.0.1:27080"
+      },
+      "second": {
+        "status": 422,
+        "body": {
+          "error": "We could not accept this form. Please email your message instead."
+        },
+        "cors": "http://127.0.0.1:27080"
+      }
+    },
+    "longCompany": {
+      "status": 422,
+      "error": "We could not accept this form. Please email your message instead.",
+      "cors": "http://127.0.0.1:27080"
+    },
+    "missingEmailWithHoneypot": {
+      "status": 400,
+      "body": {
+        "error": "site and email must be strings, and note must be text"
+      },
+      "cors": "http://127.0.0.1:27080"
+    },
+    "noNoteClearHoneypot": {
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "cors": "http://127.0.0.1:27080"
+    },
+    "numericZeroCompany": {
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "cors": "http://127.0.0.1:27080"
+    },
+    "booleanFalseCompany": {
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "cors": "http://127.0.0.1:27080"
+    }
+  },
+  "consoleErrors": [
+    {
+      "tag": "after-1440",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+    },
+    {
+      "tag": "after-390",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+    }
+  ],
+  "networkFails": [],
+  "direct": {
+    "before": {
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "cors": "http://127.0.0.1:27080"
+    },
+    "after": {
+      "status": 422,
+      "body": {
+        "error": "We could not accept this form. Please email your message instead."
+      },
+      "cors": "http://127.0.0.1:27080"
+    }
+  }
+}

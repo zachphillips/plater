@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Content-Length: 11
+Content-Type: application/json
+Access-Control-Allow-Origin: http://127.0.0.1:27080
+Cache-Control: no-store
+Vary: origin
+access-control-allow-headers: content-type, authorization
+access-control-allow-methods: POST, GET, OPTIONS
+

@@ -1,0 +1,5 @@
+Chromium logs a failed-resource console error for HTTP 422. That is the honest refusal, not a page script crash.
+No JavaScript exceptions. No failed navigations.
+
+after-1440: Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)
+after-390: Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)

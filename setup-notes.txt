@@ -1,0 +1,12 @@
+BEFORE commit: 105de43 (819090d^1)
+AFTER commit: 819090d
+WRANGLER_BIN=/tmp/tools/node_modules/wrangler/bin/wrangler.js
+Playwright: /tmp/tools/node_modules/playwright@1.64.1 chromium
+
+cd /tmp/tools && npm i --no-save playwright@1.64.1 wrangler && npx playwright install chromium
+git -C /agent/repos/plater worktree add --detach /tmp/plater-pr23-before 105de43
+git -C /agent/repos/plater worktree add --detach /tmp/plater-pr23-after 819090d
+python3 -m http.server 27080 --bind 127.0.0.1   # /tmp/verify-pr23/form.html
+WORKER_ROOT=/tmp/plater-pr23-before LIST_PROOF_DIR=/tmp/verify-pr23/before LIST_PROOF_PORT=24641 FORM_ORIGIN=http://127.0.0.1:27080 node /tmp/verify-pr23/start-worker.mjs
+WORKER_ROOT=/tmp/plater-pr23-after  LIST_PROOF_DIR=/tmp/verify-pr23/after  LIST_PROOF_PORT=24741 FORM_ORIGIN=http://127.0.0.1:27080 node /tmp/verify-pr23/start-worker.mjs
+node /tmp/verify-pr23/drive.mjs

@@ -1,0 +1,33 @@
+CLAIMS MEASUREMENTS (this run)
+
+Fixture: child process RLIMIT_FSIZE=65536 (64 KiB). SIGXFSZ ignored so EFBIG is observable.
+Synthetic payload: hero.headline with 150000 x characters (~150 KiB JSON).
+No shared process limit changed. Only these bench children were limited.
+
+BASE b8e61ab  http://127.0.0.1:25040/
+- editor huge save: status "Save failed — nothing was lost. Try again."
+  disk: previousContentPreserved=false validJSON=false bytesAfter=65536
+  reload h1: "" (blank page; authored HTML has empty h1 and JSON is truncated)
+  console: Unterminated string in JSON at position 65536
+- live POST /api/save: HTTP 500 EFBIG, 1113 -> 65536 bytes, invalid JSON
+- draft POST /api/save?track=disk-proof: HTTP 500 EFBIG, 47 -> 65536 bytes, invalid JSON
+- history POST /api/history restore of a >64KiB blob: connection closed (fetch failed)
+  disk truncated to 65536 invalid JSON
+  server process exited with unhandled EFBIG from handleHistory (see before-history-server-crash.txt)
+
+HEAD 1a092a0  http://127.0.0.1:25041/
+- editor huge save: same status line
+  disk: previousContentPreserved=true validJSON=true bytesAfter=1113 leftovers=[]
+  reload h1: "Edit this page in the browser."
+- live POST: HTTP 500 EFBIG, 1113 -> 1113, preserved, valid JSON, leftovers=[]
+- draft POST: HTTP 500 EFBIG, 47 -> 47, preserved, valid JSON, leftovers=[]
+- history POST: HTTP 500 EFBIG (not a closed connection), preserved, valid JSON
+- small retry POST: HTTP 200, headline persisted
+- symlink+mode: after chmod 0640 + symlink, small save HTTP 200, still a symlink, mode 0640
+- server still GET / 200 after all refusals
+- empty headline save HTTP 200
+- two concurrent huge saves: both HTTP 500 EFBIG, JSON still valid, leftovers=[]
+- huge promote: HTTP 500 EFBIG, JSON still valid
+- typed editor save after refusals: status "saved", headline "Typed retry after the refusals"
+
+HEAD console: one expected 500 from the refused editor save. No pageerrors, no failed requests.

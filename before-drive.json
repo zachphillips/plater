@@ -1,0 +1,66 @@
+{
+  "label": "before",
+  "weak": true,
+  "url": "http://127.0.0.1:25040/",
+  "h1Before": "Edit this page in the browser.",
+  "h1AfterHugeReload": "",
+  "h1AfterLiveHttp": "Edit this page in the browser.",
+  "statusAfterHuge": "Save failed — nothing was lost. Try again.",
+  "results": [
+    {
+      "name": "editor live huge save",
+      "statusLine": "Save failed — nothing was lost. Try again.",
+      "previousContentPreserved": false,
+      "validJSON": false,
+      "bytesAfter": 65536,
+      "leftovers": []
+    },
+    {
+      "name": "live",
+      "status": 500,
+      "error": "EFBIG: file too large, write",
+      "previousBytes": 1113,
+      "bytesAfter": 65536,
+      "previousContentPreserved": false,
+      "validJSON": false,
+      "leftovers": [],
+      "connectionError": null
+    },
+    {
+      "name": "draft",
+      "status": 500,
+      "error": "EFBIG: file too large, write",
+      "previousBytes": 47,
+      "bytesAfter": 65536,
+      "previousContentPreserved": false,
+      "validJSON": false,
+      "leftovers": [],
+      "connectionError": null
+    },
+    {
+      "name": "history restore",
+      "status": null,
+      "error": "connection closed: fetch failed",
+      "previousBytes": 1113,
+      "bytesAfter": 65536,
+      "previousContentPreserved": false,
+      "validJSON": false,
+      "leftovers": [],
+      "connectionError": "fetch failed"
+    }
+  ],
+  "symlink": null,
+  "broke": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "[zms] content load failed SyntaxError: Unterminated string in JSON at position 65536 (line 6 column 65479)"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "shots": {
+    "editorReady": "before-01-editor-ready-original-headline-1440.png",
+    "afterHugeSave": "before-02-after-huge-editor-save-status-1440.png",
+    "afterHugeReload": "before-03-reload-after-huge-save-1440.png",
+    "afterLiveHttp": "before-04-reload-after-live-http-refusal-1440.png"
+  }
+}

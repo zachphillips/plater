@@ -1,0 +1,9 @@
+== BASE ==
+consoleErrors: ["Failed to load resource: the server responded with a status of 500 (Internal Server Error)", "[zms] content load failed SyntaxError: Unterminated string in JSON at position 65536 (line 6 column 65479)"]
+pageErrors: []
+failedRequests: []
+
+== HEAD ==
+consoleErrors: ["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"]
+pageErrors: []
+failedRequests: []

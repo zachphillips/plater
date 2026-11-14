@@ -1,0 +1,135 @@
+{
+  "label": "after",
+  "weak": false,
+  "url": "http://127.0.0.1:25041/",
+  "h1Before": "Edit this page in the browser.",
+  "h1AfterHugeReload": "Edit this page in the browser.",
+  "h1AfterLiveHttp": "Edit this page in the browser.",
+  "statusAfterHuge": "Save failed — nothing was lost. Try again.",
+  "results": [
+    {
+      "name": "editor live huge save",
+      "statusLine": "Save failed — nothing was lost. Try again.",
+      "previousContentPreserved": true,
+      "validJSON": true,
+      "bytesAfter": 1113,
+      "leftovers": []
+    },
+    {
+      "name": "live",
+      "status": 500,
+      "error": "EFBIG: file too large, write",
+      "previousBytes": 1113,
+      "bytesAfter": 1113,
+      "previousContentPreserved": true,
+      "validJSON": true,
+      "leftovers": [],
+      "connectionError": null
+    },
+    {
+      "name": "draft",
+      "status": 500,
+      "error": "EFBIG: file too large, write",
+      "previousBytes": 47,
+      "bytesAfter": 47,
+      "previousContentPreserved": true,
+      "validJSON": true,
+      "leftovers": [],
+      "connectionError": null
+    },
+    {
+      "name": "small retry before history",
+      "status": 200,
+      "persisted": true,
+      "headline": "A small retry succeeds after the refusal"
+    },
+    {
+      "name": "history restore",
+      "status": 500,
+      "error": "EFBIG: file too large, write",
+      "previousBytes": 1051,
+      "bytesAfter": 1051,
+      "previousContentPreserved": true,
+      "validJSON": true,
+      "leftovers": [],
+      "connectionError": null
+    },
+    {
+      "name": "small retry after history",
+      "status": 200,
+      "persisted": true,
+      "headline": "A small retry succeeds after the refusal"
+    },
+    {
+      "name": "small retry through symlink",
+      "status": 200,
+      "persisted": true,
+      "headline": "A small retry succeeds after the refusal"
+    }
+  ],
+  "symlink": {
+    "isSymlink": true,
+    "mode": "0640",
+    "persisted": true
+  },
+  "broke": [
+    {
+      "name": "server still answers GET / after refusals",
+      "ok": true,
+      "ping": 200
+    },
+    {
+      "name": "empty headline save",
+      "status": 200,
+      "persisted": true,
+      "error": null
+    },
+    {
+      "name": "two concurrent huge saves",
+      "responses": [
+        {
+          "status": 500,
+          "body": {
+            "error": "EFBIG: file too large, write"
+          }
+        },
+        {
+          "status": 500,
+          "body": {
+            "error": "EFBIG: file too large, write"
+          }
+        }
+      ],
+      "stillValidJSON": true,
+      "leftovers": []
+    },
+    {
+      "name": "huge promote",
+      "status": 500,
+      "body": {
+        "error": "EFBIG: file too large, write"
+      },
+      "stillValidJSON": true,
+      "preservedOrValid": true
+    },
+    {
+      "name": "typed small save after refusals",
+      "statusLine": "saved",
+      "headline": "Typed retry after the refusals"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "shots": {
+    "editorReady": "after-01-editor-ready-original-headline-1440.png",
+    "afterHugeSave": "after-02-after-huge-editor-save-status-1440.png",
+    "afterHugeReload": "after-03-reload-after-huge-save-1440.png",
+    "afterLiveHttp": "after-04-reload-after-live-http-refusal-1440.png",
+    "afterRetry": "after-05-after-small-retry-1440.png",
+    "phone": "after-06-reader-390.png",
+    "typedRetry": "after-07-typed-small-save-still-works-1440.png"
+  }
+}

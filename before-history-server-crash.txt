@@ -1,0 +1,14 @@
+node:internal/fs/promises:744
+      (await PromisePrototypeThen(
+       ^
+
+Error: EFBIG: file too large, write
+    at async write (node:internal/fs/promises:744:8)
+    at async writeFileHandle (node:internal/fs/promises:501:7)
+    at async handleHistory (file:///tmp/plater-base/cli/dev.mjs:286:3) {
+  errno: -27,
+  code: 'EFBIG',
+  syscall: 'write'
+}
+
+Node.js v22.23.4

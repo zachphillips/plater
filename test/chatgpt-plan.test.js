@@ -220,4 +220,9 @@ console.log(JSON.stringify(importRecord(JSON.parse(s), { dir: ${JSON.stringify(d
   // never clobber a different registration's live sign-in on the target
   assert.throws(() => importRecord({ record: { ...granted, client_id: 'oaiapp_other' } }, { dir: dst }), /different registration/);
   await assert.rejects(moveTo('bad host; rm -rf /', { dir: src, ssh: fake }), /usage/);
+  // an alias that points back at this machine: refused, and the tokens stay
+  const selfSsh = path.join(path.dirname(src), 'self-ssh.mjs');
+  fs.writeFileSync(selfSsh, fs.readFileSync(fake, 'utf8').replace(JSON.stringify(dst), JSON.stringify(src)), { mode: 0o755 });
+  await assert.rejects(moveTo('sorceress', { dir: src, ssh: selfSsh }), /is this machine/);
+  assert.equal(loadRecord(src).refresh_token, 'rt');
 });

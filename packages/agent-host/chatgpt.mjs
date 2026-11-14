@@ -129,10 +129,12 @@ export function importRecord(payload, { dir = planDir(), from = null } = {}) {
   }
   const host = hostId(dir, { create: true });
   const record = { ...incoming, ext_agent_host_id: host, imported_at: new Date().toISOString(), ...(from ? { imported_from: from } : {}) };
-  saveRecord(dir, record);
+  // Settings first: if that write fails, no usable credentials were stored, so
+  // the sender keeps the only copy.
   if (payload.settings && !fs.existsSync(settingsFile(dir))) {
     fs.writeFileSync(settingsFile(dir), JSON.stringify(payload.settings, null, 2) + '\n', { mode: 0o600 });
   }
+  saveRecord(dir, record);
   return { ok: true, hostId: host, email: record.email || null, planGranted: hasPlanGrant(record) };
 }
 
@@ -155,6 +157,9 @@ export async function moveTo(sshHost, { dir = planDir(), remoteRepo = '~/Dev/pla
     child.stdin.end(payload);
   });
   if (!out.ok || !out.planGranted) throw new Error(`import on ${sshHost} did not confirm the plan grant`);
+  // An alias that resolves back to this machine imported into this very store;
+  // dropping tokens now would leave no usable copy anywhere.
+  if (out.hostId && out.hostId === record.ext_agent_host_id) throw new Error(`${sshHost} is this machine; nothing was moved`);
   saveRecord(dir, { client_id: record.client_id, ext_agent_host_id: record.ext_agent_host_id, email: record.email, sub: record.sub,
     issuer: record.issuer, moved_to: sshHost, moved_at: new Date().toISOString() });
   return { moved: true, to: sshHost, remoteHostId: out.hostId, email: out.email };

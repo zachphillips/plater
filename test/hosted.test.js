@@ -88,6 +88,8 @@ test('versions are kept: an edit makes a new version and v1 still shows what it 
   assert.equal((await stale.json()).content.h, 'two');
   const old = await fetch(`${url}/api/content`, { headers: { referer: `${url}/demo/v1/` } });
   assert.equal((await old.json()).h, 'one');
+  const cross = await fetch(`${url}/demo/review`, { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'application/x-www-form-urlencoded' }, body: 'version=1' });
+  assert.equal(cross.status, 403, 'a cross-site form cannot mark a version reviewed');
   const roSave = await fetch(`${url}/api/save`, { method: 'POST', headers: { ...ref, referer: `${url}/demo/v1/` }, body: JSON.stringify({ content: { h: 'x' } }) });
   assert.equal(roSave.status, 409, 'an older version is read-only');
 });

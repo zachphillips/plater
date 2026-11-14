@@ -567,6 +567,12 @@ export default {
 
       const email = await accessUser(req, env);
       if (!email) return text('Sign in through Cloudflare Access to open Plater.', 403);
+      // Writes come only from Plater's own pages: a browser always sends Origin
+      // on a cross-site POST, so another site cannot act in the owner's name.
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        const origin = req.headers.get('origin');
+        if (origin && origin !== url.origin) return text('Cross-site requests are refused.', 403);
+      }
 
       if (url.pathname === '/') return indexPage(env);
       if (url.pathname.startsWith('/packages/') || url.pathname.startsWith('/__plater/')) return env.ASSETS.fetch(req);

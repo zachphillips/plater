@@ -65,6 +65,9 @@ try {
     await page.getByRole('button', { name: 'Edit page' }).click();
     const h1 = page.locator('h1');
     await h1.fill(headline);
+    check(await page.evaluate((text) => Object.keys(localStorage).some((k) =>
+      k.startsWith('plater.buf.') && JSON.parse(localStorage.getItem(k)).content.hero.headline === text), headline),
+    'editor: the last keystroke is already in its recovery copy');
     await shot('2-edited');
     await page.getByRole('button', { name: 'Save & commit' }).click();
     await page.waitForFunction(() => !/saving/.test(document.querySelector('#cms-status')?.textContent || ''), null, { timeout: 10_000 });

@@ -219,6 +219,7 @@ test('failed authentication prevents save, promotion, autosave and review reques
   const b = browser({ draft: true }); b.google(); await b.boot();
   await b.editor.save();
   await assert.rejects(b.editor.test.markReviewed('/', true), /sign in/);
+  b.editor.setEditable(true); // the autosave guard is exercised during editing
   b.editor.test.scheduleDraftAutosave(); await b.timer(2000);
   await b.elements.get('plater-golive').onclick();
   assert.equal(b.calls.filter((c) => c.method === 'POST').length, 0);

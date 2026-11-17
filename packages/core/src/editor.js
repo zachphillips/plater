@@ -119,6 +119,8 @@ const CTL = 'data-plater-ctl';
 // never seeded as real text: a seeded "New item" sits in the DOM in front of
 // the caret and gets committed as "New itemWidgets" the moment somebody types.
 const PH = 'data-plater-ph';
+// Marks the one element showing an assistant proposal that is not accepted yet.
+const PENDING = 'data-plater-pending';
 function injectEditStyles() {
   if (document.getElementById(`${EDNS}-style`)) return;
   const css = `
@@ -291,6 +293,7 @@ export function initZMS(options = {}) {
   /* ---------------- render ---------------- */
 
   function render() {
+    assistDiscard();   // a re-render rewrites the element under any proposal
     $$('[data-bind]').forEach((el) => {
       const path = el.dataset.bind;
       const val = getPath(CONTENT, path);
@@ -551,6 +554,7 @@ export function initZMS(options = {}) {
     // something collects it, and the re-render below throws that DOM away. Sync
     // through the exact same collector the save path uses, first.
     collectEdits();
+    assistDiscard();
     let arr = getPath(CONTENT, path);
     if (!Array.isArray(arr)) { arr = []; setPath(CONTENT, path, arr); }
     if (fn(arr) === false) return;
@@ -591,8 +595,13 @@ export function initZMS(options = {}) {
     return clone.textContent.trim();
   }
 
+  // An assistant proposal on screen is not an edit until it is accepted, so the
+  // element showing one is never collected: autosave, the recovery copy and
+  // the unload guard all see the text as it was before the proposal.
+  let asLocked = null;   // the element under a proposal or an open request
   function collectEdits() {
     $$('[data-path]').forEach((el) => {
+      if (el === asLocked) return;
       setPath(CONTENT, el.dataset.path, elText(el));
     });
   }
@@ -617,6 +626,7 @@ export function initZMS(options = {}) {
     // The image chip carries CTL too, so it is swept up here — drop the
     // reference to the image it was pointing at before the node goes.
     if (!on) {
+      assistDiscard();
       hideImgChip();
       $$(`[${CTL}]`).forEach((n) => n.remove());
       // Placeholders are chrome too — they are CSS-gated on .cms-editing, but
@@ -722,6 +732,269 @@ export function initZMS(options = {}) {
     const el = e.target instanceof Element ? e.target.closest('[data-path]') : null;
     if (el && el.isContentEditable) e.preventDefault();
   }, true);
+
+  /* ---------------- the edit assistant ---------------- */
+  // Shown only when /api/config says assist is on (the server holds a key),
+  // only in edit mode, and only to a signed-in editor. Tap a text you can edit,
+  // tap "Ask Claude", say what should change. The proposal replaces the text in
+  // place, hatched, with the element locked: it is not content until "Use this".
+  // Accepting fires the same input event typing does, so it autosaves exactly
+  // like a hand edit. Discard, Escape, leaving edit mode, a live re-render or
+  // leaving the page all drop it: it never reaches CONTENT, the recovery copy
+  // or the unload guard (collectEdits skips the element; see PENDING).
+  //
+  // What is sent: this element's own text, its tag, its content path and the
+  // instruction. Nothing else from the page.
+
+  const AS = 'plater-as';
+  const ASK_PRESETS = [
+    ['Shorter', 'Make this shorter.'],
+    ['Warmer', 'Make this warmer.'],
+    ['Plainer', 'Use plainer words.'],
+    ['Spanish', 'Translate this to Spanish.'],
+  ];
+  let asChip = null, asPanel = null, asFor = null, asPending = null, asBusy = 0;
+
+  function injectAssistStyles() {
+    if (document.getElementById(`${AS}-style`)) return;
+    const css = `
+  body:not(.cms-editing) .${AS}-chip,body:not(.cms-editing) .${AS}-panel{display:none !important}
+  .${AS}-chip{position:absolute;z-index:2147483643;display:inline-flex;align-items:center;gap:5px;
+    padding:5px 10px;min-height:30px;background:rgba(28,28,28,.96);border:1px solid #3a352b;border-radius:6px;
+    color:#c9a96e;font:600 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;
+    cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:0 10px 26px -14px rgba(0,0,0,.9)}
+  .${AS}-chip:hover,.${AS}-chip:focus-visible{background:#c9a96e;color:#151208;border-color:#c9a96e;outline:none}
+  .${AS}-chip[hidden],.${AS}-panel[hidden]{display:none}
+  .${AS}-panel{position:absolute;z-index:2147483645;box-sizing:border-box;width:min(calc(100vw - 24px),440px);
+    padding:11px 12px 12px;background:#1c1c1c;border:1px solid #333;border-radius:8px;color:#e8e3d9;
+    font:13px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;box-shadow:0 18px 44px -16px rgba(0,0,0,.9)}
+  .${AS}-panel .hd{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .${AS}-panel .hd b{color:#c9a96e;font:700 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase}
+  .${AS}-panel .hd .x{margin-left:auto}
+  .${AS}-panel textarea{display:block;box-sizing:border-box;width:100%;min-height:44px;resize:vertical;margin:0;
+    padding:8px 9px;background:#141414;border:1px solid #3a352b;border-radius:6px;color:#e8e3d9;
+    font:16px/1.35 ui-sans-serif,system-ui,-apple-system,sans-serif}
+  .${AS}-panel textarea:focus{outline:2px solid #c9a96e;outline-offset:1px;border-color:#c9a96e}
+  .${AS}-panel .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+  .${AS}-panel button{background:#1c1c1c;border:1px solid #3a352b;color:#c9a96e;border-radius:4px;
+    font:600 11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 9px;min-height:30px;cursor:pointer;
+    -webkit-appearance:none;appearance:none}
+  .${AS}-panel button:hover:not(:disabled),.${AS}-panel button:focus-visible{background:#c9a96e;color:#151208;border-color:#c9a96e;outline:none}
+  .${AS}-panel button:disabled{opacity:.45;cursor:default}
+  .${AS}-panel button.go{margin-left:auto;background:#c9a96e;color:#151208;border-color:#c9a96e}
+  .${AS}-panel button.quiet{color:#8a8277;border-color:#333}
+  .${AS}-panel .was{margin:0 0 2px;color:#8a8277;font-size:12px;line-height:1.4;max-height:4.2em;overflow:auto}
+  .${AS}-panel .was s{color:#b8b0a4;text-decoration-color:rgba(184,176,164,.55)}
+  .${AS}-panel .note{margin:8px 0 0;color:#7a736a;font-size:11.5px}
+  .${AS}-panel .err{margin:8px 0 0;color:#e0a89f;font-size:12.5px}
+  .${AS}-panel .err:empty,.${AS}-panel .note:empty{display:none}
+  /* The proposal in place: hatched like an unbuilt part of a drawing, locked,
+     and drawn from this one attribute so it can never be mistaken for saved copy. */
+  body.cms-editing [${PENDING}]{outline:2px solid #c9a96e !important;outline-offset:4px;border-radius:2px;
+    background-image:repeating-linear-gradient(135deg,rgba(201,169,110,.16) 0 7px,rgba(201,169,110,.05) 7px 14px);
+    cursor:default}
+  body.cms-editing [${PENDING}="asking"]{animation:${AS}-wait 1.1s ease-in-out infinite alternate}
+  @keyframes ${AS}-wait{from{outline-color:#c9a96e}to{outline-color:#5c4d33}}
+  @media (prefers-reduced-motion:reduce){body.cms-editing [${PENDING}="asking"]{animation:none;outline-style:dotted}}
+  `;
+    const s = document.createElement('style'); s.id = `${AS}-style`; s.textContent = css;
+    document.head.appendChild(s);
+  }
+
+  const assistOn = () => Boolean(CONFIG.assist) && EDITING && Boolean(ID_TOKEN) && !CONFIG.devNoauth;
+
+  // Document coordinates, so chip and panel scroll with the element they belong to.
+  function placeNear(node, el, { below = false } = {}) {
+    const r = el.getBoundingClientRect();
+    const view = window.visualViewport;
+    const vw = view?.width || document.documentElement.clientWidth || window.innerWidth;
+    const left0 = (view?.offsetLeft || 0) + window.scrollX;
+    const w = node.getBoundingClientRect().width;
+    let left = below ? r.left + window.scrollX : r.right + window.scrollX - w;
+    left = Math.max(left0 + 12, Math.min(left, left0 + vw - 12 - w));
+    let top = below ? r.bottom + window.scrollY + 12 : r.top + window.scrollY - node.getBoundingClientRect().height - 8;
+    const bar = $('#cms-bar');
+    const barBottom = bar && !bar.hidden ? bar.getBoundingClientRect().bottom + window.scrollY : 0;
+    if (!below && top < Math.max(window.scrollY, barBottom) + 4) top = r.bottom + window.scrollY + 8;
+    node.style.left = `${Math.round(left)}px`;
+    node.style.top = `${Math.round(top)}px`;
+  }
+
+  function hideAssistChip() { if (asChip) asChip.hidden = true; }
+
+  function showAssistChip(el) {
+    if (!assistOn() || asPending || asPanel) return;
+    injectAssistStyles();
+    if (!asChip || !asChip.isConnected) {
+      asChip = document.createElement('button');
+      asChip.type = 'button';
+      asChip.className = `${AS}-chip`;
+      asChip.setAttribute(CTL, '');
+      asChip.textContent = '✦ Ask Claude';
+      asChip.title = 'Ask Claude to rewrite this text. You see the result before anything changes.';
+      // Keep the caret where it is, as the array controls do.
+      asChip.addEventListener('mousedown', (e) => e.preventDefault());
+      asChip.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (asFor) openAssist(asFor); });
+      document.body.appendChild(asChip);
+    }
+    asFor = el;
+    asChip.hidden = false;
+    placeNear(asChip, el);
+  }
+
+  document.addEventListener('focusin', (e) => {
+    const el = e.target instanceof Element ? e.target.closest('[data-path]') : null;
+    if (el && el.isContentEditable && assistOn()) showAssistChip(el);
+  }, true);
+  document.addEventListener('focusout', (e) => {
+    const el = e.target instanceof Element ? e.target.closest('[data-path]') : null;
+    // Let a click on the chip land before it goes.
+    if (el) setTimeout(() => { if (asChip && document.activeElement !== asChip && !document.activeElement?.closest?.('[data-path]')) hideAssistChip(); }, 150);
+  }, true);
+  window.addEventListener('resize', () => { if (asPanel && asPanel.el?.isConnected) placeNear(asPanel, asPanel.el, { below: true }); });
+
+  function closeAssistPanel() {
+    if (!asPanel) return;
+    asPanel.remove();
+    asPanel = null;
+    document.removeEventListener('keydown', onAssistKey, true);
+  }
+  function onAssistKey(e) {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    if (asPending) assistDiscard({ say: true }); else closeAssistPanel();
+  }
+
+  // The panel: one sentence of instruction, four common asks, and a line that
+  // says what leaves the page. Shared by "ask" and "proposal" states.
+  function assistPanel(el) {
+    closeAssistPanel();
+    injectAssistStyles();
+    hideAssistChip();
+    const p = document.createElement('div');
+    p.className = `${AS}-panel`;
+    p.setAttribute(CTL, '');
+    p.setAttribute('role', 'dialog');
+    p.setAttribute('aria-label', 'Ask Claude about this text');
+    p.el = el;
+    document.body.appendChild(p);
+    asPanel = p;
+    document.addEventListener('keydown', onAssistKey, true);
+    return p;
+  }
+
+  function openAssist(el, instruction = '') {
+    if (!el?.isConnected) return;
+    collectEdits();          // anything typed into it so far is what gets rewritten
+    const p = assistPanel(el);
+    p.innerHTML = `<div class="hd"><b>Ask Claude</b><button type="button" class="x quiet" aria-label="Close">✕</button></div>
+<textarea rows="2" placeholder="What should change? For example: make this shorter" aria-label="What should change"></textarea>
+<div class="row">${ASK_PRESETS.map(([label]) => `<button type="button" class="preset">${label}</button>`).join('')}<button type="button" class="go">Propose</button></div>
+<p class="err" role="status"></p>
+<p class="note">Sends only this text to Claude. Nothing changes until you choose “Use this”.</p>`;
+    const box = p.querySelector('textarea');
+    box.value = instruction;
+    const go = () => askClaude(el, box.value.trim());
+    p.querySelector('.x').onclick = closeAssistPanel;
+    p.querySelector('.go').onclick = go;
+    p.querySelectorAll('.preset').forEach((b, i) => { b.onclick = () => { box.value = ASK_PRESETS[i][1]; go(); }; });
+    box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } });
+    placeNear(p, el, { below: true });
+    box.focus({ preventScroll: true });
+  }
+
+  // Replace the element's own text (never its controls) and lock it.
+  function setOwnText(el, text) {
+    [...el.childNodes].forEach((n) => { if (!(n.nodeType === 1 && n.hasAttribute(CTL))) n.remove(); });
+    el.insertBefore(document.createTextNode(text), el.querySelector(`[${CTL}]`));
+  }
+
+  async function askClaude(el, instruction) {
+    if (!asPanel || !el.isConnected) return;
+    const err = asPanel.querySelector('.err');
+    if (!instruction) { err.textContent = 'Say what should change.'; return; }
+    if (!(await ensureAuthFresh())) { err.textContent = 'Sign in again to use the assistant.'; return; }
+    const original = elText(el);
+    asLocked = el;
+    const ticket = ++asBusy;
+    asPanel.querySelectorAll('button:not(.x),textarea').forEach((n) => { n.disabled = true; });
+    asPanel.querySelector('.go').textContent = 'Writing…';
+    err.textContent = '';
+    el.setAttribute(PENDING, 'asking');
+    el.setAttribute('contenteditable', 'false');
+    let out = {}, status = 0;
+    try {
+      const r = await fetch(`${apiBase}/assist`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ text: original, tag: el.tagName.toLowerCase(), path: el.dataset.path, instruction }),
+      });
+      status = r.status;
+      out = await r.json().catch(() => ({}));
+    } catch { out = { error: 'The assistant could not be reached. Nothing was changed.' }; }
+    if (ticket !== asBusy || !el.isConnected || el.getAttribute(PENDING) !== 'asking') return;   // discarded meanwhile
+    if (status === 401) clearBearer();
+    if (status !== 200 || typeof out.replacement !== 'string') {
+      asLocked = null;
+      el.removeAttribute(PENDING);
+      if (EDITING) el.setAttribute('contenteditable', 'true');
+      openAssist(el, instruction);
+      if (asPanel) asPanel.querySelector('.err').textContent = out.error || 'The assistant could not write a proposal this time. Nothing was changed.';
+      return;
+    }
+    asPending = { el, original, instruction, proposal: out.replacement };
+    el.setAttribute(PENDING, 'shown');
+    setOwnText(el, out.replacement);
+    showProposal();
+  }
+
+  function showProposal() {
+    const { el, original } = asPending;
+    const p = assistPanel(el);
+    p.setAttribute('aria-label', 'Claude’s proposal');
+    p.innerHTML = `<div class="hd"><b>Proposal, not saved</b></div>
+<p class="was">Was: <s></s></p>
+<div class="row"><button type="button" class="discard quiet">Discard</button><button type="button" class="again">Try again</button><button type="button" class="go">Use this</button></div>
+<p class="note">Leaving the page or pressing Escape discards it.</p>`;
+    p.querySelector('.was s').textContent = original || '(empty)';
+    p.querySelector('.discard').onclick = () => assistDiscard({ say: true });
+    p.querySelector('.again').onclick = () => { const { instruction } = asPending; assistDiscard(); openAssist(el, instruction); };
+    p.querySelector('.go').onclick = assistAccept;
+    placeNear(p, el, { below: true });
+    p.querySelector('.go').focus({ preventScroll: true });
+    setStatus('Claude’s proposal is on the page. It is not saved.');
+  }
+
+  // Accepting is the edit: unlock, then the same input event typing fires, so
+  // the recovery copy, the unload guard and autosave all run as for a hand edit.
+  function assistAccept() {
+    if (!asPending) return;
+    const { el } = asPending;
+    asPending = null;
+    asLocked = null;
+    closeAssistPanel();
+    el.removeAttribute(PENDING);
+    if (EDITING) el.setAttribute('contenteditable', 'true');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    setStatus('Used Claude’s proposal. It saves like any edit.');
+  }
+
+  // Put the element back exactly as it was. Safe to call at any time.
+  function assistDiscard({ say = false } = {}) {
+    if (!asPending && !asPanel && !asLocked) return;   // nothing open
+    asBusy++;
+    const pend = asPending;
+    asPending = null;
+    closeAssistPanel();
+    const el = asLocked;
+    asLocked = null;
+    if (el) {
+      if (pend && el.isConnected) setOwnText(el, pend.original);
+      el.removeAttribute(PENDING);
+      if (EDITING && el.isConnected) el.setAttribute('contenteditable', 'true');
+    }
+    if (say && pend) setStatus('Discarded Claude’s proposal. The text is as it was.');
+  }
 
   /* ---------------- unsaved-edit guard ---------------- */
   // Only armed while editing with real divergence from SAVED — an always-on

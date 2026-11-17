@@ -369,7 +369,30 @@ PLATER_REVIEW_PATH   review-state file path (default .plater-review.json)
 PLATER_REVIEW_WEBHOOK  POSTed when the last unreviewed page is marked reviewed
 PLATER_GIT_NAME      git author name for agent commits (agent host)
 PLATER_GIT_EMAIL     git author email for agent commits (agent host)
+PLATER_ASSIST_ANTHROPIC_KEY        Claude API key for the edit assistant; unset = no assistant
+PLATER_ASSIST_ANTHROPIC_WORKSPACE  optional; sent as anthropic-workspace-id (org-wide personal keys need it)
+PLATER_ASSIST_MODEL                claude-sonnet-5-5 (default) or claude-opus-5-5
+PLATER_ASSIST_MAX_TOKENS           output cap per call (default 1500)
+PLATER_ASSIST_DAILY_PER_EDITOR     calls per editor per day (default 60)
+PLATER_ASSIST_DAILY_PER_SITE       calls per site per day (default 200)
+PLATER_ASSIST_USAGE_LOG            usage record, one JSON line per billed call (default .plater-assist-usage.jsonl)
 ```
+
+### The edit assistant
+
+With `PLATER_ASSIST_ANTHROPIC_KEY` set, a signed-in editor in `?edit` can tap a
+text, choose **✦ Ask Claude** and say what should change ("make this shorter",
+"translate this to Spanish"). The proposal replaces the text in place, hatched
+and locked. **Use this** makes it an ordinary edit, which autosaves and commits;
+**Discard**, Escape or leaving the page puts the text back, and nothing is
+saved. Only that element's text, its tag, its content path and the instruction
+are sent. The key stays on the server (`/api/assist`, in
+`@platercms/server-node` and `platercms serve`). `ANTHROPIC_API_KEY` is never
+read, so a Claude Code session on the same machine can never bill this key.
+Every billed response adds one line to the usage log: time, site, an editor id
+(never an email), model and Anthropic's `usage` block. Prove it locally with
+`node verify/assist-bench.mjs` and `verify/assist-journey.mjs` (a stand-in for
+the Anthropic API; no key needed).
 
 ## Google sign-in setup
 

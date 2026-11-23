@@ -62,10 +62,10 @@ export function loadEnvFile(file) {
 // too. Dynamic for the same reason: configureEnv() must win the race with their
 // module bodies, which read env at import time.
 async function loadAuthHandlers() {
-  const names = ['config.js', 'save.js', 'history.js', 'agent-note.js', 'propose-post.js'];
+  const names = ['config.js', 'save.js', 'history.js', 'agent-note.js', 'propose-post.js', 'assist.js'];
   const mods = await Promise.all(names.map((n) => import(path.join(PKG, 'server-node', n))));
-  const [config, save, history, agentNote, proposePost] = mods;
-  return { config, save, history, 'agent-note': agentNote, 'propose-post': proposePost };
+  const [config, save, history, agentNote, proposePost, assist] = mods;
+  return { config, save, history, 'agent-note': agentNote, 'propose-post': proposePost, assist };
 }
 
 /* ---------------- request body ---------------- */
@@ -109,6 +109,7 @@ export function createServeServer({ webRoot, contentPath, handlers, entry = null
   const API = {
     config, content, save, history, upload, review, versions, feed, sitemap, manifest,
     'agent-note': handlers['agent-note'], 'propose-post': handlers['propose-post'],
+    ...(handlers.assist ? { assist: handlers.assist } : {}),
   };
 
   const server = http.createServer(async (req, res) => {
